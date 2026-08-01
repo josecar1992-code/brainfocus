@@ -1,0 +1,13 @@
+# Bloque a agregar al Caddy compartido del VPS de Natural Beauty
+# (/opt/naturalbeautycr/Caddyfile), mismo patrón usado para OpenClaw.
+
+api.brainfocuscr.com {
+	reverse_proxy localhost:3001
+}
+
+app.brainfocuscr.com {
+	root * /opt/brainfocus/web/dist
+	encode gzip
+	try_files {path} /index.html
+	file_server
+}
