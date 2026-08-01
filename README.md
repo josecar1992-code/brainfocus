@@ -10,12 +10,26 @@ lee y escribe en los mismos datos a través de la misma API que usa el frontend.
 brainfocus/
 ├── apps/
 │   ├── api/      API REST (Node + Express + TypeScript) sobre Supabase
-│   └── web/      Frontend (React + Vite + TypeScript + Tailwind)
+│   ├── web/      Frontend (React + Vite + TypeScript + Tailwind)
+│   └── mcp/      Servidor MCP (stdio) que expone la API a OpenClaw/Quicks
 ├── supabase/
 │   └── schema.sql   Esquema completo: tablas, RLS, api_keys, agent_actions
 └── infra/
-    └── Caddyfile.brainfocus   Bloque de Caddy para el VPS de Natural Beauty
+    ├── Caddyfile.brainfocus   Bloque de Caddy para el VPS de Natural Beauty
+    └── DEPLOY.md              Guía de despliegue paso a paso
 ```
+
+## El servidor MCP (`apps/mcp`)
+
+OpenClaw habla el protocolo MCP (JSON-RPC sobre stdio o Streamable HTTP), no REST directo —
+`web_fetch` no sirve como alternativa: solo hace GET, no permite mandar el header `X-Api-Key`, y
+bloquea hosts internos como `localhost`. Por eso `apps/mcp` es un proceso stdio aparte que arranca
+OpenClaw y que traduce tool calls a llamadas HTTP contra `apps/api`.
+
+Expone un set chico y de grano grueso a propósito (`listar_tareas`, `crear_tarea`, `completar_tarea`,
+`crear_recordatorio`, `crear_nota`) — cada tool registrado se inyecta en el prompt del agente en
+cada turno, así que crece con uso real, no por especulación. Detalles de registro, allowlists y
+aislamiento entre agentes en [infra/DEPLOY.md](infra/DEPLOY.md).
 
 ## Modelo de acceso
 
