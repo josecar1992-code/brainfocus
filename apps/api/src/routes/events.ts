@@ -5,8 +5,8 @@ const createSchema = z.object({
   title: z.string().min(1),
   description: z.string().optional(),
   location: z.string().optional(),
-  starts_at: z.string().datetime(),
-  ends_at: z.string().datetime().optional().nullable(),
+  starts_at: z.string().datetime({ offset: true }),
+  ends_at: z.string().datetime({ offset: true }).optional().nullable(),
   all_day: z.boolean().optional(),
 });
 

@@ -7,11 +7,11 @@ const createSchema = z.object({
   list_id: z.string().uuid().optional().nullable(),
   status: z.enum(["pending", "in_progress", "done"]).optional(),
   priority: z.enum(["low", "normal", "high"]).optional(),
-  due_date: z.string().datetime().optional().nullable(),
+  due_date: z.string().datetime({ offset: true }).optional().nullable(),
 });
 
 const updateSchema = createSchema.partial().extend({
-  completed_at: z.string().datetime().optional().nullable(),
+  completed_at: z.string().datetime({ offset: true }).optional().nullable(),
 });
 
 export const tasksRouter = createResourceRouter({

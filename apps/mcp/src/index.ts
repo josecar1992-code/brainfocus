@@ -16,7 +16,7 @@ interface Task {
 // Agregar nutrition/exercise/lists/events cuando haya uso real, no por especulación.
 const tools = {
   listar_tareas: {
-    description: "Lista las tareas del usuario, opcionalmente filtradas por estado.",
+    description: "Lista las tareas del usuario, opcionalmente filtradas por estado. Trae máximo 50.",
     inputSchema: {
       type: "object",
       properties: {
@@ -24,9 +24,10 @@ const tools = {
       },
     },
     argsSchema: z.object({ estado: z.enum(["pending", "in_progress", "done"]).optional() }),
-    handler: async (args: { estado?: string }) => {
-      const tasks = await apiRequest<Task[]>("/tasks");
-      return args.estado ? tasks.filter((t) => t.status === args.estado) : tasks;
+    handler: (args: { estado?: string }) => {
+      const params = new URLSearchParams({ limit: "50", fields: "id,title,status,due_date" });
+      if (args.estado) params.set("status", args.estado);
+      return apiRequest<Task[]>(`/tasks?${params.toString()}`);
     },
   },
 
@@ -37,14 +38,17 @@ const tools = {
       properties: {
         titulo: { type: "string" },
         notas: { type: "string" },
-        fecha_limite: { type: "string", description: "ISO 8601, opcional" },
+        fecha_limite: {
+          type: "string",
+          description: "ISO 8601 con offset de zona horaria; para Costa Rica usar -06:00. Opcional.",
+        },
       },
       required: ["titulo"],
     },
     argsSchema: z.object({
       titulo: z.string().min(1),
       notas: z.string().optional(),
-      fecha_limite: z.string().datetime().optional(),
+      fecha_limite: z.string().datetime({ offset: true }).optional(),
     }),
     handler: (args: { titulo: string; notas?: string; fecha_limite?: string }) =>
       apiRequest<Task>("/tasks", {
@@ -78,14 +82,18 @@ const tools = {
       type: "object",
       properties: {
         titulo: { type: "string" },
-        recordar_en: { type: "string", description: "ISO 8601, cuándo debería sonar" },
+        recordar_en: {
+          type: "string",
+          description:
+            "ISO 8601 con offset de zona horaria; para Costa Rica usar -06:00. Cuándo debería sonar.",
+        },
         tarea_id: { type: "string", description: "id de la tarea relacionada, opcional" },
       },
       required: ["titulo", "recordar_en"],
     },
     argsSchema: z.object({
       titulo: z.string().min(1),
-      recordar_en: z.string().datetime(),
+      recordar_en: z.string().datetime({ offset: true }),
       tarea_id: z.string().uuid().optional(),
     }),
     handler: (args: { titulo: string; recordar_en: string; tarea_id?: string }) =>

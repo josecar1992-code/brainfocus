@@ -2,7 +2,7 @@ import { z } from "zod";
 import { createResourceRouter } from "./resourceRouter.js";
 
 const createSchema = z.object({
-  logged_at: z.string().datetime().optional(),
+  logged_at: z.string().datetime({ offset: true }).optional(),
   activity: z.string().min(1),
   duration_min: z.number().optional(),
   sets: z.number().int().optional(),

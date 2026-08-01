@@ -19,7 +19,7 @@ git clone https://github.com/josecar1992-code/brainfocus.git .
 ## 2. API
 
 ```bash
-cd /opt/brainfocus/api
+cd /opt/brainfocus/apps/api
 cp .env.example .env   # completar con credenciales reales de Supabase
 npm install
 npm run build
@@ -32,7 +32,7 @@ systemctl status brainfocus-api
 ## 3. Web (build estático servido por Caddy)
 
 ```bash
-cd /opt/brainfocus/web
+cd /opt/brainfocus/apps/web
 cp .env.example .env   # URL de Supabase (pública) + URL de la API
 npm install
 npm run build   # genera dist/
@@ -57,7 +57,7 @@ Esto es lo que le permite a Quicks (agente `main` de OpenClaw) usar la API — O
 protocolo MCP (JSON-RPC sobre stdio), no REST directo, así que no basta con la API sola.
 
 ```bash
-cd /opt/brainfocus/mcp
+cd /opt/brainfocus/apps/mcp
 npm install
 npm run build   # genera dist/index.js
 ```
@@ -77,7 +77,7 @@ Documentado aquí para que quede como referencia, pero lo ejecuta y verifica la 
    `did not complete initialize within 5s` porque tiene que descargar el paquete primero):
    ```bash
    openclaw mcp add brainfocus-api \
-     --command /usr/bin/node --arg /opt/brainfocus/mcp/dist/index.js \
+     --command /usr/bin/node --arg /opt/brainfocus/apps/mcp/dist/index.js \
      --env BRAINFOCUS_API_URL=http://127.0.0.1:3001 \
      --env BRAINFOCUS_API_KEY=<la key generada en el paso 1> \
      --connect-timeout 30

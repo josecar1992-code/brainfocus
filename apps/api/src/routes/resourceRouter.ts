@@ -18,13 +18,28 @@ export function createResourceRouter(config: ResourceConfig): Router {
   const { table, resourceName, createSchema, updateSchema } = config;
   const orderBy = config.orderBy ?? { column: "created_at", ascending: false };
 
+  const MAX_LIMIT = 200;
+  const DEFAULT_LIMIT = 50;
+  const RESERVED_QUERY_PARAMS = new Set(["limit", "fields"]);
+
   router.get("/", requireScope(`${resourceName}:read`), async (req, res, next) => {
     try {
-      const { data, error } = await supabaseAdmin
-        .from(table)
-        .select("*")
-        .eq("user_id", req.auth!.userId)
-        .order(orderBy.column, { ascending: orderBy.ascending ?? false });
+      const limitParam = Number(req.query.limit);
+      const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, MAX_LIMIT) : DEFAULT_LIMIT;
+      const fields = typeof req.query.fields === "string" ? req.query.fields : "*";
+
+      let query = supabaseAdmin.from(table).select(fields).eq("user_id", req.auth!.userId);
+
+      // Filtro de igualdad simple por cualquier columna vía query string, ej. ?status=pending.
+      // Confiado porque solo llega hasta acá el dueño (JWT) o un agente con scope de lectura.
+      for (const [key, value] of Object.entries(req.query)) {
+        if (RESERVED_QUERY_PARAMS.has(key) || typeof value !== "string") continue;
+        query = query.eq(key, value);
+      }
+
+      const { data, error } = await query
+        .order(orderBy.column, { ascending: orderBy.ascending ?? false })
+        .limit(limit);
       if (error) throw error;
       res.json(data);
     } catch (err) {

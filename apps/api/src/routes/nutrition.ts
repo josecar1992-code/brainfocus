@@ -2,7 +2,7 @@ import { z } from "zod";
 import { createResourceRouter } from "./resourceRouter.js";
 
 const createSchema = z.object({
-  logged_at: z.string().datetime().optional(),
+  logged_at: z.string().datetime({ offset: true }).optional(),
   meal_type: z.enum(["breakfast", "lunch", "dinner", "snack"]).optional(),
   description: z.string().min(1),
   calories: z.number().optional(),

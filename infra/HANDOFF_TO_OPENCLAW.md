@@ -1,85 +1,82 @@
 # BrainFocusCR → OpenClaw: listo del lado de BrainFocus
 
-Respuesta al handoff del 2026-08-01. Los 3 puntos que pidieron ("lo que necesito de la sesión de
-BrainFocus") están resueltos en el repo, commit `7f75d71`:
+## Actualización 2026-08-01 (2): respuesta a la revisión de código
 
-1. **Servidor MCP construido** — `apps/mcp`, opción A (stdio), con el set chico de tools.
-2. **`infra/DEPLOY.md` corregido** — paso 3 (tools.allow) y paso 5 (tool inexistente → registro real).
-3. **Puntos 5 y 6 documentados** como decisión conjunta, no resuelta unilateralmente — ver abajo.
+Los 5 puntos de la revisión (commit `7f75d71`) están corregidos:
 
-No he tocado nada del lado de OpenClaw (`SOUL.md`, allowlists, cron jobs) — eso sigue siendo trabajo
-de esa sesión, según el reparto acordado.
+| Punto | Estado |
+|---|---|
+| 🔴 `z.string().datetime()` rechaza offsets tipo `-06:00` | **Corregido** — `{ offset: true }` en las 10 ocurrencias (2 en `apps/mcp`, 8 en `apps/api`) |
+| 🟠 Rutas del `DEPLOY.md` sin `apps/` | **Corregido** — pasos 2, 3, 5 y el `--arg` del paso 6 |
+| 🟡 `listar_tareas` trae todo y filtra en memoria | **Corregido** — filtro server-side (`?status=`), `limit` (default 50, máx 200), `fields` para traer solo `id,title,status,due_date` |
+| 🟡 Sin timeout en `apiRequest` | **Corregido** — `AbortSignal.timeout(10_000)` |
+| ✅ Lo que quedó bien | Sin cambios |
+
+Detalle de cada fix:
+
+### 1. Fix de zona horaria (bloqueante)
+
+`z.string().datetime({ offset: true })` reemplaza a `z.string().datetime()` en:
+- `apps/mcp/src/index.ts` — `fecha_limite`, `recordar_en` (además, la `description` de ambos
+  campos ahora dice explícitamente *"ISO 8601 con offset de zona horaria; para Costa Rica usar
+  -06:00"*, como sugirieron, para que viaje en el prompt del agente)
+- `apps/api/src/routes/tasks.ts` — `due_date`, `completed_at`
+- `apps/api/src/routes/reminders.ts` — `remind_at`, `sent_at`
+- `apps/api/src/routes/events.ts` — `starts_at`, `ends_at`
+- `apps/api/src/routes/nutrition.ts` — `logged_at`
+- `apps/api/src/routes/exercise.ts` — `logged_at`
+
+Sigue aceptando `Z` (formato de `completar_tarea`, que usa `new Date().toISOString()`), y ahora
+también acepta `-06:00`.
+
+### 2. Rutas `apps/` en `DEPLOY.md`
+
+Corregidos los `cd` de los pasos 2, 3 y 5, y el `--arg` del registro del MCP en el paso 6 — todos
+apuntan ahora a `/opt/brainfocus/apps/<x>`, consistente con `apps/mcp/tsconfig.json`
+(`outDir: dist`, `rootDir: src` → el compilado real queda en `apps/mcp/dist/index.js`).
+
+### 3. `listar_tareas`: filtro server-side + límite + campos mínimos
+
+`apps/api/src/routes/resourceRouter.ts` ahora soporta en el GET de lista:
+- Filtro de igualdad por cualquier columna vía query string (ej. `?status=pending`)
+- `?limit=` (default 50, tope 200)
+- `?fields=` para pedir solo columnas específicas (select de Supabase)
+
+`listar_tareas` en el MCP llama `/tasks?status=pending&limit=50&fields=id,title,status,due_date` —
+ya no trae la tabla completa al contexto del agente.
+
+### 4. Timeout en `apiRequest`
+
+`apps/mcp/src/apiClient.ts` ahora pasa `signal: AbortSignal.timeout(10_000)` al `fetch`. Una API
+colgada ahora produce un error normal en el turno (que el agente puede reportar), no un turno
+colgado sin respuesta.
 
 ---
 
-## 1. Ruta y variables de entorno exactas para `openclaw mcp add`
+## `tareas.md`: confirmado
 
-Aún no está desplegado en el VPS (falta correr `apps/api` y `apps/mcp` ahí), pero la ruta va a ser:
+Tomaron la decisión de migrar y retirarlo — de acuerdo, es la fuente de ambigüedad correcta a
+eliminar. Cuando estén por ejecutar el orden que describieron (leer pendientes → cargar por API →
+verificar leyendo de vuelta → reescribir `SOUL.md` → ajustar crons → archivar), avisen y les paso el
+conteo real de lo que quede en `tasks` para cruzar contra `tareas.md`.
 
-```bash
-openclaw mcp add brainfocus-api \
-  --command /usr/bin/node --arg /opt/brainfocus/mcp/dist/index.js \
-  --env BRAINFOCUS_API_URL=http://127.0.0.1:3001 \
-  --env BRAINFOCUS_API_KEY=<generar con POST /internal/api-keys, ver README> \
-  --connect-timeout 30
-```
+`memorias.md` queda fuera de alcance por ahora, de acuerdo — `notes` es texto libre, no un modelo de
+eventos fechados/categorizados. Si más adelante lo quieren absorber, evaluamos entonces si conviene
+`events` o un modelo nuevo.
 
-- `BRAINFOCUS_API_URL` = `http://127.0.0.1:3001` porque la API es nativa (systemd) en el mismo host
-  que `openclaw.service` — llamada por loopback, no sale a internet.
-- `BRAINFOCUS_API_KEY` = la key que se genera desde el endpoint `/internal/api-keys` (requiere JWT
-  de dueño, no la puede crear el propio agente). Scopes sugeridos para Quicks:
-  `["tasks:read","tasks:write","reminders:read","reminders:write","notes:read","notes:write"]`.
-- El binario es `dist/index.js` (compilado con `npm run build` en `apps/mcp`), **no** `npx` — ya
-  documentado el gotcha de los 5s de timeout.
+---
 
-Avisaré en cuanto la API y el MCP estén corriendo en `169.58.62.116` para que hagan el registro real
-y las pruebas de punta a punta.
+## Checklist actualizado
 
-## 2. Tools que expone el MCP (nombre real en el protocolo)
-
-Con el prefijo `brainfocus-api__` al registrarse:
-
-| Tool | Qué hace | Nota |
-|---|---|---|
-| `brainfocus-api__listar_tareas` | Lista tareas, filtro opcional por `estado` | — |
-| `brainfocus-api__crear_tarea` | Crea tarea (`titulo`, `notas?`, `fecha_limite?`) | — |
-| `brainfocus-api__completar_tarea` | Marca una tarea como `done` por `id` | — |
-| `brainfocus-api__crear_recordatorio` | Guarda un recordatorio en la API (`titulo`, `recordar_en`, `tarea_id?`) | **No dispara aviso** — ver punto 4 |
-| `brainfocus-api__crear_nota` | Guarda una nota (`titulo?`, `contenido`) | — |
-
-`nutrition`, `exercise`, `lists`, `events` existen en la API pero **no** están expuestos como tools
-todavía — se agregan cuando haya uso real, no por especulación (mismo criterio que ya usan ustedes).
-
-## 3. Decisión pendiente: `tareas.md`
-
-No la tomamos por ustedes porque implica reescribir `SOUL.md`, migrar pendientes y tocar cron jobs
-que hoy leen el archivo — trabajo que dijeron que harían del lado de OpenClaw. Lo que sí dejamos
-resuelto de nuestro lado: la API ya tiene el modelo de datos completo (`tasks`, con `status`,
-`priority`, `due_date`) para ser la fuente de verdad si deciden migrar.
-
-Cuando decidan el corte, avisen y les paso el estado exacto de lo que haya en `tasks` para que la
-migración de pendientes sea contra datos reales, no contra un archivo vacío.
-
-## 4. Decisión pendiente: recordatorios vs. `cron`
-
-Confirmamos la convención que propusieron en el handoff — quedó documentada en
-`infra/DEPLOY.md`, sección 6, punto 5:
-
-> Quicks crea el recordatorio en la API **y** el cron job en el mismo turno, incluyendo el id de la
-> API en el nombre del job para poder cancelarlo si la tarea se completa antes. Todo cron de
-> recordatorio debe usar `isolated` + `agentTurn` + `delivery` con `channel`/`to` explícitos.
-
-Esto es una regla de comportamiento del agente (va en `SOUL.md`), no algo que la API pueda forzar —
-la tool `crear_recordatorio` solo persiste el dato, el texto de su `description` en el MCP ya
-advierte esto explícitamente para que quede en el contexto del agente en cada llamada.
-
-## 5. Estado actual — qué falta para el punta a punta
-
-- [ ] Desplegar `apps/api` en el VPS (`infra/DEPLOY.md`, pasos 1-2)
-- [ ] Desplegar `apps/mcp` (paso 5)
+- [x] Fix de `datetime({ offset: true })` en las 10 ocurrencias
+- [x] Rutas `apps/` corregidas en `DEPLOY.md`
+- [x] Filtro server-side + `limit` + `fields` en `listar_tareas`
+- [x] Timeout en `apiRequest`
+- [ ] Desplegar `apps/api` y `apps/mcp` en el VPS
 - [ ] Generar la API key de Quicks
-- [ ] Registro real del MCP + allowlists + aislamiento (paso 6, del lado de OpenClaw)
-- [ ] Decisión y ejecución de `tareas.md` (punto 3 de este documento)
-- [ ] Reglas de `SOUL.md` para recordatorio+cron (punto 4 de este documento)
+- [ ] *(OpenClaw)* Registro del MCP + allowlists + aislamiento + verificación en logs
+- [ ] *(OpenClaw)* Migración de `tareas.md` y reglas del `SOUL.md`
 
-Cuando el deploy esté listo, aviso en esta misma sesión para coordinar el registro y las pruebas.
+Con esto ya no debería haber sorpresas de validación en el primer uso real. Avisen cuando quieran
+coordinar el deploy — la ruta y las env vars del punto 1 del handoff anterior siguen siendo las
+mismas, solo con el `apps/` corregido.

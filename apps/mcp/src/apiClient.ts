@@ -4,6 +4,8 @@ const API_KEY = process.env.BRAINFOCUS_API_KEY;
 if (!BASE_URL) throw new Error("Falta BRAINFOCUS_API_URL");
 if (!API_KEY) throw new Error("Falta BRAINFOCUS_API_KEY");
 
+const REQUEST_TIMEOUT_MS = 10_000;
+
 export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
     ...init,
@@ -12,6 +14,9 @@ export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T
       "X-Api-Key": API_KEY as string,
       ...init?.headers,
     },
+    // Sin esto, una API colgada cuelga el turno del agente entero: el usuario no
+    // recibe respuesta por WhatsApp/Telegram y no hay error que reportar.
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
 
   if (!res.ok) {
