@@ -1,0 +1,19 @@
+# Todo el proyecto corre en contenedores — nada se instala directo en el host.
+# `api` es el servicio persistente (arranca con `docker compose up -d api`).
+# `mcp` no es un servicio de larga duración: OpenClaw lo invoca bajo demanda por
+# stdio (`docker compose run --rm -T mcp`), por eso vive en el profile "tools"
+# y no se levanta con `docker compose up`.
+
+services:
+  api:
+    build: ./apps/api
+    restart: unless-stopped
+    env_file: ./apps/api/.env
+    ports:
+      - "127.0.0.1:3001:3001"
+
+  mcp:
+    build: ./apps/mcp
+    profiles: ["tools"]
+    network_mode: host
+    env_file: ./apps/mcp/.env
