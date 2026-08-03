@@ -83,6 +83,11 @@ create table if not exists public.reminders (
   remind_at timestamptz not null,
   channel text default 'telegram', -- telegram | whatsapp | email
   sent_at timestamptz,
+  -- jobId real que devuelve OpenClaw al crear el cron (tool `cron`, action
+  -- `add` sobre POST /tools/invoke) — hace falta para poder cancelarlo
+  -- después (action `remove`); el displayName no alcanza para eso. Null =
+  -- OpenClaw no está configurado en este entorno, o ya se canceló.
+  cron_job_id text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

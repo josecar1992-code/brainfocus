@@ -26,6 +26,17 @@ export interface NewEvent {
   crearRecordatorio: boolean;
 }
 
+export interface Reminder {
+  id: string;
+  title: string;
+  task_id: string | null;
+  event_id: string | null;
+  remind_at: string;
+  channel: "telegram" | "whatsapp" | "email" | null;
+  sent_at: string | null;
+  cron_job_id: string | null;
+}
+
 async function authHeader(): Promise<Record<string, string>> {
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
@@ -64,6 +75,7 @@ export const api = {
     }),
 
   listEvents: () => request<Event[]>("/events"),
+  listReminders: () => request<Reminder[]>("/reminders"),
 
   async createEvent(input: NewEvent): Promise<Event> {
     const event = await request<Event>("/events", {

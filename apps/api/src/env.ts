@@ -18,4 +18,12 @@ export const env = {
     .split(",")
     .map((e) => e.trim().toLowerCase())
     .filter(Boolean),
+  // Gateway de OpenClaw (tool `cron` sobre POST /tools/invoke) para el aviso
+  // real de WhatsApp/Telegram. Opcionales a propósito: sin ellos, los
+  // recordatorios se siguen guardando y viendo en la app, solo que sin
+  // disparo automático (ver openclawCron.ts). openclawReminderTo es el único
+  // destinatario (app de un solo dueño), sin prefijo de canal, ej. "+50687686207".
+  openclawGatewayUrl: process.env.OPENCLAW_GATEWAY_URL,
+  openclawGatewayToken: process.env.OPENCLAW_GATEWAY_TOKEN,
+  openclawReminderTo: process.env.OPENCLAW_REMINDER_TO,
 };

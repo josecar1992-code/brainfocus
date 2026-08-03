@@ -11,6 +11,14 @@ interface Task {
   due_date: string | null;
 }
 
+interface Event {
+  id: string;
+  title: string;
+  starts_at: string;
+}
+
+const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
+
 // Set chico y de grano grueso a propósito: cada tool se inyecta en el prompt
 // del agente en cada turno, así que más tools = más tokens gastados siempre.
 // Agregar nutrition/exercise/lists/events cuando haya uso real, no por especulación.
@@ -74,10 +82,10 @@ const tools = {
 
   crear_recordatorio: {
     description:
-      "Guarda un recordatorio en Focusbrain para que se vea en la app. " +
-      "Esto NO dispara ningún aviso por WhatsApp/Telegram — para eso hay que crear " +
-      "además un cron job (herramienta `cron`), en el mismo turno, incluyendo el id " +
-      "de este recordatorio en el nombre del job para poder cancelarlo si la tarea se completa antes.",
+      "Guarda un recordatorio en Focusbrain. La API programa sola el aviso real de " +
+      "WhatsApp/Telegram (cron de disparo único en OpenClaw) — no hace falta crear " +
+      "ningún cron aparte con la herramienta `cron`. Si la tarea/evento relacionado " +
+      "se completa o se borra antes de la hora, el recordatorio y su aviso se cancelan solos.",
     inputSchema: {
       type: "object",
       properties: {
@@ -101,6 +109,60 @@ const tools = {
         method: "POST",
         body: JSON.stringify({ title: args.titulo, remind_at: args.recordar_en, task_id: args.tarea_id }),
       }),
+  },
+
+  crear_evento: {
+    description:
+      "Crea un evento en la Agenda de Focusbrain (ej. una cita, una llamada, algo con hora fija). " +
+      "Por defecto además crea un recordatorio para 2 horas antes del evento — la API lo programa " +
+      "sola en OpenClaw, no hace falta crear ningún cron aparte con la herramienta `cron`.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        titulo: { type: "string" },
+        descripcion: { type: "string" },
+        inicio: {
+          type: "string",
+          description: "ISO 8601 con offset de zona horaria; para Costa Rica usar -06:00. Cuándo empieza.",
+        },
+        crear_recordatorio: {
+          type: "boolean",
+          description: "Si crear el recordatorio automático 2h antes. Default true.",
+        },
+      },
+      required: ["titulo", "inicio"],
+    },
+    argsSchema: z.object({
+      titulo: z.string().min(1),
+      descripcion: z.string().optional(),
+      inicio: z.string().datetime({ offset: true }),
+      crear_recordatorio: z.boolean().optional(),
+    }),
+    handler: async (args: {
+      titulo: string;
+      descripcion?: string;
+      inicio: string;
+      crear_recordatorio?: boolean;
+    }) => {
+      const event = await apiRequest<Event>("/events", {
+        method: "POST",
+        body: JSON.stringify({ title: args.titulo, description: args.descripcion, starts_at: args.inicio }),
+      });
+
+      if (args.crear_recordatorio ?? true) {
+        const remindAt = new Date(new Date(args.inicio).getTime() - TWO_HOURS_MS).toISOString();
+        await apiRequest("/reminders", {
+          method: "POST",
+          body: JSON.stringify({
+            title: `Recordatorio: ${args.titulo}`,
+            event_id: event.id,
+            remind_at: remindAt,
+          }),
+        });
+      }
+
+      return event;
+    },
   },
 
   crear_nota: {

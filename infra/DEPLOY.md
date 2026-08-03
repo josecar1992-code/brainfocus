@@ -114,10 +114,13 @@ Documentado aquí para que quede como referencia, pero lo ejecuta y verifica la 
    - **`tareas.md`**: si Focusbrain pasa a ser la fuente de verdad de tareas, retirar el archivo
      de forma explícita (migrar pendientes, actualizar `SOUL.md`, ajustar los cron jobs que hoy leen
      el archivo) — no dejar que convivan los dos, o Quicks va a tener dos lugares donde anotar.
-   - **Recordatorios vs. `cron`**: `crear_recordatorio` de este MCP solo guarda el dato para que se
-     vea en la app — no dispara ningún aviso. El aviso real por WhatsApp/Telegram lo sigue haciendo
-     `cron`. Convención acordada: Quicks crea el recordatorio en la API **y** el cron job en el mismo
-     turno, incluyendo el id de la API en el nombre del job para poder cancelarlo si la tarea se
-     completa antes. Todo cron de recordatorio debe usar `isolated` + `agentTurn` + `delivery` con
-     `channel`/`to` explícitos (no `sessionTarget: "main"` + `systemEvent`, que depende del
-     heartbeat desactivado).
+   - **Recordatorios vs. `cron` (superado)**: la convención anterior era que Quicks creaba el
+     recordatorio en la API **y** el cron job en el mismo turno. Ya no aplica — desde el endpoint
+     `/reminders` de `apps/api`, la propia API programa el cron de disparo único en OpenClaw
+     automáticamente (`tool cron` sobre `POST /tools/invoke`, ver
+     `apps/api/src/services/openclawCron.ts` y el detalle del contrato en
+     `HANDOFF_TO_OPENCLAW.md`), tanto si el recordatorio se creó desde la app como desde Quicks.
+     Falta cargar `OPENCLAW_GATEWAY_URL`/`OPENCLAW_GATEWAY_TOKEN`/`OPENCLAW_REMINDER_TO` en
+     `apps/api/.env` en el VPS (paso manual del dueño, el token sale de
+     `/root/.openclaw/openclaw.json`) — mientras falten, el recordatorio se sigue guardando y
+     viendo en la app, solo sin aviso automático.

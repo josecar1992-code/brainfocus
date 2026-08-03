@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { api, type Event } from "./api";
+import { api, type Event, type Reminder } from "./api";
 
 const CR_OFFSET = "-06:00"; // Costa Rica, sin horario de verano — offset fijo
 
@@ -10,6 +10,25 @@ function formatDate(iso: string) {
 
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString("es-CR", { hour: "2-digit", minute: "2-digit" });
+}
+
+function formatDateTime(iso: string) {
+  return `${formatDate(iso)} ${formatTime(iso)}`;
+}
+
+/** Título + tooltip del ícono de recordatorio: pendiente, ya enviado, o guardado pero sin cron. */
+function ReminderBadge({ reminder }: { reminder: Reminder }) {
+  if (reminder.sent_at) {
+    return <span title={`Recordatorio ya enviado (${formatDateTime(reminder.sent_at)})`}>✅</span>;
+  }
+  if (reminder.cron_job_id) {
+    return <span title={`Recordatorio programado para ${formatDateTime(reminder.remind_at)}`}>🔔</span>;
+  }
+  return (
+    <span title={`Recordatorio guardado para ${formatDateTime(reminder.remind_at)}, pero sin aviso automático (OpenClaw no configurado o falló)`}>
+      🔕
+    </span>
+  );
 }
 
 function NewEventForm({ onClose }: { onClose: () => void }) {
@@ -126,6 +145,14 @@ function NewEventForm({ onClose }: { onClose: () => void }) {
 export function AgendaPage() {
   const [showForm, setShowForm] = useState(false);
   const { data: events, isLoading } = useQuery({ queryKey: ["events"], queryFn: api.listEvents });
+  const { data: reminders } = useQuery({ queryKey: ["reminders"], queryFn: api.listReminders });
+
+  const remindersByEvent = new Map<string, Reminder>();
+  const looseReminders: Reminder[] = [];
+  for (const reminder of reminders ?? []) {
+    if (reminder.event_id) remindersByEvent.set(reminder.event_id, reminder);
+    else looseReminders.push(reminder);
+  }
 
   return (
     <div>
@@ -155,19 +182,52 @@ export function AgendaPage() {
                 <th className="px-3 py-2 font-normal">Hora</th>
                 <th className="px-3 py-2 font-normal">Evento</th>
                 <th className="px-3 py-2 font-normal">Descripción</th>
+                <th className="px-3 py-2 font-normal">Recordatorio</th>
               </tr>
             </thead>
             <tbody>
-              {events.map((event: Event) => (
-                <tr key={event.id} className="border-t border-deep-blue/20">
-                  <td className="px-3 py-2 whitespace-nowrap">{formatDate(event.starts_at)}</td>
-                  <td className="px-3 py-2 whitespace-nowrap text-electric-cyan">{formatTime(event.starts_at)}</td>
-                  <td className="px-3 py-2">{event.title}</td>
-                  <td className="px-3 py-2 text-white/50">{event.description ?? "—"}</td>
-                </tr>
-              ))}
+              {events.map((event: Event) => {
+                const reminder = remindersByEvent.get(event.id);
+                return (
+                  <tr key={event.id} className="border-t border-deep-blue/20">
+                    <td className="px-3 py-2 whitespace-nowrap">{formatDate(event.starts_at)}</td>
+                    <td className="px-3 py-2 whitespace-nowrap text-electric-cyan">{formatTime(event.starts_at)}</td>
+                    <td className="px-3 py-2">{event.title}</td>
+                    <td className="px-3 py-2 text-white/50">{event.description ?? "—"}</td>
+                    <td className="px-3 py-2 text-center">{reminder ? <ReminderBadge reminder={reminder} /> : "—"}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {looseReminders.length > 0 && (
+        <div className="mt-6">
+          <h3 className="text-sm font-medium text-white/70 mb-2">Recordatorios sin evento</h3>
+          <div className="border border-deep-blue/30 rounded-lg overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-white/5 text-white/50 text-left">
+                  <th className="px-3 py-2 font-normal">Cuándo</th>
+                  <th className="px-3 py-2 font-normal">Título</th>
+                  <th className="px-3 py-2 font-normal">Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {looseReminders.map((reminder) => (
+                  <tr key={reminder.id} className="border-t border-deep-blue/20">
+                    <td className="px-3 py-2 whitespace-nowrap">{formatDateTime(reminder.remind_at)}</td>
+                    <td className="px-3 py-2">{reminder.title}</td>
+                    <td className="px-3 py-2 text-center">
+                      <ReminderBadge reminder={reminder} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

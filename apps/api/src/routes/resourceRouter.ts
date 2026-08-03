@@ -10,12 +10,33 @@ interface ResourceConfig {
   createSchema: ZodTypeAny;
   updateSchema: ZodTypeAny;
   orderBy?: { column: string; ascending?: boolean };
+  // Efectos secundarios opcionales hacia sistemas externos (hoy: cron de
+  // OpenClaw). afterUpdate/beforeDelete son best-effort — solo cancelan un
+  // job externo, así que un fallo se registra en consola y no bloquea la
+  // respuesta (no tiene sentido impedir completar una tarea porque no se
+  // pudo cancelar un aviso). afterCreate SÍ propaga el error tal cual al
+  // caller: si falla programar el aviso real, quien creó el recordatorio
+  // debe enterarse en vez de quedarse con un recordatorio silenciosamente roto.
+  hooks?: {
+    afterCreate?: (userId: string, row: any) => Promise<void>;
+    afterUpdate?: (userId: string, before: any, after: any) => Promise<void>;
+    beforeDelete?: (userId: string, row: any) => Promise<void>;
+  };
+}
+
+async function runHook(name: string, fn: (() => Promise<void>) | undefined) {
+  if (!fn) return;
+  try {
+    await fn();
+  } catch (err) {
+    console.error(`[resourceRouter] hook ${name} falló:`, err);
+  }
 }
 
 /** CRUD genérico con scoping por user_id y auditoría de escrituras de agentes. */
 export function createResourceRouter(config: ResourceConfig): Router {
   const router = Router();
-  const { table, resourceName, createSchema, updateSchema } = config;
+  const { table, resourceName, createSchema, updateSchema, hooks } = config;
   const orderBy = config.orderBy ?? { column: "created_at", ascending: false };
 
   const MAX_LIMIT = 200;
@@ -76,6 +97,7 @@ export function createResourceRouter(config: ResourceConfig): Router {
       if (error) throw error;
 
       await logAgentAction(req.auth!, `${resourceName}.create`, table, data.id, parsed.data);
+      if (hooks?.afterCreate) await hooks.afterCreate(req.auth!.userId, data);
       res.status(201).json(data);
     } catch (err) {
       next(err);
@@ -86,6 +108,15 @@ export function createResourceRouter(config: ResourceConfig): Router {
     try {
       const parsed = updateSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+      const { data: before, error: beforeError } = await supabaseAdmin
+        .from(table)
+        .select("*")
+        .eq("user_id", req.auth!.userId)
+        .eq("id", req.params.id)
+        .maybeSingle();
+      if (beforeError) throw beforeError;
+      if (!before) return res.status(404).json({ error: "No encontrado" });
 
       const { data, error } = await supabaseAdmin
         .from(table)
@@ -98,6 +129,7 @@ export function createResourceRouter(config: ResourceConfig): Router {
       if (!data) return res.status(404).json({ error: "No encontrado" });
 
       await logAgentAction(req.auth!, `${resourceName}.update`, table, req.params.id, parsed.data);
+      await runHook("afterUpdate", hooks?.afterUpdate && (() => hooks.afterUpdate!(req.auth!.userId, before, data)));
       res.json(data);
     } catch (err) {
       next(err);
@@ -106,6 +138,19 @@ export function createResourceRouter(config: ResourceConfig): Router {
 
   router.delete("/:id", requireScope(`${resourceName}:write`), async (req, res, next) => {
     try {
+      let existing: any = null;
+      if (hooks?.beforeDelete) {
+        const { data, error } = await supabaseAdmin
+          .from(table)
+          .select("*")
+          .eq("user_id", req.auth!.userId)
+          .eq("id", req.params.id)
+          .maybeSingle();
+        if (error) throw error;
+        existing = data;
+        if (existing) await runHook("beforeDelete", () => hooks.beforeDelete!(req.auth!.userId, existing));
+      }
+
       const { error } = await supabaseAdmin
         .from(table)
         .delete()

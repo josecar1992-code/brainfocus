@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { createResourceRouter } from "./resourceRouter.js";
+import { cancelPendingRemindersFor } from "../services/reminderCascade.js";
 
 const createSchema = z.object({
   title: z.string().min(1),
@@ -20,4 +21,14 @@ export const tasksRouter = createResourceRouter({
   createSchema,
   updateSchema,
   orderBy: { column: "due_date", ascending: true },
+  hooks: {
+    async afterUpdate(userId, before, after) {
+      if (after.status === "done" && before.status !== "done") {
+        await cancelPendingRemindersFor(userId, "task_id", after.id);
+      }
+    },
+    async beforeDelete(userId, row) {
+      await cancelPendingRemindersFor(userId, "task_id", row.id);
+    },
+  },
 });

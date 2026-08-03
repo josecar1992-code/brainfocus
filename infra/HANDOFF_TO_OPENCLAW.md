@@ -1,5 +1,38 @@
 # BrainFocusCR → OpenClaw: listo del lado de BrainFocus
 
+## Actualización 2026-08-03 (2): implementado contra el contrato real de `POST /tools/invoke`
+
+Reemplazamos el diseño anterior (que inventaba un `PUT/DELETE /cron` propio sin confirmar el
+contrato) por el real: `gateway.tools.allow: ["cron"]` ya habilitado del lado de OpenClaw, gateway
+reiniciado. `apps/api/src/services/openclawCron.ts` ahora llama:
+
+- **Crear**: `POST {OPENCLAW_GATEWAY_URL}/tools/invoke` con `{ tool: "cron", action: "add", job: {
+  displayName: "brainfocus:reminder:<uuid>", sessionTarget: "isolated", schedule: { at:
+  remind_at (con offset, ej. -06:00) }, payload: { kind: "agentTurn", message: title }, delivery: {
+  channel, to: OPENCLAW_REMINDER_TO (sin prefijo de canal) } }`. Guardamos el `jobId` que devuelve
+  la respuesta en `reminders.cron_job_id` — el `displayName` es solo para debug/auditoría
+  (`openclaw cron list`), cancelar requiere el `jobId` real.
+- **Cancelar**: `POST /tools/invoke` con `{ tool: "cron", action: "remove", jobId }`.
+- Auth: `Authorization: Bearer OPENCLAW_GATEWAY_TOKEN`.
+
+Esto corre automáticamente desde los hooks `afterCreate`/`afterUpdate`/`beforeDelete` de
+`apps/api/src/routes/reminders.ts` (más `services/reminderCascade.ts` cuando la tarea/evento
+asociado se completa o se borra antes de tiempo) — sin pasar por ningún agente de IA, así que no
+genera cargos de modelo sin importar cuántos recordatorios haya. Ya no depende de que Quicks
+recuerde crear el cron en el chat, sea que el recordatorio se cree desde la app o desde Quicks.
+
+Si `add` falla, **no reintentamos variaciones del schema**: se borra el recordatorio recién creado y
+se devuelve el error tal cual a quien lo creó (ver `reminders.ts afterCreate`). Cancelar (`remove`)
+sigue siendo best-effort — un fallo ahí solo se loguea, no bloquea completar una tarea.
+
+**Pendiente, y es del lado del dueño del VPS (no de esta sesión de Claude Code)**: cargar
+`OPENCLAW_GATEWAY_URL=http://127.0.0.1:18789`, `OPENCLAW_GATEWAY_TOKEN=<valor real>` y
+`OPENCLAW_REMINDER_TO=<teléfono sin prefijo>` en `/opt/brainfocus/apps/api/.env` en el servidor.
+Esta sesión no hace SSH ni maneja el token directamente — entrar credenciales a un archivo es una
+acción que le toca al dueño. Mientras esas env vars no estén, los recordatorios se siguen guardando
+y viendo en la app, solo sin aviso automático (`isConfigured()` en `openclawCron.ts` corta antes de
+llamar a nada).
+
 ## Actualización 2026-08-01 (2): respuesta a la revisión de código
 
 Los 5 puntos de la revisión (commit `7f75d71`) están corregidos:
