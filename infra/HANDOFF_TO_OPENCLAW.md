@@ -1,6 +1,43 @@
 # BrainFocusCR → OpenClaw: listo del lado de BrainFocus
 
+## Actualización 2026-08-03 (3): probado end-to-end, 3 bugs reales corregidos
+
+`crear_evento` ya funciona de punta a punta (evento en Agenda + cron real programado + `remove`
+al cancelar), verificado con Quicks en vivo. No era caché del MCP en ningún momento. Eran tres bugs
+en `apps/api/src/services/openclawCron.ts`, ya corregidos:
+
+1. **Red**: `api` corre en un contenedor Docker normal (no `network_mode: host` como `mcp`), así que
+   `127.0.0.1:18789` desde adentro no llegaba al gateway de OpenClaw (nativo por systemd en el
+   host, no en Docker). Fix: `OPENCLAW_GATEWAY_URL=http://host.docker.internal:18789` +
+   `extra_hosts: ["host.docker.internal:host-gateway"]` en el servicio `api` de `docker-compose.yml`
+   + un `ufw allow` a la subred del stack (`docker network inspect brainfocus_default` para
+   confirmar el rango real) hacia el puerto `18789`.
+2. **Shape del body real**: no es `{ tool, action, job }` de primer nivel — `action`/`job` van
+   anidados dentro de `args`: `{ tool: "cron", args: { action: "add"|"remove", job, jobId } }`. Con
+   el shape viejo, OpenClaw respondía `job required` aunque `job` sí viniera en el body.
+3. **Ubicación del `jobId`** en la respuesta: `POST /tools/invoke` devuelve el sobre completo, no
+   solo el resultado de la tool — `{ ok, result: { content, details: { id } } }`. El `id` real vive
+   en `result.result.details.id`, no en `result.details.id` (este fue el que más costó encontrar:
+   la API reportaba error 500 aunque el job se hubiera creado bien — confirmado con `openclaw cron
+   list --all` mientras la API decía que había fallado).
+
+Con los 3 fixes, probado varias veces: crea el evento, programa el cron real (id verificado en
+`cron list --all`), y `remove` cancela limpio. Si la ventana de 2h ya pasó, Quicks lo detecta y
+ofrece una hora alternativa en vez de fallar en silencio.
+
+**Nota aparte, no un bug**: `crear_evento` calcula `remind_at` con `new Date(...).toISOString()`,
+siempre en `Z`/UTC, no con offset `-06:00` explícito como pide la regla general del contrato. Funciona
+igual porque OpenClaw acepta `Z` sin problema — queda anotado para no confundirlo con una regresión
+si se audita el código más adelante.
+
+**Además, no relacionado con el código**: la API key `quicks-agent` en Supabase solo tenía scopes
+`tasks:*`/`reminders:*`/`notes:*` — el primer intento de `crear_evento` dio `403: Falta el scope
+requerido: events:write`. Se agregaron `events:read`/`events:write` a esa key.
+
 ## Actualización 2026-08-03 (2): implementado contra el contrato real de `POST /tools/invoke`
+
+**Ver la actualización (3) arriba** — el shape de `{ tool, action, job }` y la lectura de `jobId`
+descritos acá abajo tenían bugs, ya corregidos.
 
 Reemplazamos el diseño anterior (que inventaba un `PUT/DELETE /cron` propio sin confirmar el
 contrato) por el real: `gateway.tools.allow: ["cron"]` ya habilitado del lado de OpenClaw, gateway

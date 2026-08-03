@@ -9,6 +9,12 @@ services:
     build: ./apps/api
     restart: unless-stopped
     env_file: ./apps/api/.env
+    # OpenClaw corre nativo por systemd en el host (no en Docker), así que
+    # 127.0.0.1 dentro de este contenedor nunca llega a su gateway — hay que
+    # resolver la IP real del host. El aislamiento lo da un ufw allow acotado
+    # a la subred de este stack (ver docker network inspect brainfocus_default).
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       # Sin 127.0.0.1: el contenedor de Caddy (Natural Beauty) le llega por
       # host.docker.internal, que resuelve al gateway del bridge de Docker

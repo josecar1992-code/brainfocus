@@ -5,6 +5,10 @@ import { env } from "../env.js";
 // — llamada HTTP directa, no pasa por ningún agente de IA, así que no genera
 // cargos de modelo sin importar cuántos recordatorios haya.
 //
+// OpenClaw corre nativo por systemd en el host (no en Docker), por eso
+// OPENCLAW_GATEWAY_URL debe apuntar a host.docker.internal, no a 127.0.0.1
+// (ver extra_hosts en docker-compose.yml, servicio `api`).
+//
 // Reglas del contrato (rompen el recordatorio en silencio si se ignoran):
 // - sessionTarget siempre "isolated" (nunca "main" + systemEvent, depende del
 //   heartbeat que está apagado).
@@ -23,20 +27,22 @@ function isConfigured(): boolean {
   return Boolean(env.openclawGatewayUrl && env.openclawGatewayToken && env.openclawReminderTo);
 }
 
-async function invoke(body: Record<string, unknown>): Promise<unknown> {
+// `action`/`job` van anidados dentro de `args` — un {tool, action, job} de
+// primer nivel responde "job required" aunque job venga en el body.
+async function invoke(tool: string, action: string, args: Record<string, unknown>): Promise<unknown> {
   const res = await fetch(`${env.openclawGatewayUrl}/tools/invoke`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${env.openclawGatewayToken}`,
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ tool, args: { action, ...args } }),
     signal: AbortSignal.timeout(10_000),
   });
   const json = await res.json().catch(() => null);
   if (!res.ok) {
     const detail = json && typeof json === "object" && "error" in (json as any) ? (json as any).error : res.statusText;
-    throw new Error(`OpenClaw cron ${body.action} falló (${res.status}): ${detail}`);
+    throw new Error(`OpenClaw cron ${action} falló (${res.status}): ${detail}`);
   }
   return json;
 }
@@ -51,9 +57,7 @@ async function invoke(body: Record<string, unknown>): Promise<unknown> {
 export async function scheduleReminderCron(reminder: ReminderForCron): Promise<string | null> {
   if (!isConfigured()) return null;
 
-  const result = await invoke({
-    tool: "cron",
-    action: "add",
+  const result = await invoke("cron", "add", {
     job: {
       displayName: `brainfocus:reminder:${reminder.id}`,
       sessionTarget: "isolated",
@@ -63,7 +67,8 @@ export async function scheduleReminderCron(reminder: ReminderForCron): Promise<s
     },
   });
 
-  const jobId = (result as { jobId?: string } | null)?.jobId;
+  // POST /tools/invoke devuelve el sobre completo: { ok, result: { content, details: { id } } }.
+  const jobId = (result as { result?: { details?: { id?: string } } } | null)?.result?.details?.id;
   if (!jobId) throw new Error("OpenClaw no devolvió jobId al crear el cron");
   return jobId;
 }
@@ -72,7 +77,7 @@ export async function scheduleReminderCron(reminder: ReminderForCron): Promise<s
 export async function cancelReminderCron(jobId: string | null): Promise<void> {
   if (!jobId || !isConfigured()) return;
   try {
-    await invoke({ tool: "cron", action: "remove", jobId });
+    await invoke("cron", "remove", { jobId });
   } catch (err) {
     console.error(`[openclawCron] No se pudo cancelar ${jobId}:`, err);
   }
