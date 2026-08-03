@@ -14,17 +14,24 @@ export function Login() {
   if (sent) return <p className="text-center mt-20">Revisa tu correo para el link de acceso.</p>;
 
   return (
-    <form onSubmit={handleSubmit} className="max-w-sm mx-auto mt-20 flex flex-col gap-3">
-      <h1 className="text-xl font-semibold">BrainFocusCR</h1>
+    <form onSubmit={handleSubmit} className="max-w-sm mx-auto mt-20 flex flex-col items-center gap-4">
+      <img src="/logo.jpeg" alt="BrainFocus" className="w-16 h-16 rounded-2xl" />
+      <h1 className="text-xl">
+        <span className="font-bold">Brain</span>
+        <span className="font-medium text-electric-cyan">Focus</span>
+      </h1>
       <input
         type="email"
         required
         placeholder="tu@correo.com"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
-        className="border rounded px-3 py-2"
+        className="w-full border border-deep-blue/40 bg-white/5 rounded px-3 py-2 text-white placeholder:text-white/40"
       />
-      <button type="submit" className="bg-black text-white rounded px-3 py-2">
+      <button
+        type="submit"
+        className="w-full bg-electric-cyan text-night-blue font-medium rounded px-3 py-2"
+      >
         Entrar con magic link
       </button>
     </form>

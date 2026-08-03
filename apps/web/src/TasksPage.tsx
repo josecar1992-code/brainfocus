@@ -19,8 +19,15 @@ export function TasksPage() {
   });
 
   return (
-    <div className="max-w-md mx-auto mt-10">
-      <h1 className="text-xl font-semibold mb-4">Tareas</h1>
+    <div className="max-w-md mx-auto mt-10 px-4">
+      <div className="flex items-center gap-2 mb-6">
+        <img src="/logo.jpeg" alt="BrainFocus" className="w-8 h-8 rounded-lg" />
+        <h1 className="text-lg">
+          <span className="font-bold">Brain</span>
+          <span className="font-medium text-electric-cyan">Focus</span>
+        </h1>
+      </div>
+      <h2 className="text-lg font-medium mb-4">Tareas</h2>
       <form
         className="flex gap-2 mb-4"
         onSubmit={(e) => {
@@ -34,19 +41,19 @@ export function TasksPage() {
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Nueva tarea"
-          className="border rounded px-3 py-2 flex-1"
+          className="flex-1 border border-deep-blue/40 bg-white/5 rounded px-3 py-2 placeholder:text-white/40"
         />
-        <button type="submit" className="bg-black text-white rounded px-3 py-2">
+        <button type="submit" className="bg-electric-cyan text-night-blue font-medium rounded px-3 py-2">
           Agregar
         </button>
       </form>
 
-      {isLoading && <p>Cargando...</p>}
+      {isLoading && <p className="text-white/60">Cargando...</p>}
       <ul className="flex flex-col gap-2">
         {tasks?.map((task: Task) => (
-          <li key={task.id} className="flex items-center gap-2 border rounded px-3 py-2">
+          <li key={task.id} className="flex items-center gap-2 border border-deep-blue/30 rounded px-3 py-2">
             <input type="checkbox" checked={task.status === "done"} onChange={() => toggleTask.mutate(task)} />
-            <span className={task.status === "done" ? "line-through text-gray-400" : ""}>{task.title}</span>
+            <span className={task.status === "done" ? "line-through text-white/40" : ""}>{task.title}</span>
           </li>
         ))}
       </ul>
