@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "focusbrain-web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "apps/web", "run", "dev", "--", "--host"],
+      "port": 5173
+    }
+  ]
+}

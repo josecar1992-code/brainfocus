@@ -1,27 +1,53 @@
 import { useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
+import { AgendaPage } from "./AgendaPage";
 import { ApiError, api } from "./api";
 import { Login } from "./Login";
 import { supabase } from "./supabaseClient";
 import { TasksPage } from "./TasksPage";
 
-function AppHeader() {
+type ModuleKey = "tareas" | "agenda";
+const MODULES: { key: ModuleKey; label: string }[] = [
+  { key: "tareas", label: "Tareas" },
+  { key: "agenda", label: "Agenda" },
+];
+
+function AppHeader({ active, onChange }: { active: ModuleKey; onChange: (m: ModuleKey) => void }) {
   return (
-    <div className="flex items-center justify-between mb-6">
-      <div className="flex items-center gap-2">
-        <img src="/logo.jpeg" alt="Focusbrain" className="w-8 h-8 rounded-lg" />
-        <h1 className="text-lg">
-          <span className="font-bold">Focus</span>
-          <span className="font-medium text-electric-cyan">brain</span>
-        </h1>
+    <div className="mb-6">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <img src="/logo.jpeg" alt="Focusbrain" className="w-8 h-8 rounded-lg" />
+          <h1 className="text-lg">
+            <span className="font-bold">Focus</span>
+            <span className="font-medium text-electric-cyan">brain</span>
+          </h1>
+        </div>
+        <button
+          type="button"
+          onClick={() => supabase.auth.signOut()}
+          className="text-sm text-white/50 hover:text-electric-cyan"
+        >
+          Cerrar sesión
+        </button>
       </div>
-      <button
-        type="button"
-        onClick={() => supabase.auth.signOut()}
-        className="text-sm text-white/50 hover:text-electric-cyan"
-      >
-        Cerrar sesión
-      </button>
+
+      <nav className="flex gap-4 border-b border-white/10">
+        {MODULES.map((m) => (
+          <button
+            key={m.key}
+            type="button"
+            onClick={() => onChange(m.key)}
+            className={`pb-2 text-sm border-b-2 -mb-px transition ${
+              active === m.key
+                ? "border-electric-cyan text-electric-cyan"
+                : "border-transparent text-white/50 hover:text-white"
+            }`}
+          >
+            {m.label}
+          </button>
+        ))}
+      </nav>
     </div>
   );
 }
@@ -32,6 +58,7 @@ export function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [access, setAccess] = useState<AccessState>("checking");
+  const [activeModule, setActiveModule] = useState<ModuleKey>("tareas");
   // Independiente de `session`: signOut() lo borra, pero el mensaje debe seguir
   // visible en vez de saltar directo a la pantalla de login.
   const [denied, setDenied] = useState(false);
@@ -81,9 +108,10 @@ export function App() {
   if (access === "checking") return null;
 
   return (
-    <div className="max-w-md mx-auto mt-10 px-4">
-      <AppHeader />
-      <TasksPage />
+    <div className="max-w-2xl mx-auto mt-10 px-4">
+      <AppHeader active={activeModule} onChange={setActiveModule} />
+      {activeModule === "tareas" && <TasksPage />}
+      {activeModule === "agenda" && <AgendaPage />}
     </div>
   );
 }

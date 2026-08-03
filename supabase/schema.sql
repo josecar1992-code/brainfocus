@@ -73,7 +73,7 @@ create table if not exists public.tasks (
 );
 
 -- ============================================================
--- Recordatorios (pueden o no estar ligados a una tarea)
+-- Recordatorios (pueden o no estar ligados a una tarea o a un evento)
 -- ============================================================
 create table if not exists public.reminders (
   id uuid primary key default uuid_generate_v4(),
@@ -102,6 +102,11 @@ create table if not exists public.events (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- reminders.event_id se agrega acá (con alter) porque events se declara después
+-- de reminders arriba, y la FK necesita que la tabla destino ya exista.
+alter table public.reminders
+  add column if not exists event_id uuid references public.events(id) on delete cascade;
 
 -- ============================================================
 -- Notas / información libre
@@ -158,6 +163,7 @@ create table if not exists public.exercise_logs (
 create index if not exists idx_tasks_user on public.tasks(user_id);
 create index if not exists idx_tasks_due on public.tasks(user_id, due_date);
 create index if not exists idx_reminders_remind_at on public.reminders(user_id, remind_at);
+create index if not exists idx_reminders_event on public.reminders(event_id);
 create index if not exists idx_events_starts on public.events(user_id, starts_at);
 create index if not exists idx_notes_user on public.notes(user_id);
 create index if not exists idx_nutrition_user on public.nutrition_logs(user_id, logged_at);
