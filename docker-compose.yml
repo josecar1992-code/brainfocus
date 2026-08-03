@@ -10,7 +10,11 @@ services:
     restart: unless-stopped
     env_file: ./apps/api/.env
     ports:
-      - "127.0.0.1:3001:3001"
+      # Sin 127.0.0.1: el contenedor de Caddy (Natural Beauty) le llega por
+      # host.docker.internal, que resuelve al gateway del bridge de Docker
+      # (172.17.0.1), no a loopback. El aislamiento real lo da ufw (solo
+      # 172.17.0.0/16 y 172.18.0.0/16 pueden entrar a este puerto).
+      - "3001:3001"
 
   web:
     build:
@@ -23,7 +27,7 @@ services:
         VITE_API_URL: ${VITE_API_URL}
     restart: unless-stopped
     ports:
-      - "127.0.0.1:8081:80"
+      - "8081:80" # ver nota de ufw arriba, mismo motivo
 
   mcp:
     build: ./apps/mcp
