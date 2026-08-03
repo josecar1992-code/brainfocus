@@ -94,5 +94,21 @@ Ver [infra/DEPLOY.md](infra/DEPLOY.md) para la guía paso a paso.
 | Caddy / dominios | Hecho — bloque agregado al Caddyfile compartido de Natural Beauty, TLS automático (Let's Encrypt), reglas de `ufw` para los puertos 3001/8081 desde las redes de Docker |
 | Migración de `tareas.md` | Hecha — 14 tareas reales cargadas en `public.tasks` (limpieza, pintura, trámites de Registro Nacional/OIJ, etc.), archivo retirado como fuente de verdad |
 | Prueba de punta a punta | Verificada dos veces (Focusbrain y OpenClaw por separado): crear tarea → completar → listar filtrado, con auditoría en `agent_actions` |
+| Login | Completo y verificado en producción: contraseña, magic link y Google OAuth, los tres probados de punta a punta |
 
 Sin pendientes de infraestructura por ahora — lo que sigue es UX/producto sobre `apps/web`.
+
+### Auth — notas de configuración (Supabase Dashboard, no vía MCP)
+
+Estos ajustes viven en la plataforma de Supabase (Authentication), no en Postgres, así que no hay
+manera de aplicarlos con las tools de MCP disponibles — quedan documentados acá para no perderlos:
+
+- **Site URL / Redirect URLs** (`Authentication > URL Configuration`): `https://app.focusbraincr.com`.
+  Sin esto, el magic link redirige a `localhost:3000` (el default) en vez de la app real — ya
+  corregido y probado.
+- **Google OAuth** (`Authentication > Providers > Google`): habilitado con Client ID/Secret de
+  Google Cloud Console (redirect URI `https://qidpxcumibanaqwaxdxt.supabase.co/auth/v1/callback`).
+  Si el OAuth consent screen de Google sigue en modo "Testing", solo los correos en **Test users**
+  pueden loguearse — revisar ahí antes de dar acceso a alguien más.
+- El código (`apps/web/src/Login.tsx`) manda `emailRedirectTo`/`redirectTo` explícito
+  (`window.location.origin`) en vez de depender del default de Supabase.
