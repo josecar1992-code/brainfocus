@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import { createHash } from "node:crypto";
+import { env } from "../env.js";
 import { supabaseAdmin } from "../supabaseClient.js";
 
 export function hashApiKey(rawKey: string): string {
@@ -19,6 +20,12 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
       const jwt = authHeader.slice("Bearer ".length);
       const { data, error } = await supabaseAdmin.auth.getUser(jwt);
       if (error || !data.user) return res.status(401).json({ error: "Token inválido" });
+
+      const email = data.user.email?.toLowerCase();
+      if (env.allowedEmails.length > 0 && (!email || !env.allowedEmails.includes(email))) {
+        return res.status(403).json({ error: "Esta cuenta no tiene acceso a Focusbrain" });
+      }
+
       req.auth = { type: "user", userId: data.user.id };
       return next();
     }
