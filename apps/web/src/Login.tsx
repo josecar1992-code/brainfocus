@@ -67,7 +67,10 @@ export function Login() {
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-night-blue">
+    <div className="relative min-h-screen overflow-hidden">
+      {/* Sin bg-night-blue propio a propósito: con z-index negativo, un fondo opaco
+          acá taparía el canvas (el fondo de este div se pinta por encima de z:-10).
+          El night-blue base lo pone el body (index.css). */}
       <NeuronBackground />
 
       {/* Atmósfera: glows radiales sutiles, igual espíritu que un fondo de dashboard de IA */}
