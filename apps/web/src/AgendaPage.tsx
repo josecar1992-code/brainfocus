@@ -16,17 +16,34 @@ function formatDateTime(iso: string) {
   return `${formatDate(iso)} ${formatTime(iso)}`;
 }
 
-/** Título + tooltip del ícono de recordatorio: pendiente, ya enviado, o guardado pero sin cron. */
+/** Pill de estado del recordatorio: pendiente, ya enviado, o guardado pero sin cron. */
 function ReminderBadge({ reminder }: { reminder: Reminder }) {
   if (reminder.sent_at) {
-    return <span title={`Recordatorio ya enviado (${formatDateTime(reminder.sent_at)})`}>✅</span>;
+    return (
+      <span
+        title={`Recordatorio ya enviado (${formatDateTime(reminder.sent_at)})`}
+        className="inline-flex items-center gap-1 text-[11px] font-semibold text-green-400 bg-green-400/10 px-2 py-0.5 rounded-full"
+      >
+        ✅ Enviado
+      </span>
+    );
   }
   if (reminder.cron_job_id) {
-    return <span title={`Recordatorio programado para ${formatDateTime(reminder.remind_at)}`}>🔔</span>;
+    return (
+      <span
+        title={`Recordatorio programado para ${formatDateTime(reminder.remind_at)}`}
+        className="inline-flex items-center gap-1 text-[11px] font-semibold text-electric-cyan bg-electric-cyan/10 px-2 py-0.5 rounded-full"
+      >
+        🔔 Programado
+      </span>
+    );
   }
   return (
-    <span title={`Recordatorio guardado para ${formatDateTime(reminder.remind_at)}, pero sin aviso automático (OpenClaw no configurado o falló)`}>
-      🔕
+    <span
+      title={`Recordatorio guardado para ${formatDateTime(reminder.remind_at)}, pero sin aviso automático (OpenClaw no configurado o falló)`}
+      className="inline-flex items-center gap-1 text-[11px] font-semibold text-white/40 bg-white/5 px-2 py-0.5 rounded-full"
+    >
+      🔕 Sin aviso
     </span>
   );
 }
@@ -44,6 +61,7 @@ function NewEventForm({ onClose }: { onClose: () => void }) {
     mutationFn: api.createEvent,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["events"] });
+      queryClient.invalidateQueries({ queryKey: ["reminders"] });
       onClose();
     },
     onError: (err) => setError(err instanceof Error ? err.message : "No se pudo crear el evento"),
@@ -64,7 +82,7 @@ function NewEventForm({ onClose }: { onClose: () => void }) {
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center px-4 z-20">
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-sm border border-electric-cyan/20 bg-night-blue rounded-2xl p-6 flex flex-col gap-3"
+        className="w-full max-w-sm border border-electric-cyan/20 bg-night-blue rounded-2xl p-6 flex flex-col gap-3 shadow-[0_0_60px_-15px_rgba(0,210,255,0.25)]"
       >
         <h2 className="text-lg font-medium mb-1">Nuevo evento</h2>
 
@@ -115,6 +133,7 @@ function NewEventForm({ onClose }: { onClose: () => void }) {
             type="checkbox"
             checked={crearRecordatorio}
             onChange={(e) => setCrearRecordatorio(e.target.checked)}
+            className="accent-electric-cyan"
           />
           Crear recordatorio (Quicks avisa 2 horas antes)
         </label>
@@ -132,7 +151,7 @@ function NewEventForm({ onClose }: { onClose: () => void }) {
           <button
             type="submit"
             disabled={createEvent.isPending}
-            className="flex-1 bg-electric-cyan text-night-blue font-medium rounded-lg px-3 py-2 disabled:opacity-50"
+            className="flex-1 bg-electric-cyan text-night-blue font-medium rounded-lg px-3 py-2 disabled:opacity-50 hover:brightness-110 transition"
           >
             {createEvent.isPending ? "Creando..." : "Crear evento"}
           </button>
@@ -155,30 +174,35 @@ export function AgendaPage() {
   }
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-medium">Agenda</h2>
+    <div className="space-y-5">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Agenda</h1>
+          <p className="text-sm text-white/40">Tus eventos y recordatorios</p>
+        </div>
         <button
           type="button"
           onClick={() => setShowForm(true)}
-          className="bg-electric-cyan text-night-blue font-medium rounded-lg px-3 py-2 text-sm"
+          className="bg-electric-cyan text-night-blue font-medium rounded-lg px-3 py-2 text-sm hover:brightness-110 transition"
         >
           + Crear evento
         </button>
       </div>
 
-      {isLoading && <p className="text-white/60">Cargando...</p>}
+      <div className="bg-white/5 rounded-2xl shadow-sm border border-white/10 overflow-hidden">
+        <p className="text-xs font-semibold uppercase tracking-wide text-white/40 px-5 pt-5 pb-2">Eventos</p>
 
-      {events && events.length === 0 && !isLoading && (
-        <p className="text-white/40 text-sm">No hay eventos todavía.</p>
-      )}
+        {isLoading && <p className="text-white/40 text-sm px-5 pb-5">Cargando...</p>}
 
-      {events && events.length > 0 && (
-        <div className="border border-deep-blue/30 rounded-lg overflow-hidden">
+        {events && events.length === 0 && !isLoading && (
+          <p className="text-white/40 text-sm px-5 pb-5">No hay eventos todavía.</p>
+        )}
+
+        {events && events.length > 0 && (
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-white/5 text-white/50 text-left">
-                <th className="px-3 py-2 font-normal">Fecha</th>
+              <tr className="text-white/40 text-left">
+                <th className="px-5 py-2 font-normal">Fecha</th>
                 <th className="px-3 py-2 font-normal">Hora</th>
                 <th className="px-3 py-2 font-normal">Evento</th>
                 <th className="px-3 py-2 font-normal">Descripción</th>
@@ -189,45 +213,45 @@ export function AgendaPage() {
               {events.map((event: Event) => {
                 const reminder = remindersByEvent.get(event.id);
                 return (
-                  <tr key={event.id} className="border-t border-deep-blue/20">
-                    <td className="px-3 py-2 whitespace-nowrap">{formatDate(event.starts_at)}</td>
-                    <td className="px-3 py-2 whitespace-nowrap text-electric-cyan">{formatTime(event.starts_at)}</td>
-                    <td className="px-3 py-2">{event.title}</td>
-                    <td className="px-3 py-2 text-white/50">{event.description ?? "—"}</td>
-                    <td className="px-3 py-2 text-center">{reminder ? <ReminderBadge reminder={reminder} /> : "—"}</td>
+                  <tr key={event.id} className="border-t border-white/8 hover:bg-white/5 transition-colors">
+                    <td className="px-5 py-3 whitespace-nowrap">{formatDate(event.starts_at)}</td>
+                    <td className="px-3 py-3 whitespace-nowrap text-electric-cyan">{formatTime(event.starts_at)}</td>
+                    <td className="px-3 py-3 text-white/90">{event.title}</td>
+                    <td className="px-3 py-3 text-white/50">{event.description ?? "—"}</td>
+                    <td className="px-3 py-3">{reminder ? <ReminderBadge reminder={reminder} /> : <span className="text-white/30">—</span>}</td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
-        </div>
-      )}
+        )}
+      </div>
 
       {looseReminders.length > 0 && (
-        <div className="mt-6">
-          <h3 className="text-sm font-medium text-white/70 mb-2">Recordatorios sin evento</h3>
-          <div className="border border-deep-blue/30 rounded-lg overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-white/5 text-white/50 text-left">
-                  <th className="px-3 py-2 font-normal">Cuándo</th>
-                  <th className="px-3 py-2 font-normal">Título</th>
-                  <th className="px-3 py-2 font-normal">Estado</th>
+        <div className="bg-white/5 rounded-2xl shadow-sm border border-white/10 overflow-hidden">
+          <p className="text-xs font-semibold uppercase tracking-wide text-white/40 px-5 pt-5 pb-2">
+            Recordatorios sin evento
+          </p>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-white/40 text-left">
+                <th className="px-5 py-2 font-normal">Cuándo</th>
+                <th className="px-3 py-2 font-normal">Título</th>
+                <th className="px-3 py-2 font-normal">Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {looseReminders.map((reminder) => (
+                <tr key={reminder.id} className="border-t border-white/8 hover:bg-white/5 transition-colors">
+                  <td className="px-5 py-3 whitespace-nowrap">{formatDateTime(reminder.remind_at)}</td>
+                  <td className="px-3 py-3 text-white/90">{reminder.title}</td>
+                  <td className="px-3 py-3">
+                    <ReminderBadge reminder={reminder} />
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {looseReminders.map((reminder) => (
-                  <tr key={reminder.id} className="border-t border-deep-blue/20">
-                    <td className="px-3 py-2 whitespace-nowrap">{formatDateTime(reminder.remind_at)}</td>
-                    <td className="px-3 py-2">{reminder.title}</td>
-                    <td className="px-3 py-2 text-center">
-                      <ReminderBadge reminder={reminder} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 

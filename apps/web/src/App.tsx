@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { AgendaPage } from "./AgendaPage";
 import { ApiError, api } from "./api";
+import { Header } from "./Header";
 import { Login } from "./Login";
 import { MODULES, Sidebar, type ModuleKey } from "./Sidebar";
 import { supabase } from "./supabaseClient";
@@ -63,12 +64,17 @@ export function App() {
   if (access === "checking") return null;
 
   return (
-    <div className="md:flex">
-      <Sidebar active={activeModule} onChange={setActiveModule} />
-      <main className="flex-1 max-w-2xl mx-auto w-full px-4 py-6 md:py-10">
-        {activeModule === "tareas" && <TasksPage />}
-        {activeModule === "agenda" && <AgendaPage />}
-      </main>
+    <div className="md:flex md:h-screen">
+      <Sidebar active={activeModule} onChange={setActiveModule} email={session.user.email} />
+      <div className="flex-1 flex flex-col min-w-0 md:overflow-hidden">
+        <Header active={activeModule} email={session.user.email} />
+        <main className="flex-1 md:overflow-auto px-4 py-6 md:px-8 md:py-8">
+          <div className="max-w-3xl mx-auto w-full">
+            {activeModule === "tareas" && <TasksPage />}
+            {activeModule === "agenda" && <AgendaPage />}
+          </div>
+        </main>
+      </div>
     </div>
   );
 }
