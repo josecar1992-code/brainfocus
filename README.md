@@ -80,4 +80,18 @@ credencial del tool `brainfocus-api` (ver `infra/`).
 
 ## Despliegue en el VPS (Natural Beauty, `169.58.62.116`)
 
-Ver [infra/DEPLOY.md](infra/DEPLOY.md).
+Ver [infra/DEPLOY.md](infra/DEPLOY.md) para la guía paso a paso.
+
+### Estado actual (2026-08-03)
+
+| Componente | Estado |
+|---|---|
+| Supabase | Proyecto `brainfocuscr` (`qidpxcumibanaqwaxdxt`, us-east-1) activo, con `schema.sql` aplicado |
+| API | Corriendo en Docker en `169.58.62.116`, contenedor `brainfocus-api-1`, publicada en `127.0.0.1:3001` (`restart: unless-stopped`) |
+| MCP | Imagen `brainfocus-mcp:latest` construida, invocada por OpenClaw vía `docker compose run --rm -T mcp` |
+| Registro en OpenClaw | Hecho — MCP registrado, allowlist de Quicks actualizada, `deny` con glob en los demás agentes |
+| Caddy / dominios | Pendiente — `apps/web` aún no tiene build de producción ni DNS apuntado; `infra/Caddyfile.brainfocus` listo para cuando se haga |
+| Migración de `tareas.md` | Hecha — 14 tareas reales cargadas en `public.tasks` (limpieza, pintura, trámites de Registro Nacional/OIJ, etc.), archivo retirado como fuente de verdad |
+| Prueba de punta a punta | Verificada dos veces (BrainFocus y OpenClaw por separado): crear tarea → completar → listar filtrado, con auditoría en `agent_actions` |
+
+Pendiente: build y publicación de `apps/web` detrás de Caddy (`app.brainfocuscr.com` / `api.brainfocuscr.com`).
