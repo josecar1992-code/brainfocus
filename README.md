@@ -87,11 +87,12 @@ Ver [infra/DEPLOY.md](infra/DEPLOY.md) para la guía paso a paso.
 | Componente | Estado |
 |---|---|
 | Supabase | Proyecto `brainfocuscr` (`qidpxcumibanaqwaxdxt`, us-east-1) activo, con `schema.sql` aplicado |
-| API | Corriendo en Docker en `169.58.62.116`, contenedor `brainfocus-api-1`, publicada en `127.0.0.1:3001` (`restart: unless-stopped`) |
+| API | Docker en `169.58.62.116` (`brainfocus-api-1`), publicada en `https://api.focusbraincr.com` |
+| Web | Docker (nginx + build de Vite, `brainfocus-web-1`), publicada en `https://app.focusbraincr.com` |
 | MCP | Imagen `brainfocus-mcp:latest` construida, invocada por OpenClaw vía `docker compose run --rm -T mcp` |
 | Registro en OpenClaw | Hecho — MCP registrado, allowlist de Quicks actualizada, `deny` con glob en los demás agentes |
-| Caddy / dominios | Pendiente — `apps/web` aún no tiene build de producción ni DNS apuntado; `infra/Caddyfile.brainfocus` listo para cuando se haga |
+| Caddy / dominios | Hecho — bloque agregado al Caddyfile compartido de Natural Beauty, TLS automático (Let's Encrypt), reglas de `ufw` para los puertos 3001/8081 desde las redes de Docker |
 | Migración de `tareas.md` | Hecha — 14 tareas reales cargadas en `public.tasks` (limpieza, pintura, trámites de Registro Nacional/OIJ, etc.), archivo retirado como fuente de verdad |
-| Prueba de punta a punta | Verificada dos veces (BrainFocus y OpenClaw por separado): crear tarea → completar → listar filtrado, con auditoría en `agent_actions` |
+| Prueba de punta a punta | Verificada dos veces (Focusbrain y OpenClaw por separado): crear tarea → completar → listar filtrado, con auditoría en `agent_actions` |
 
-Pendiente: build y publicación de `apps/web` detrás de Caddy (`app.focusbraincr.com` / `api.focusbraincr.com`) — DNS ya creados.
+Sin pendientes de infraestructura por ahora — lo que sigue es UX/producto sobre `apps/web`.
