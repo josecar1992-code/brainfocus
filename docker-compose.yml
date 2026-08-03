@@ -12,6 +12,19 @@ services:
     ports:
       - "127.0.0.1:3001:3001"
 
+  web:
+    build:
+      context: ./apps/web
+      args:
+        # Vite hornea esto en build time; docker compose los toma del .env en la
+        # raíz del repo (no de apps/web/.env, que es solo para `npm run dev` local)
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
+        VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
+        VITE_API_URL: ${VITE_API_URL}
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8081:80"
+
   mcp:
     build: ./apps/mcp
     profiles: ["tools"]

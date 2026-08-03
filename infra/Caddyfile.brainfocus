@@ -8,8 +8,8 @@ api.focusbraincr.com {
 }
 
 app.focusbraincr.com {
-	root * /opt/brainfocus/apps/web/dist
-	encode gzip
-	try_files {path} /index.html
-	file_server
+	# El build de la web corre en un contenedor propio (nginx sirviendo el dist/
+	# de Vite), igual que la API — el Caddy de Natural Beauty no tiene montado
+	# /opt/brainfocus, así que no puede servir los archivos directo.
+	reverse_proxy host.docker.internal:8081
 }

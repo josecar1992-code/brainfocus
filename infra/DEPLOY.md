@@ -31,24 +31,27 @@ docker compose logs -f api   # ctrl+c para salir, el contenedor sigue corriendo
 
 Queda publicado en `127.0.0.1:3001` (ver `docker-compose.yml`), con `restart: unless-stopped`.
 
-## 3. Web (build estático servido por Caddy)
+## 3. Web (contenedor propio con nginx, igual patrón que la API)
 
-El build de la web también corre en un contenedor efímero — no hace falta Node en el host:
+El Caddy de Natural Beauty **no tiene montado** `/opt/brainfocus` — no puede servir el `dist/`
+directo con `file_server`. Por eso `apps/web` se sirve desde su propio contenedor (build de Vite +
+nginx), publicado en `127.0.0.1:8081`, y Caddy le hace `reverse_proxy` igual que a la API:
 
 ```bash
-cd /opt/brainfocus/apps/web
-cp .env.example .env   # URL de Supabase (pública) + URL de la API
-docker run --rm -v "$PWD":/app -w /app node:20-slim sh -c "npm install && npm run build"
+cd /opt/brainfocus
+cp .env.example .env   # VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, VITE_API_URL (build args de Vite)
+docker compose build web
+docker compose up -d web
+curl -s http://127.0.0.1:8081   # debería devolver el index.html
 ```
-
-Genera `dist/` en el propio host (montado como volumen), que es lo que sirve Caddy en el paso 4.
 
 ## 4. Caddy
 
 Agregar el contenido de `infra/Caddyfile.brainfocus` al Caddyfile compartido
-(`/opt/naturalbeautycr/Caddyfile`) — ya usa `host.docker.internal:3001` para llegar a la API nativa
-desde el contenedor de Caddy. Confirmar que `ufw` permite las redes de Docker
-(`172.17.0.0/16` y `172.18.0.0/16`, mismo ajuste que ya existe para OpenClaw), luego:
+(`/opt/naturalbeautycr/Caddyfile`) — usa `host.docker.internal:3001` (API) y
+`host.docker.internal:8081` (web) para llegar a ambos contenedores desde el contenedor de Caddy.
+Confirmar que `ufw` permite las redes de Docker (`172.17.0.0/16` y `172.18.0.0/16`, mismo ajuste
+que ya existe para OpenClaw), luego:
 
 ```bash
 caddy reload --config /opt/naturalbeautycr/Caddyfile
