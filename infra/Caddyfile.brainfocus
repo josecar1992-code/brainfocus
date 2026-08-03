@@ -2,8 +2,9 @@
 # (/opt/naturalbeautycr/Caddyfile), mismo patrón usado para OpenClaw.
 
 api.focusbraincr.com {
-	# Caddy corre en el docker-compose de Natural Beauty; la API es nativa (systemd) en el host,
-	# por eso host.docker.internal en vez de localhost (requiere regla ufw para redes de Docker).
+	# Caddy corre en el docker-compose de Natural Beauty; la API corre en su propio
+	# contenedor en el host (127.0.0.1:3001), por eso host.docker.internal en vez de
+	# localhost (requiere regla ufw para las redes de Docker, ya aplicada).
 	reverse_proxy host.docker.internal:3001
 }
 
