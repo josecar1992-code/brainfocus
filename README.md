@@ -1,4 +1,4 @@
-# BrainFocusCR
+# FocusbrainCR
 
 App personal de organización (tareas, recordatorios, agenda, notas, nutrición y ejercicio),
 pensada desde el inicio para escalar a multiusuario. Un agente de IA (OpenClaw, agente `main`/Quicks)
@@ -94,4 +94,4 @@ Ver [infra/DEPLOY.md](infra/DEPLOY.md) para la guía paso a paso.
 | Migración de `tareas.md` | Hecha — 14 tareas reales cargadas en `public.tasks` (limpieza, pintura, trámites de Registro Nacional/OIJ, etc.), archivo retirado como fuente de verdad |
 | Prueba de punta a punta | Verificada dos veces (BrainFocus y OpenClaw por separado): crear tarea → completar → listar filtrado, con auditoría en `agent_actions` |
 
-Pendiente: build y publicación de `apps/web` detrás de Caddy (`app.brainfocuscr.com` / `api.brainfocuscr.com`).
+Pendiente: build y publicación de `apps/web` detrás de Caddy (`app.focusbraincr.com` / `api.focusbraincr.com`) — DNS ya creados.

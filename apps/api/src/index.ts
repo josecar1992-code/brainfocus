@@ -42,5 +42,5 @@ app.use("/exercise", exerciseRouter);
 app.use(errorHandler);
 
 app.listen(env.port, () => {
-  console.log(`BrainFocusCR API escuchando en :${env.port}`);
+  console.log(`FocusbrainCR API escuchando en :${env.port}`);
 });

@@ -1,7 +1,7 @@
 # Despliegue en el VPS de Natural Beauty (`169.58.62.116`)
 
 Mismo servidor donde vive OpenClaw/Quicks (nativo, `openclaw.service` vía systemd). **Todo lo de
-BrainFocus corre en Docker** (`docker-compose.yml` en la raíz del repo) — nada se instala directo
+Focusbrain corre en Docker** (`docker-compose.yml` en la raíz del repo) — nada se instala directo
 en el host, para no tocar el filesystem raíz que comparte con OpenClaw.
 
 Caddy **no** vive en el mismo host de forma nativa: corre dentro del docker-compose de
@@ -54,7 +54,7 @@ desde el contenedor de Caddy. Confirmar que `ufw` permite las redes de Docker
 caddy reload --config /opt/naturalbeautycr/Caddyfile
 ```
 
-Antes de esto, apuntar los DNS de `api.brainfocuscr.com` y `app.brainfocuscr.com` a la IP del VPS.
+DNS ya creados (`api.focusbraincr.com` y `app.focusbraincr.com` → IP del VPS).
 
 ## 5. Servidor MCP (`apps/mcp`, también en Docker)
 
@@ -108,7 +108,7 @@ Documentado aquí para que quede como referencia, pero lo ejecuta y verifica la 
    para mantener el aislamiento ya establecido en este VPS, y confirmar en logs, no de memoria:
    `journalctl -u openclaw.service | grep 'tool policy removed'`.
 5. **Antes de este paso, decidir**:
-   - **`tareas.md`**: si BrainFocus pasa a ser la fuente de verdad de tareas, retirar el archivo
+   - **`tareas.md`**: si Focusbrain pasa a ser la fuente de verdad de tareas, retirar el archivo
      de forma explícita (migrar pendientes, actualizar `SOUL.md`, ajustar los cron jobs que hoy leen
      el archivo) — no dejar que convivan los dos, o Quicks va a tener dos lugares donde anotar.
    - **Recordatorios vs. `cron`**: `crear_recordatorio` de este MCP solo guarda el dato para que se

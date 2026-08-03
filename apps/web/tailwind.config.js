@@ -3,7 +3,7 @@ export default {
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
-      // Manual de Identidad de Marca — BrainFocus
+      // Manual de Identidad de Marca — Focusbrain
       colors: {
         "night-blue": "#0A2540", // fondo principal, encabezados
         "electric-cyan": "#00D2FF", // trazo del cerebro, CTAs, destacados

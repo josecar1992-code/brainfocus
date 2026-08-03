@@ -1,4 +1,4 @@
--- BrainFocusCR — esquema inicial
+-- FocusbrainCR — esquema inicial
 -- Diseñado para single-user hoy, multi-tenant mañana: toda tabla de datos lleva user_id
 -- y una policy de RLS "user_id = auth.uid()". La API usa la service_role key (bypassa RLS
 -- a propósito, es la única puerta de entrada), pero RLS queda activo como defensa en

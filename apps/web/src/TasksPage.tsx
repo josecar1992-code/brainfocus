@@ -21,10 +21,10 @@ export function TasksPage() {
   return (
     <div className="max-w-md mx-auto mt-10 px-4">
       <div className="flex items-center gap-2 mb-6">
-        <img src="/logo.jpeg" alt="BrainFocus" className="w-8 h-8 rounded-lg" />
+        <img src="/logo.jpeg" alt="Focusbrain" className="w-8 h-8 rounded-lg" />
         <h1 className="text-lg">
-          <span className="font-bold">Brain</span>
-          <span className="font-medium text-electric-cyan">Focus</span>
+          <span className="font-bold">Focus</span>
+          <span className="font-medium text-electric-cyan">brain</span>
         </h1>
       </div>
       <h2 className="text-lg font-medium mb-4">Tareas</h2>

@@ -1,14 +1,14 @@
 # Bloque a agregar al Caddy compartido del VPS de Natural Beauty
 # (/opt/naturalbeautycr/Caddyfile), mismo patrón usado para OpenClaw.
 
-api.brainfocuscr.com {
+api.focusbraincr.com {
 	# Caddy corre en el docker-compose de Natural Beauty; la API es nativa (systemd) en el host,
 	# por eso host.docker.internal en vez de localhost (requiere regla ufw para redes de Docker).
 	reverse_proxy host.docker.internal:3001
 }
 
-app.brainfocuscr.com {
-	root * /opt/brainfocus/web/dist
+app.focusbraincr.com {
+	root * /opt/brainfocus/apps/web/dist
 	encode gzip
 	try_files {path} /index.html
 	file_server

@@ -21,7 +21,7 @@ export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T
 
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    throw new Error(`BrainFocus API ${res.status} en ${path}: ${body}`);
+    throw new Error(`Focusbrain API ${res.status} en ${path}: ${body}`);
   }
   if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;

@@ -74,7 +74,7 @@ const tools = {
 
   crear_recordatorio: {
     description:
-      "Guarda un recordatorio en BrainFocus para que se vea en la app. " +
+      "Guarda un recordatorio en Focusbrain para que se vea en la app. " +
       "Esto NO dispara ningún aviso por WhatsApp/Telegram — para eso hay que crear " +
       "además un cron job (herramienta `cron`), en el mismo turno, incluyendo el id " +
       "de este recordatorio en el nombre del job para poder cancelarlo si la tarea se completa antes.",

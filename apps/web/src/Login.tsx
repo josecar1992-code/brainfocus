@@ -15,10 +15,10 @@ export function Login() {
 
   return (
     <form onSubmit={handleSubmit} className="max-w-sm mx-auto mt-20 flex flex-col items-center gap-4">
-      <img src="/logo.jpeg" alt="BrainFocus" className="w-16 h-16 rounded-2xl" />
+      <img src="/logo.jpeg" alt="Focusbrain" className="w-16 h-16 rounded-2xl" />
       <h1 className="text-xl">
-        <span className="font-bold">Brain</span>
-        <span className="font-medium text-electric-cyan">Focus</span>
+        <span className="font-bold">Focus</span>
+        <span className="font-medium text-electric-cyan">brain</span>
       </h1>
       <input
         type="email"
