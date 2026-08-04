@@ -14,6 +14,11 @@ import { env } from "../env.js";
 //   heartbeat que está apagado).
 // - schedule.at siempre con offset explícito (-06:00 para Costa Rica).
 // - delivery.to sin prefijo de canal ("+50687686207", no "whatsapp:+...").
+// - delivery.mode es obligatorio ("announce" = entrega fallback del texto
+//   final a un chat) — sin él, cron.add responde 400 "must have required
+//   property 'mode'". Confirmado creando un job de prueba con `openclaw cron
+//   add --json` y mirando el shape real que guarda, ya que no está en la
+//   documentación que nos pasaron.
 // - un solo destinatario por job.
 
 interface ReminderForCron {
@@ -41,7 +46,11 @@ async function invoke(tool: string, action: string, args: Record<string, unknown
   });
   const json = await res.json().catch(() => null);
   if (!res.ok) {
-    const detail = json && typeof json === "object" && "error" in (json as any) ? (json as any).error : res.statusText;
+    const errField = json && typeof json === "object" ? (json as any).error : null;
+    const detail =
+      errField && typeof errField === "object"
+        ? (errField.message ?? JSON.stringify(errField))
+        : (errField ?? res.statusText);
     throw new Error(`OpenClaw cron ${action} falló (${res.status}): ${detail}`);
   }
   return json;
@@ -63,7 +72,7 @@ export async function scheduleReminderCron(reminder: ReminderForCron): Promise<s
       sessionTarget: "isolated",
       schedule: { at: reminder.remind_at },
       payload: { kind: "agentTurn", message: reminder.title },
-      delivery: { channel: reminder.channel ?? "telegram", to: env.openclawReminderTo },
+      delivery: { mode: "announce", channel: reminder.channel ?? "telegram", to: env.openclawReminderTo },
     },
   });
 
