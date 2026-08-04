@@ -514,9 +514,13 @@ export function AgendaPage() {
                       onClick={() => setSelectedEvent(event)}
                       className="w-full flex items-center gap-3 px-4 py-3 text-left active:bg-white/5"
                     >
-                      <div className="flex flex-col items-center w-12 flex-shrink-0 leading-tight">
-                        <span className="text-[11px] text-white/40 uppercase">{formatDate(event.starts_at)}</span>
-                        <span className="text-xs font-semibold text-electric-cyan">{formatTime(event.starts_at)}</span>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <span className="w-12 text-[11px] text-white/40 uppercase text-center">
+                          {formatDate(event.starts_at)}
+                        </span>
+                        <span className="w-11 text-xs font-semibold text-electric-cyan text-center">
+                          {formatTime(event.starts_at)}
+                        </span>
                       </div>
                       <p className="flex-1 min-w-0 text-sm text-white/90 truncate">{event.title}</p>
                       {reminder && <ReminderBadge reminder={reminder} />}
