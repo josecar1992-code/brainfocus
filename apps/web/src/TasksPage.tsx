@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api, type List, type NewTask, type Task } from "./api";
+import { CornerBrackets } from "./CornerBrackets";
 import { IconTrash } from "./icons";
 
 const PRIORITY_ORDER: Record<Task["priority"], number> = { high: 0, normal: 1, low: 2 };
@@ -94,7 +95,7 @@ function CategorySelect({
               createList.mutate({ name: newName.trim(), color: newColor });
             }}
             disabled={createList.isPending}
-            className="flex-1 bg-electric-cyan text-night-blue font-medium rounded-lg px-3 py-1.5 text-sm disabled:opacity-50 hover:brightness-110 transition"
+            className="flex-1 bg-gradient-to-br from-deep-blue via-electric-cyan to-electric-cyan text-night-blue font-semibold rounded-lg shadow-[0_0_18px_-4px_rgba(0,210,255,0.55)] px-3 py-1.5 text-sm disabled:opacity-50 hover:brightness-110 transition"
           >
             {createList.isPending ? "Creando..." : "Crear"}
           </button>
@@ -126,7 +127,7 @@ function CategorySelect({
 
 function StatCard({ valor, etiqueta }: { valor: number; etiqueta: string }) {
   return (
-    <div className="bg-white/5 rounded-2xl shadow-sm border border-white/10 px-3 py-4 text-center">
+    <div className="bg-night-blue/40 backdrop-blur-md rounded-2xl border border-electric-cyan/10 shadow-[0_0_40px_-24px_rgba(0,210,255,0.35)] px-3 py-4 text-center">
       <p className="text-2xl font-bold text-white leading-none">{valor}</p>
       <p className="text-[11px] text-white/40 mt-1.5 leading-tight">{etiqueta}</p>
     </div>
@@ -195,7 +196,8 @@ function NewTaskModal({ lists, onClose }: { lists: List[]; onClose: () => void }
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center px-4 z-20 overflow-y-auto py-8">
-      <div className="w-full max-w-sm border border-electric-cyan/20 bg-night-blue rounded-2xl p-6 shadow-[0_0_60px_-15px_rgba(0,210,255,0.25)]">
+      <div className="relative w-full max-w-sm border border-electric-cyan/20 bg-night-blue rounded-2xl p-6 shadow-[0_0_60px_-15px_rgba(0,210,255,0.25)]">
+      <CornerBrackets />
       <h2 className="text-lg font-medium mb-3">Nueva tarea</h2>
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
         <div className="flex flex-col gap-1">
@@ -297,7 +299,7 @@ function NewTaskModal({ lists, onClose }: { lists: List[]; onClose: () => void }
           <button
             type="submit"
             disabled={createTask.isPending}
-            className="flex-1 bg-electric-cyan text-night-blue font-medium rounded-lg px-3 py-2 disabled:opacity-50 hover:brightness-110 transition"
+            className="flex-1 bg-gradient-to-br from-deep-blue via-electric-cyan to-electric-cyan text-night-blue font-semibold rounded-lg shadow-[0_0_18px_-4px_rgba(0,210,255,0.55)] px-3 py-2 disabled:opacity-50 hover:brightness-110 transition"
           >
             {createTask.isPending ? "Creando..." : "Crear tarea"}
           </button>
@@ -351,7 +353,8 @@ function TaskDetail({ task, lists, onClose }: { task: Task; lists: List[]; onClo
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center px-4 z-20">
-      <div className="w-full max-w-sm border border-electric-cyan/20 bg-night-blue rounded-2xl p-6 flex flex-col gap-3 shadow-[0_0_60px_-15px_rgba(0,210,255,0.25)]">
+      <div className="relative w-full max-w-sm border border-electric-cyan/20 bg-night-blue rounded-2xl p-6 flex flex-col gap-3 shadow-[0_0_60px_-15px_rgba(0,210,255,0.25)]">
+        <CornerBrackets />
         {editing ? (
           <form onSubmit={handleSubmit} className="flex flex-col gap-3">
             <h2 className="text-lg font-medium mb-1">Editar tarea</h2>
@@ -404,7 +407,7 @@ function TaskDetail({ task, lists, onClose }: { task: Task; lists: List[]; onClo
               <button
                 type="submit"
                 disabled={updateTask.isPending}
-                className="flex-1 bg-electric-cyan text-night-blue font-medium rounded-lg px-3 py-2 disabled:opacity-50 hover:brightness-110 transition"
+                className="flex-1 bg-gradient-to-br from-deep-blue via-electric-cyan to-electric-cyan text-night-blue font-semibold rounded-lg shadow-[0_0_18px_-4px_rgba(0,210,255,0.55)] px-3 py-2 disabled:opacity-50 hover:brightness-110 transition"
               >
                 {updateTask.isPending ? "Guardando..." : "Guardar"}
               </button>
@@ -504,7 +507,7 @@ export function TasksPage() {
         <button
           type="button"
           onClick={() => setShowForm(true)}
-          className="bg-electric-cyan text-night-blue font-medium rounded-lg px-3 py-2 text-sm hover:brightness-110 transition flex-shrink-0"
+          className="bg-gradient-to-br from-deep-blue via-electric-cyan to-electric-cyan text-night-blue font-semibold rounded-lg shadow-[0_0_18px_-4px_rgba(0,210,255,0.55)] px-3 py-2 text-sm hover:brightness-110 transition flex-shrink-0"
         >
           + Crear tarea
         </button>
@@ -546,7 +549,7 @@ export function TasksPage() {
         </select>
       </div>
 
-      <div className="bg-white/5 rounded-2xl shadow-sm border border-white/10 overflow-hidden">
+      <div className="bg-night-blue/40 backdrop-blur-md rounded-2xl border border-electric-cyan/10 shadow-[0_0_40px_-24px_rgba(0,210,255,0.35)] overflow-hidden">
         <p className="text-xs font-semibold uppercase tracking-wide text-white/40 px-5 pt-5 pb-2">Lista</p>
 
         {isLoading && <p className="text-white/40 text-sm px-5 pb-5">Cargando...</p>}

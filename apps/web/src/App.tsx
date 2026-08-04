@@ -4,6 +4,7 @@ import { AgendaPage } from "./AgendaPage";
 import { ApiError, api } from "./api";
 import { Header } from "./Header";
 import { Login } from "./Login";
+import { NeuronBackground } from "./NeuronBackground";
 import { MODULES, Sidebar, type ModuleKey } from "./Sidebar";
 import { NotesPage } from "./NotesPage";
 import { SettingsPage } from "./SettingsPage";
@@ -68,6 +69,18 @@ export function App() {
 
   return (
     <div className="md:flex md:h-screen">
+      {/* Misma estética "red neuronal" del login, pero discreta — de fondo detrás
+          de los paneles de datos, no protagonista. */}
+      <NeuronBackground nodeCount={32} opacity={0.28} />
+      <div
+        className="fixed inset-0 -z-10 pointer-events-none"
+        style={{
+          background:
+            "radial-gradient(circle at 15% 10%, rgba(0,210,255,0.07) 0%, transparent 55%)," +
+            "radial-gradient(circle at 85% 90%, rgba(0,136,204,0.07) 0%, transparent 55%)",
+        }}
+      />
+
       <Sidebar active={activeModule} onChange={setActiveModule} email={session.user.email} />
       <div className="flex-1 flex flex-col min-w-0 md:overflow-hidden">
         <Header active={activeModule} email={session.user.email} />

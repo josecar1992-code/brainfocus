@@ -7,14 +7,20 @@ interface Node {
   vy: number;
 }
 
-const NODE_COUNT = 70;
 const LINK_DISTANCE = 130;
 const NODE_COLOR = "rgba(0, 210, 255, 0.55)";
 const LINK_COLOR = "0, 210, 255";
 
+interface NeuronBackgroundProps {
+  /** Cantidad de nodos — menos nodos = fondo más discreto detrás de pantallas con datos. */
+  nodeCount?: number;
+  /** Opacidad del canvas completo (className `opacity-*` no acepta valores dinámicos). */
+  opacity?: number;
+}
+
 // Fondo animado tipo "red neuronal" — nodos que derivan y se conectan por
 // cercanía, inspirado en portales futuristas de dashboards de IA.
-export function NeuronBackground() {
+export function NeuronBackground({ nodeCount = 70, opacity = 0.7 }: NeuronBackgroundProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -36,7 +42,7 @@ export function NeuronBackground() {
     }
 
     function initNodes() {
-      nodes = Array.from({ length: NODE_COUNT }, () => ({
+      nodes = Array.from({ length: nodeCount }, () => ({
         x: Math.random() * width,
         y: Math.random() * height,
         vx: (Math.random() - 0.5) * 0.25,
@@ -99,12 +105,13 @@ export function NeuronBackground() {
       window.removeEventListener("resize", resize);
       cancelAnimationFrame(rafId);
     };
-  }, []);
+  }, [nodeCount]);
 
   return (
     <canvas
       ref={canvasRef}
-      className="fixed inset-0 -z-10 opacity-70"
+      className="fixed inset-0 -z-10"
+      style={{ opacity }}
       aria-hidden="true"
     />
   );

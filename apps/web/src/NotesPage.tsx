@@ -53,7 +53,7 @@ export function NotesPage() {
         <p className="text-sm text-white/40">Información libre — Quicks también puede leerlas y buscarlas por vos</p>
       </div>
 
-      <div className="bg-white/5 rounded-2xl shadow-sm border border-white/10 p-5">
+      <div className="bg-night-blue/40 backdrop-blur-md rounded-2xl border border-electric-cyan/10 shadow-[0_0_40px_-24px_rgba(0,210,255,0.35)] p-5">
         <p className="text-xs font-semibold uppercase tracking-wide text-white/40 mb-3">Nueva nota</p>
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           <input
@@ -73,14 +73,14 @@ export function NotesPage() {
           <button
             type="submit"
             disabled={createNote.isPending}
-            className="self-end bg-electric-cyan text-night-blue font-medium rounded-lg px-4 py-2 disabled:opacity-50 hover:brightness-110 transition"
+            className="self-end bg-gradient-to-br from-deep-blue via-electric-cyan to-electric-cyan text-night-blue font-semibold rounded-lg shadow-[0_0_18px_-4px_rgba(0,210,255,0.55)] px-4 py-2 disabled:opacity-50 hover:brightness-110 transition"
           >
             {createNote.isPending ? "Guardando..." : "Guardar nota"}
           </button>
         </form>
       </div>
 
-      <div className="bg-white/5 rounded-2xl shadow-sm border border-white/10 overflow-hidden">
+      <div className="bg-night-blue/40 backdrop-blur-md rounded-2xl border border-electric-cyan/10 shadow-[0_0_40px_-24px_rgba(0,210,255,0.35)] overflow-hidden">
         <p className="text-xs font-semibold uppercase tracking-wide text-white/40 px-5 pt-5 pb-2">Guardadas</p>
 
         {isLoading && <p className="text-white/40 text-sm px-5 pb-5">Cargando...</p>}

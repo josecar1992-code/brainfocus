@@ -21,11 +21,14 @@ function getInitials(email?: string | null) {
 function Brand() {
   return (
     <div className="flex items-center gap-3">
-      <img
-        src="/logo.png"
-        alt="Focusbrain"
-        className="w-9 h-9 rounded-xl object-cover shadow-lg shadow-electric-cyan/20 flex-shrink-0"
-      />
+      <div className="relative w-9 h-9 flex items-center justify-center flex-shrink-0">
+        <div className="absolute inset-[-3px] rounded-xl border border-electric-cyan/30 animate-ringPulse" />
+        <img
+          src="/logo.png"
+          alt="Focusbrain"
+          className="w-9 h-9 rounded-xl object-cover shadow-lg shadow-electric-cyan/20 relative"
+        />
+      </div>
       <div className="leading-none">
         <p className="font-bold text-white text-sm tracking-wide">
           Focus<span className="font-medium text-electric-cyan">brain</span>
@@ -94,18 +97,18 @@ export function Sidebar({ active, onChange, email }: SidebarProps) {
   return (
     <>
       {/* Desktop: sidebar fija a la izquierda */}
-      <aside className="hidden md:flex md:flex-col md:w-64 md:shrink-0 md:h-screen md:sticky md:top-0 bg-night-blue border-r border-white/8 md:px-3 md:py-6 md:gap-3">
+      <aside className="hidden md:flex md:flex-col md:w-64 md:shrink-0 md:h-screen md:sticky md:top-0 bg-night-blue/70 backdrop-blur-xl border-r border-electric-cyan/10 md:px-3 md:py-6 md:gap-3">
         <div className="px-2 pb-4">
           <Brand />
         </div>
-        <div className="mx-2 h-px bg-white/8 mb-2" />
+        <div className="mx-2 h-px bg-gradient-to-r from-electric-cyan/25 via-white/8 to-transparent mb-2" />
         <NavLinks active={active} onChange={onChange} />
-        <div className="mx-2 h-px bg-white/8 mt-2 mb-1" />
+        <div className="mx-2 h-px bg-gradient-to-r from-electric-cyan/25 via-white/8 to-transparent mt-2 mb-1" />
         <UserBlock email={email} />
       </aside>
 
       {/* Móvil: barra superior con hamburguesa */}
-      <div className="flex md:hidden items-center justify-between px-4 py-3 border-b border-white/8 bg-night-blue">
+      <div className="flex md:hidden items-center justify-between px-4 py-3 border-b border-electric-cyan/10 bg-night-blue/80 backdrop-blur-xl">
         <Brand />
         <button
           type="button"
@@ -123,7 +126,7 @@ export function Sidebar({ active, onChange, email }: SidebarProps) {
       {mobileOpen && (
         <div className="fixed inset-0 z-30 md:hidden">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
-          <div className="absolute top-0 left-0 h-full w-72 bg-night-blue border-r border-white/8 px-3 py-6 flex flex-col gap-3 shadow-2xl">
+          <div className="absolute top-0 left-0 h-full w-72 bg-night-blue/95 backdrop-blur-xl border-r border-electric-cyan/15 px-3 py-6 flex flex-col gap-3 shadow-2xl">
             <div className="flex items-center justify-between px-2 pb-2">
               <Brand />
               <button

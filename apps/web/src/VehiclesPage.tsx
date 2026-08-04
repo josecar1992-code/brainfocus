@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api, type NewMaintenance, type NewVehicle, type Vehicle, type VehicleMaintenance } from "./api";
+import { CornerBrackets } from "./CornerBrackets";
 import { IconX } from "./icons";
 
 const VEHICLE_TYPES = ["Sedán", "SUV", "Pickup", "Hatchback", "Moto", "Otro"];
@@ -116,7 +117,7 @@ function VehicleForm({
         <button
           type="submit"
           disabled={pending}
-          className="flex-1 bg-electric-cyan text-night-blue font-medium rounded-lg px-3 py-2 disabled:opacity-50 hover:brightness-110 transition"
+          className="flex-1 bg-gradient-to-br from-deep-blue via-electric-cyan to-electric-cyan text-night-blue font-semibold rounded-lg shadow-[0_0_18px_-4px_rgba(0,210,255,0.55)] px-3 py-2 disabled:opacity-50 hover:brightness-110 transition"
         >
           {pending ? "Guardando..." : submitLabel}
         </button>
@@ -140,7 +141,8 @@ function NewVehicleModal({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center px-4 z-20">
-      <div className="w-full max-w-sm border border-electric-cyan/20 bg-night-blue rounded-2xl p-6 shadow-[0_0_60px_-15px_rgba(0,210,255,0.25)]">
+      <div className="relative w-full max-w-sm border border-electric-cyan/20 bg-night-blue rounded-2xl p-6 shadow-[0_0_60px_-15px_rgba(0,210,255,0.25)]">
+        <CornerBrackets />
         <h2 className="text-lg font-medium mb-3">Nuevo vehículo</h2>
         <VehicleForm
           onSubmit={(input) => {
@@ -217,7 +219,7 @@ function AddMaintenanceForm({ vehicleId, onDone }: { vehicleId: string; onDone: 
       <button
         type="submit"
         disabled={createMaintenance.isPending}
-        className="self-end bg-electric-cyan text-night-blue font-medium rounded-lg px-3 py-1.5 text-sm disabled:opacity-50 hover:brightness-110 transition"
+        className="self-end bg-gradient-to-br from-deep-blue via-electric-cyan to-electric-cyan text-night-blue font-semibold rounded-lg shadow-[0_0_18px_-4px_rgba(0,210,255,0.55)] px-3 py-1.5 text-sm disabled:opacity-50 hover:brightness-110 transition"
       >
         {createMaintenance.isPending ? "Guardando..." : "Agregar"}
       </button>
@@ -261,7 +263,8 @@ function VehicleDetail({ vehicle, onClose }: { vehicle: Vehicle; onClose: () => 
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center px-4 z-20 overflow-y-auto py-8">
-      <div className="w-full max-w-md border border-electric-cyan/20 bg-night-blue rounded-2xl p-6 flex flex-col gap-4 shadow-[0_0_60px_-15px_rgba(0,210,255,0.25)]">
+      <div className="relative w-full max-w-md border border-electric-cyan/20 bg-night-blue rounded-2xl p-6 flex flex-col gap-4 shadow-[0_0_60px_-15px_rgba(0,210,255,0.25)]">
+        <CornerBrackets />
         {editing ? (
           <>
             <h2 className="text-lg font-medium">Editar vehículo</h2>
@@ -396,7 +399,7 @@ export function VehiclesPage() {
         <button
           type="button"
           onClick={() => setShowForm(true)}
-          className="bg-electric-cyan text-night-blue font-medium rounded-lg px-3 py-2 text-sm hover:brightness-110 transition flex-shrink-0"
+          className="bg-gradient-to-br from-deep-blue via-electric-cyan to-electric-cyan text-night-blue font-semibold rounded-lg shadow-[0_0_18px_-4px_rgba(0,210,255,0.55)] px-3 py-2 text-sm hover:brightness-110 transition flex-shrink-0"
         >
           + Agregar vehículo
         </button>
@@ -404,7 +407,7 @@ export function VehiclesPage() {
 
       {isLoading && <p className="text-white/40 text-sm">Cargando...</p>}
       {vehicles && vehicles.length === 0 && !isLoading && (
-        <div className="bg-white/5 rounded-2xl shadow-sm border border-white/10 p-5">
+        <div className="bg-night-blue/40 backdrop-blur-md rounded-2xl border border-electric-cyan/10 shadow-[0_0_40px_-24px_rgba(0,210,255,0.35)] p-5">
           <p className="text-white/40 text-sm">No hay vehículos todavía.</p>
         </div>
       )}
@@ -416,7 +419,7 @@ export function VehiclesPage() {
               key={v.id}
               type="button"
               onClick={() => setSelectedVehicle(v)}
-              className="text-left bg-white/5 rounded-2xl shadow-sm border border-white/10 p-4 hover:bg-white/10 transition-colors"
+              className="text-left bg-night-blue/40 backdrop-blur-md rounded-2xl border border-electric-cyan/10 shadow-[0_0_40px_-24px_rgba(0,210,255,0.35)] p-4 hover:bg-white/10 transition-colors"
             >
               <p className="text-sm font-semibold text-white/90">
                 {v.brand} {v.model}

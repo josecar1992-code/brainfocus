@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api, type Event, type Reminder } from "./api";
+import { CornerBrackets } from "./CornerBrackets";
 import { IconBell, IconBellOff, IconCheckCircle } from "./icons";
 
 const CR_OFFSET = "-06:00"; // Costa Rica, sin horario de verano — offset fijo
@@ -86,8 +87,9 @@ function NewEventForm({ onClose }: { onClose: () => void }) {
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center px-4 z-20">
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-sm border border-electric-cyan/20 bg-night-blue rounded-2xl p-6 flex flex-col gap-3 shadow-[0_0_60px_-15px_rgba(0,210,255,0.25)]"
+        className="relative w-full max-w-sm border border-electric-cyan/20 bg-night-blue rounded-2xl p-6 flex flex-col gap-3 shadow-[0_0_60px_-15px_rgba(0,210,255,0.25)]"
       >
+        <CornerBrackets />
         <h2 className="text-lg font-medium mb-1">Nuevo evento</h2>
 
         <div className="flex flex-col gap-1">
@@ -155,7 +157,7 @@ function NewEventForm({ onClose }: { onClose: () => void }) {
           <button
             type="submit"
             disabled={createEvent.isPending}
-            className="flex-1 bg-electric-cyan text-night-blue font-medium rounded-lg px-3 py-2 disabled:opacity-50 hover:brightness-110 transition"
+            className="flex-1 bg-gradient-to-br from-deep-blue via-electric-cyan to-electric-cyan text-night-blue font-semibold rounded-lg shadow-[0_0_18px_-4px_rgba(0,210,255,0.55)] px-3 py-2 disabled:opacity-50 hover:brightness-110 transition"
           >
             {createEvent.isPending ? "Creando..." : "Crear evento"}
           </button>
@@ -212,7 +214,8 @@ function EventDetail({ event, reminder, onClose }: { event: Event; reminder?: Re
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center px-4 z-20">
-      <div className="w-full max-w-sm border border-electric-cyan/20 bg-night-blue rounded-2xl p-6 flex flex-col gap-3 shadow-[0_0_60px_-15px_rgba(0,210,255,0.25)]">
+      <div className="relative w-full max-w-sm border border-electric-cyan/20 bg-night-blue rounded-2xl p-6 flex flex-col gap-3 shadow-[0_0_60px_-15px_rgba(0,210,255,0.25)]">
+        <CornerBrackets />
         {editing ? (
           <form onSubmit={handleSubmit} className="flex flex-col gap-3">
             <h2 className="text-lg font-medium mb-1">Editar evento</h2>
@@ -265,7 +268,7 @@ function EventDetail({ event, reminder, onClose }: { event: Event; reminder?: Re
               <button
                 type="submit"
                 disabled={updateEvent.isPending}
-                className="flex-1 bg-electric-cyan text-night-blue font-medium rounded-lg px-3 py-2 disabled:opacity-50 hover:brightness-110 transition"
+                className="flex-1 bg-gradient-to-br from-deep-blue via-electric-cyan to-electric-cyan text-night-blue font-semibold rounded-lg shadow-[0_0_18px_-4px_rgba(0,210,255,0.55)] px-3 py-2 disabled:opacity-50 hover:brightness-110 transition"
               >
                 {updateEvent.isPending ? "Guardando..." : "Guardar"}
               </button>
@@ -450,7 +453,7 @@ export function AgendaPage() {
         <button
           type="button"
           onClick={() => setShowForm(true)}
-          className="bg-electric-cyan text-night-blue font-medium rounded-lg px-3 py-2 text-sm hover:brightness-110 transition flex-shrink-0"
+          className="bg-gradient-to-br from-deep-blue via-electric-cyan to-electric-cyan text-night-blue font-semibold rounded-lg shadow-[0_0_18px_-4px_rgba(0,210,255,0.55)] px-3 py-2 text-sm hover:brightness-110 transition flex-shrink-0"
         >
           + Crear evento
         </button>
@@ -465,7 +468,7 @@ export function AgendaPage() {
         onRangeEnd={setRangeEnd}
       />
 
-      <div className="bg-white/5 rounded-2xl shadow-sm border border-white/10 overflow-hidden">
+      <div className="bg-night-blue/40 backdrop-blur-md rounded-2xl border border-electric-cyan/10 shadow-[0_0_40px_-24px_rgba(0,210,255,0.35)] overflow-hidden">
         <p className="text-xs font-semibold uppercase tracking-wide text-white/40 px-5 pt-5 pb-2">Eventos</p>
 
         {isLoading && <p className="text-white/40 text-sm px-5 pb-5">Cargando...</p>}
@@ -538,7 +541,7 @@ export function AgendaPage() {
       </div>
 
       {looseReminders.length > 0 && (
-        <div className="bg-white/5 rounded-2xl shadow-sm border border-white/10 overflow-hidden">
+        <div className="bg-night-blue/40 backdrop-blur-md rounded-2xl border border-electric-cyan/10 shadow-[0_0_40px_-24px_rgba(0,210,255,0.35)] overflow-hidden">
           <p className="text-xs font-semibold uppercase tracking-wide text-white/40 px-5 pt-5 pb-2">
             Recordatorios sin evento
           </p>
