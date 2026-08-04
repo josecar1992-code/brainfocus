@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api, type NewMaintenance, type NewVehicle, type Vehicle, type VehicleMaintenance } from "./api";
+import { ConfirmDialog } from "./ConfirmDialog";
 import { CornerBrackets } from "./CornerBrackets";
 import { IconX } from "./icons";
 
@@ -231,6 +232,8 @@ function VehicleDetail({ vehicle, onClose }: { vehicle: Vehicle; onClose: () => 
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [showAddMaintenance, setShowAddMaintenance] = useState(false);
+  const [confirmingDeleteVehicle, setConfirmingDeleteVehicle] = useState(false);
+  const [maintenanceToDelete, setMaintenanceToDelete] = useState<VehicleMaintenance | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const { data: maintenance, isLoading } = useQuery({
@@ -258,7 +261,10 @@ function VehicleDetail({ vehicle, onClose }: { vehicle: Vehicle; onClose: () => 
 
   const deleteMaintenance = useMutation({
     mutationFn: (id: string) => api.deleteMaintenance(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["vehicle-maintenance", vehicle.id] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["vehicle-maintenance", vehicle.id] });
+      setMaintenanceToDelete(null);
+    },
   });
 
   return (
@@ -316,10 +322,7 @@ function VehicleDetail({ vehicle, onClose }: { vehicle: Vehicle; onClose: () => 
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  if (confirm(`¿Borrar ${vehicle.brand} ${vehicle.model}? Esto borra también su historial.`))
-                    deleteVehicle.mutate();
-                }}
+                onClick={() => setConfirmingDeleteVehicle(true)}
                 disabled={deleteVehicle.isPending}
                 className="border border-red-400/40 text-red-400 rounded-lg px-2 py-2 text-sm hover:bg-red-400/10 transition disabled:opacity-50"
               >
@@ -366,7 +369,7 @@ function VehicleDetail({ vehicle, onClose }: { vehicle: Vehicle; onClose: () => 
                       </div>
                       <button
                         type="button"
-                        onClick={() => deleteMaintenance.mutate(m.id)}
+                        onClick={() => setMaintenanceToDelete(m)}
                         aria-label="Borrar registro"
                         className="text-white/20 hover:text-red-400 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100"
                       >
@@ -380,6 +383,23 @@ function VehicleDetail({ vehicle, onClose }: { vehicle: Vehicle; onClose: () => 
           </>
         )}
       </div>
+
+      {confirmingDeleteVehicle && (
+        <ConfirmDialog
+          message={`¿Borrar ${vehicle.brand} ${vehicle.model}? Esto borra también su historial.`}
+          pending={deleteVehicle.isPending}
+          onCancel={() => setConfirmingDeleteVehicle(false)}
+          onConfirm={() => deleteVehicle.mutate()}
+        />
+      )}
+      {maintenanceToDelete && (
+        <ConfirmDialog
+          message={`¿Borrar el registro "${maintenanceToDelete.description}"?`}
+          pending={deleteMaintenance.isPending}
+          onCancel={() => setMaintenanceToDelete(null)}
+          onConfirm={() => deleteMaintenance.mutate(maintenanceToDelete.id)}
+        />
+      )}
     </div>
   );
 }

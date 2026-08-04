@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api, type List, type NewTask, type Task } from "./api";
+import { ConfirmDialog } from "./ConfirmDialog";
 import { CornerBrackets } from "./CornerBrackets";
 import { IconTrash } from "./icons";
 
@@ -313,6 +314,7 @@ function NewTaskModal({ lists, onClose }: { lists: List[]; onClose: () => void }
 function TaskDetail({ task, lists, onClose }: { task: Task; lists: List[]; onClose: () => void }) {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [title, setTitle] = useState(task.title);
   const [notes, setNotes] = useState(task.notes ?? "");
   const [listId, setListId] = useState(task.list_id ?? "");
@@ -449,9 +451,7 @@ function TaskDetail({ task, lists, onClose }: { task: Task; lists: List[]; onClo
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  if (confirm(`¿Borrar "${task.title}"?`)) deleteTask.mutate();
-                }}
+                onClick={() => setConfirmingDelete(true)}
                 disabled={deleteTask.isPending}
                 className="border border-red-400/40 text-red-400 rounded-lg px-2 py-2 text-sm hover:bg-red-400/10 transition disabled:opacity-50"
               >
@@ -461,6 +461,15 @@ function TaskDetail({ task, lists, onClose }: { task: Task; lists: List[]; onClo
           </>
         )}
       </div>
+
+      {confirmingDelete && (
+        <ConfirmDialog
+          message={`¿Borrar "${task.title}"?`}
+          pending={deleteTask.isPending}
+          onCancel={() => setConfirmingDelete(false)}
+          onConfirm={() => deleteTask.mutate()}
+        />
+      )}
     </div>
   );
 }
@@ -468,6 +477,7 @@ function TaskDetail({ task, lists, onClose }: { task: Task; lists: List[]; onClo
 export function TasksPage() {
   const queryClient = useQueryClient();
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [categoriaFilter, setCategoriaFilter] = useState("");
   const [prioridadFilter, setPrioridadFilter] = useState<Task["priority"] | "">("");
@@ -484,6 +494,7 @@ export function TasksPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
       queryClient.invalidateQueries({ queryKey: ["reminders"] });
+      setTaskToDelete(null);
     },
   });
 
@@ -598,7 +609,7 @@ export function TasksPage() {
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      deleteTask.mutate(task.id);
+                      setTaskToDelete(task);
                     }}
                     aria-label="Borrar tarea"
                     className="text-white/20 hover:text-red-400 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100"
@@ -614,6 +625,14 @@ export function TasksPage() {
 
       {showForm && <NewTaskModal lists={lists ?? []} onClose={() => setShowForm(false)} />}
       {selectedTask && <TaskDetail task={selectedTask} lists={lists ?? []} onClose={() => setSelectedTask(null)} />}
+      {taskToDelete && (
+        <ConfirmDialog
+          message={`¿Borrar "${taskToDelete.title}"?`}
+          pending={deleteTask.isPending}
+          onCancel={() => setTaskToDelete(null)}
+          onConfirm={() => deleteTask.mutate(taskToDelete.id)}
+        />
+      )}
     </div>
   );
 }

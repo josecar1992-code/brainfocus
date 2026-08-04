@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api, type List } from "./api";
+import { ConfirmDialog } from "./ConfirmDialog";
 import { IconTrash } from "./icons";
 
 const SUGGESTED_COLORS = ["#00D2FF", "#4A6FA5", "#148F53", "#B54A4A", "#B58E2E", "#7B4AB5"];
@@ -10,6 +11,7 @@ export function SettingsPage() {
   const [name, setName] = useState("");
   const [color, setColor] = useState(SUGGESTED_COLORS[0]);
   const [error, setError] = useState<string | null>(null);
+  const [listToDelete, setListToDelete] = useState<List | null>(null);
 
   const { data: lists, isLoading } = useQuery({ queryKey: ["lists"], queryFn: api.listLists });
 
@@ -24,7 +26,10 @@ export function SettingsPage() {
 
   const deleteList = useMutation({
     mutationFn: api.deleteList,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["lists"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["lists"] });
+      setListToDelete(null);
+    },
   });
 
   function handleSubmit(e: React.FormEvent) {
@@ -107,10 +112,7 @@ export function SettingsPage() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => {
-                    if (confirm(`¿Borrar la categoría "${list.name}"? Las tareas quedan sin categoría.`))
-                      deleteList.mutate(list.id);
-                  }}
+                  onClick={() => setListToDelete(list)}
                   aria-label="Borrar categoría"
                   className="text-white/20 hover:text-red-400 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100"
                 >
@@ -121,6 +123,15 @@ export function SettingsPage() {
           </ul>
         )}
       </div>
+
+      {listToDelete && (
+        <ConfirmDialog
+          message={`¿Borrar la categoría "${listToDelete.name}"? Las tareas quedan sin categoría.`}
+          pending={deleteList.isPending}
+          onCancel={() => setListToDelete(null)}
+          onConfirm={() => deleteList.mutate(listToDelete.id)}
+        />
+      )}
     </div>
   );
 }

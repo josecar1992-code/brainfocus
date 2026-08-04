@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api, type Note } from "./api";
+import { ConfirmDialog } from "./ConfirmDialog";
 import { IconX } from "./icons";
 
 function formatDateTime(iso: string) {
@@ -18,6 +19,7 @@ export function NotesPage() {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [noteToDelete, setNoteToDelete] = useState<Note | null>(null);
 
   const { data: notes, isLoading } = useQuery({ queryKey: ["notes"], queryFn: api.listNotes });
 
@@ -33,7 +35,10 @@ export function NotesPage() {
 
   const deleteNote = useMutation({
     mutationFn: api.deleteNote,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notes"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["notes"] });
+      setNoteToDelete(null);
+    },
   });
 
   function handleSubmit(e: React.FormEvent) {
@@ -101,7 +106,7 @@ export function NotesPage() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => deleteNote.mutate(note.id)}
+                    onClick={() => setNoteToDelete(note)}
                     aria-label="Borrar nota"
                     className="text-white/20 hover:text-red-400 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100"
                   >
@@ -113,6 +118,15 @@ export function NotesPage() {
           </ul>
         )}
       </div>
+
+      {noteToDelete && (
+        <ConfirmDialog
+          message={`¿Borrar la nota "${noteToDelete.title || noteToDelete.content?.slice(0, 40) || "sin título"}"?`}
+          pending={deleteNote.isPending}
+          onCancel={() => setNoteToDelete(null)}
+          onConfirm={() => deleteNote.mutate(noteToDelete.id)}
+        />
+      )}
     </div>
   );
 }

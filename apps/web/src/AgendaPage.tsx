@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api, type Event, type Reminder } from "./api";
+import { ConfirmDialog } from "./ConfirmDialog";
 import { CornerBrackets } from "./CornerBrackets";
 import { IconBell, IconBellOff, IconCheckCircle } from "./icons";
 
@@ -170,6 +171,7 @@ function NewEventForm({ onClose }: { onClose: () => void }) {
 function EventDetail({ event, reminder, onClose }: { event: Event; reminder?: Reminder; onClose: () => void }) {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const start = new Date(event.starts_at);
   const [title, setTitle] = useState(event.title);
   const [description, setDescription] = useState(event.description ?? "");
@@ -304,9 +306,7 @@ function EventDetail({ event, reminder, onClose }: { event: Event; reminder?: Re
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  if (confirm(`¿Borrar "${event.title}"? Esto también cancela el recordatorio.`)) deleteEvent.mutate();
-                }}
+                onClick={() => setConfirmingDelete(true)}
                 disabled={deleteEvent.isPending}
                 className="border border-red-400/40 text-red-400 rounded-lg px-2 py-2 text-sm hover:bg-red-400/10 transition disabled:opacity-50"
               >
@@ -316,6 +316,15 @@ function EventDetail({ event, reminder, onClose }: { event: Event; reminder?: Re
           </>
         )}
       </div>
+
+      {confirmingDelete && (
+        <ConfirmDialog
+          message={`¿Borrar "${event.title}"? Esto también cancela el recordatorio.`}
+          pending={deleteEvent.isPending}
+          onCancel={() => setConfirmingDelete(false)}
+          onConfirm={() => deleteEvent.mutate()}
+        />
+      )}
     </div>
   );
 }
