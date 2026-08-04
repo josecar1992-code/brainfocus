@@ -6,6 +6,7 @@ import { ConfirmDialog } from "./ConfirmDialog";
 import { CornerBrackets } from "./CornerBrackets";
 import { IconTrash } from "./icons";
 import { OPTION_STYLE, SELECT_CLASS } from "./selectStyles";
+import { useCompleteTask } from "./useCompleteTask";
 
 const PRIORITY_ORDER: Record<Task["priority"], number> = { high: 0, normal: 1, low: 2 };
 
@@ -373,10 +374,7 @@ export function TasksPage() {
   const { data: tasks, isLoading } = useQuery({ queryKey: ["tasks"], queryFn: api.listTasks });
   const { data: lists } = useQuery({ queryKey: ["lists"], queryFn: api.listLists });
 
-  const toggleTask = useMutation({
-    mutationFn: api.toggleTask,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tasks"] }),
-  });
+  const completeTask = useCompleteTask();
 
   const deleteTask = useMutation({
     mutationFn: api.deleteTask,
@@ -471,7 +469,7 @@ export function TasksPage() {
                   <input
                     type="checkbox"
                     checked={task.status === "done"}
-                    onChange={() => toggleTask.mutate(task)}
+                    onChange={() => completeTask.request(task)}
                     onClick={(e) => e.stopPropagation()}
                     className="accent-electric-cyan w-4 h-4 flex-shrink-0"
                   />
@@ -520,6 +518,15 @@ export function TasksPage() {
           pending={deleteTask.isPending}
           onCancel={() => setTaskToDelete(null)}
           onConfirm={() => deleteTask.mutate(taskToDelete.id)}
+        />
+      )}
+      {completeTask.pendingTask && (
+        <ConfirmDialog
+          message={`¿Marcar "${completeTask.pendingTask.title}" como hecha?`}
+          confirmLabel="Marcar hecha"
+          pending={completeTask.isPending}
+          onCancel={completeTask.cancel}
+          onConfirm={completeTask.confirm}
         />
       )}
     </div>

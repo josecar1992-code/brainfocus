@@ -35,6 +35,7 @@ export interface Event {
   starts_at: string;
   ends_at: string | null;
   all_day: boolean;
+  task_id: string | null;
 }
 
 export interface NewEvent {
@@ -202,7 +203,12 @@ export const api = {
     if (starts_at) {
       const event = await request<Event>("/events", {
         method: "POST",
-        body: JSON.stringify({ title: input.title, description: input.notes || undefined, starts_at }),
+        body: JSON.stringify({
+          title: input.title,
+          description: input.notes || undefined,
+          starts_at,
+          task_id: task.id,
+        }),
       });
 
       if (input.crearRecordatorio) {

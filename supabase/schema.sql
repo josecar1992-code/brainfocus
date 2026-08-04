@@ -113,6 +113,13 @@ create table if not exists public.events (
 alter table public.reminders
   add column if not exists event_id uuid references public.events(id) on delete cascade;
 
+-- Vínculo evento -> tarea: permite que el check de "hecho" sea el mismo botón
+-- desde Tareas, Agenda y Rutinas (marcar la tarea marca el evento, y si es de
+-- una rutina, dispara advanceRoutine y queda en el historial).
+alter table public.events
+  add column if not exists task_id uuid references public.tasks(id) on delete set null;
+create index if not exists idx_events_task on public.events(task_id);
+
 -- ============================================================
 -- Notas / información libre
 -- ============================================================

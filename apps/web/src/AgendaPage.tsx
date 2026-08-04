@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { api, type Event, type Reminder } from "./api";
+import { api, type Event, type Reminder, type Task } from "./api";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { CornerBrackets } from "./CornerBrackets";
 import { IconBell, IconBellOff, IconCheckCircle } from "./icons";
+import { useCompleteTask } from "./useCompleteTask";
 
 const CR_OFFSET = "-06:00"; // Costa Rica, sin horario de verano — offset fijo
 
@@ -168,7 +169,19 @@ function NewEventForm({ onClose }: { onClose: () => void }) {
   );
 }
 
-function EventDetail({ event, reminder, onClose }: { event: Event; reminder?: Reminder; onClose: () => void }) {
+function EventDetail({
+  event,
+  reminder,
+  task,
+  onToggleDone,
+  onClose,
+}: {
+  event: Event;
+  reminder?: Reminder;
+  task?: Task;
+  onToggleDone?: (task: Task) => void;
+  onClose: () => void;
+}) {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -278,10 +291,23 @@ function EventDetail({ event, reminder, onClose }: { event: Event; reminder?: Re
           </form>
         ) : (
           <>
-            <h2 className="text-lg font-medium mb-1 text-white">{event.title}</h2>
+            <h2 className={`text-lg font-medium mb-1 text-white ${task?.status === "done" ? "line-through text-white/40" : ""}`}>
+              {event.title}
+            </h2>
             <p className="text-sm text-electric-cyan">
               {formatDate(event.starts_at)} · {formatTime(event.starts_at)}
             </p>
+            {task && onToggleDone && (
+              <label className="flex items-center gap-2 text-sm text-white/70">
+                <input
+                  type="checkbox"
+                  checked={task.status === "done"}
+                  onChange={() => onToggleDone(task)}
+                  className="accent-electric-cyan w-4 h-4"
+                />
+                {task.status === "done" ? "Marcada como hecha" : "Marcar como hecha"}
+              </label>
+            )}
             {event.description && <p className="text-sm text-white/60 whitespace-pre-wrap">{event.description}</p>}
             {reminder && (
               <div className="mt-1">
@@ -419,7 +445,10 @@ export function AgendaPage() {
   );
   const { data: allEvents, isLoading } = useQuery({ queryKey: ["events"], queryFn: api.listEvents });
   const { data: reminders } = useQuery({ queryKey: ["reminders"], queryFn: api.listReminders });
+  const { data: tasks } = useQuery({ queryKey: ["tasks"], queryFn: api.listTasks });
+  const completeTask = useCompleteTask();
 
+  const tasksById = new Map((tasks ?? []).map((t) => [t.id, t]));
   const remindersByEvent = new Map<string, Reminder>();
   const looseReminders: Reminder[] = [];
   for (const reminder of reminders ?? []) {
@@ -502,6 +531,7 @@ export function AgendaPage() {
               <tbody>
                 {events.map((event: Event) => {
                   const reminder = remindersByEvent.get(event.id);
+                  const task = event.task_id ? tasksById.get(event.task_id) : undefined;
                   return (
                     <tr
                       key={event.id}
@@ -510,7 +540,22 @@ export function AgendaPage() {
                     >
                       <td className="px-5 py-3 whitespace-nowrap">{formatDate(event.starts_at)}</td>
                       <td className="px-3 py-3 whitespace-nowrap text-electric-cyan">{formatTime(event.starts_at)}</td>
-                      <td className="px-3 py-3 text-white/90">{event.title}</td>
+                      <td className="px-3 py-3 text-white/90">
+                        <div className="flex items-center gap-2">
+                          {task && (
+                            <input
+                              type="checkbox"
+                              checked={task.status === "done"}
+                              onChange={() => completeTask.request(task)}
+                              onClick={(e) => e.stopPropagation()}
+                              className="accent-electric-cyan w-4 h-4 flex-shrink-0"
+                            />
+                          )}
+                          <span className={task?.status === "done" ? "line-through text-white/30" : ""}>
+                            {event.title}
+                          </span>
+                        </div>
+                      </td>
                       <td className="px-3 py-3">
                         {reminder ? <ReminderBadge reminder={reminder} /> : <span className="text-white/30">—</span>}
                       </td>
@@ -523,12 +568,21 @@ export function AgendaPage() {
             <ul className="md:hidden divide-y divide-white/8">
               {events.map((event: Event) => {
                 const reminder = remindersByEvent.get(event.id);
+                const task = event.task_id ? tasksById.get(event.task_id) : undefined;
                 return (
-                  <li key={event.id}>
+                  <li key={event.id} className="flex items-center gap-2 px-4 py-3">
+                    {task && (
+                      <input
+                        type="checkbox"
+                        checked={task.status === "done"}
+                        onChange={() => completeTask.request(task)}
+                        className="accent-electric-cyan w-4 h-4 flex-shrink-0"
+                      />
+                    )}
                     <button
                       type="button"
                       onClick={() => setSelectedEvent(event)}
-                      className="w-full flex items-center gap-3 px-4 py-3 text-left active:bg-white/5"
+                      className="flex-1 flex items-center gap-3 text-left active:bg-white/5 min-w-0"
                     >
                       <div className="flex items-center gap-2 flex-shrink-0">
                         <span className="w-12 text-[11px] text-white/40 uppercase text-center">
@@ -538,7 +592,11 @@ export function AgendaPage() {
                           {formatTime(event.starts_at)}
                         </span>
                       </div>
-                      <p className="flex-1 min-w-0 text-sm text-white/90 truncate">{event.title}</p>
+                      <p
+                        className={`flex-1 min-w-0 text-sm truncate ${task?.status === "done" ? "line-through text-white/30" : "text-white/90"}`}
+                      >
+                        {event.title}
+                      </p>
                       {reminder && <ReminderBadge reminder={reminder} />}
                     </button>
                   </li>
@@ -594,7 +652,18 @@ export function AgendaPage() {
         <EventDetail
           event={selectedEvent}
           reminder={remindersByEvent.get(selectedEvent.id)}
+          task={selectedEvent.task_id ? tasksById.get(selectedEvent.task_id) : undefined}
+          onToggleDone={(task) => completeTask.request(task)}
           onClose={() => setSelectedEvent(null)}
+        />
+      )}
+      {completeTask.pendingTask && (
+        <ConfirmDialog
+          message={`¿Marcar "${completeTask.pendingTask.title}" como hecha?`}
+          confirmLabel="Marcar hecha"
+          pending={completeTask.isPending}
+          onCancel={completeTask.cancel}
+          onConfirm={completeTask.confirm}
         />
       )}
     </div>

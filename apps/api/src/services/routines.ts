@@ -53,7 +53,7 @@ async function createOccurrence(routine: RoutineRow, occurrenceDate: string): Pr
 
   const { data: event, error: eventError } = await supabaseAdmin
     .from("events")
-    .insert({ user_id: routine.user_id, title: routine.title, starts_at: startsAt })
+    .insert({ user_id: routine.user_id, title: routine.title, starts_at: startsAt, task_id: task.id })
     .select()
     .single();
   if (eventError) throw eventError;

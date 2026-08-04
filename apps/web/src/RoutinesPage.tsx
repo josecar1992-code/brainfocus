@@ -6,6 +6,7 @@ import { ConfirmDialog } from "./ConfirmDialog";
 import { CornerBrackets } from "./CornerBrackets";
 import { IconRepeat } from "./icons";
 import { OPTION_STYLE, SELECT_CLASS } from "./selectStyles";
+import { useCompleteTask } from "./useCompleteTask";
 
 const DAYS = [
   { value: 0, short: "D", label: "Domingo" },
@@ -280,6 +281,9 @@ function RoutineDetail({ routine, lists, onClose }: { routine: Routine; lists: L
     queryKey: ["routine-completions", routine.id],
     queryFn: () => api.listRoutineCompletions(routine.id),
   });
+  const { data: tasks } = useQuery({ queryKey: ["tasks"], queryFn: api.listTasks });
+  const completeTask = useCompleteTask();
+  const currentTask = routine.current_task_id ? tasks?.find((t) => t.id === routine.current_task_id) : undefined;
 
   const updateRoutine = useMutation({
     mutationFn: (input: NewRoutine) => api.updateRoutine(routine.id, input),
@@ -355,6 +359,17 @@ function RoutineDetail({ routine, lists, onClose }: { routine: Routine; lists: L
                 Próxima ocurrencia pendiente: <span className="text-white/90">{formatDate(routine.current_occurrence_date)}</span>
               </p>
             )}
+            {currentTask && (
+              <label className="flex items-center gap-2 text-sm text-white/70">
+                <input
+                  type="checkbox"
+                  checked={currentTask.status === "done"}
+                  onChange={() => completeTask.request(currentTask)}
+                  className="accent-electric-cyan w-4 h-4"
+                />
+                {currentTask.status === "done" ? "Marcada como hecha" : "Marcar como hecha"}
+              </label>
+            )}
 
             {error && <p className="text-sm text-red-400">{error}</p>}
 
@@ -411,6 +426,15 @@ function RoutineDetail({ routine, lists, onClose }: { routine: Routine; lists: L
           onConfirm={() => deleteRoutine.mutate()}
         />
       )}
+      {completeTask.pendingTask && (
+        <ConfirmDialog
+          message={`¿Marcar "${completeTask.pendingTask.title}" como hecha? Esto crea la siguiente ocurrencia de la rutina.`}
+          confirmLabel="Marcar hecha"
+          pending={completeTask.isPending}
+          onCancel={completeTask.cancel}
+          onConfirm={completeTask.confirm}
+        />
+      )}
     </div>
   );
 }
@@ -420,8 +444,11 @@ export function RoutinesPage() {
   const [selectedRoutine, setSelectedRoutine] = useState<Routine | null>(null);
   const { data: routines, isLoading } = useQuery({ queryKey: ["routines"], queryFn: api.listRoutines });
   const { data: lists } = useQuery({ queryKey: ["lists"], queryFn: api.listLists });
+  const { data: tasks } = useQuery({ queryKey: ["tasks"], queryFn: api.listTasks });
+  const completeTask = useCompleteTask();
 
   const listsById = new Map((lists ?? []).map((l) => [l.id, l]));
+  const tasksById = new Map((tasks ?? []).map((t) => [t.id, t]));
 
   return (
     <div className="space-y-5">
@@ -450,17 +477,28 @@ export function RoutinesPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {routines.map((r: Routine) => {
             const list = r.list_id ? listsById.get(r.list_id) : undefined;
+            const currentTask = r.current_task_id ? tasksById.get(r.current_task_id) : undefined;
             return (
-              <button
+              <div
                 key={r.id}
-                type="button"
-                onClick={() => setSelectedRoutine(r)}
-                className="text-left bg-night-blue/40 backdrop-blur-md rounded-2xl border border-electric-cyan/10 shadow-[0_0_40px_-24px_rgba(0,210,255,0.35)] p-4 hover:bg-white/10 transition-colors"
+                className="bg-night-blue/40 backdrop-blur-md rounded-2xl border border-electric-cyan/10 shadow-[0_0_40px_-24px_rgba(0,210,255,0.35)] p-4 hover:bg-white/10 transition-colors flex items-start gap-2"
               >
-                <div className="flex items-start gap-2">
+                {currentTask && (
+                  <input
+                    type="checkbox"
+                    checked={currentTask.status === "done"}
+                    onChange={() => completeTask.request(currentTask)}
+                    className="accent-electric-cyan w-4 h-4 flex-shrink-0 mt-0.5"
+                  />
+                )}
+                <button type="button" onClick={() => setSelectedRoutine(r)} className="text-left flex items-start gap-2 min-w-0 flex-1">
                   <IconRepeat className="w-4 h-4 text-electric-cyan flex-shrink-0 mt-0.5" strokeWidth={1.75} />
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold text-white/90">{r.title}</p>
+                    <p
+                      className={`text-sm font-semibold ${currentTask?.status === "done" ? "line-through text-white/40" : "text-white/90"}`}
+                    >
+                      {r.title}
+                    </p>
                     <p className="text-xs text-white/40 mt-1">{describeRecurrence(r)}</p>
                     {list && (
                       <span
@@ -471,8 +509,8 @@ export function RoutinesPage() {
                       </span>
                     )}
                   </div>
-                </div>
-              </button>
+                </button>
+              </div>
             );
           })}
         </div>
@@ -481,6 +519,15 @@ export function RoutinesPage() {
       {showForm && <NewRoutineModal lists={lists ?? []} onClose={() => setShowForm(false)} />}
       {selectedRoutine && (
         <RoutineDetail routine={selectedRoutine} lists={lists ?? []} onClose={() => setSelectedRoutine(null)} />
+      )}
+      {completeTask.pendingTask && (
+        <ConfirmDialog
+          message={`¿Marcar "${completeTask.pendingTask.title}" como hecha? Esto crea la siguiente ocurrencia de la rutina.`}
+          confirmLabel="Marcar hecha"
+          pending={completeTask.isPending}
+          onCancel={completeTask.cancel}
+          onConfirm={completeTask.confirm}
+        />
       )}
     </div>
   );

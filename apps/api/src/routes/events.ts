@@ -9,6 +9,7 @@ const createSchema = z.object({
   starts_at: z.string().datetime({ offset: true }),
   ends_at: z.string().datetime({ offset: true }).optional().nullable(),
   all_day: z.boolean().optional(),
+  task_id: z.string().uuid().optional(),
 });
 
 export const eventsRouter = createResourceRouter({
