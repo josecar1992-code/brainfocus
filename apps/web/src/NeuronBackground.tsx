@@ -33,12 +33,23 @@ export function NeuronBackground({ nodeCount = 70, opacity = 0.7 }: NeuronBackgr
     let height = 0;
     let nodes: Node[] = [];
     let rafId = 0;
+    // Se re-evalúa en cada resize: en pantallas chicas (celular) apaga la
+    // animación — ahí el fondo casi no se ve detrás del contenido y son
+    // justo los dispositivos más sensibles a gasto de batería/CPU por un
+    // canvas repintándose sin parar. `prefers-reduced-motion` también la apaga.
+    let animating = true;
 
     function resize() {
       width = window.innerWidth;
       height = window.innerHeight;
       canvas!.width = width;
       canvas!.height = height;
+      const wasAnimating = animating;
+      animating = width >= 768 && !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (!animating) ctx!.clearRect(0, 0, width, height);
+      // Se apagó el loop de rAF al desactivar (ver step()) — si vuelve a
+      // activarse (ej. se agranda la ventana), hay que relanzarlo a mano.
+      if (animating && !wasAnimating) step();
     }
 
     function initNodes() {
@@ -58,6 +69,8 @@ export function NeuronBackground({ nodeCount = 70, opacity = 0.7 }: NeuronBackgr
         resize();
         initNodes();
       }
+
+      if (!animating) return; // el loop se relanza desde resize() si vuelve a activarse
 
       ctx!.clearRect(0, 0, width, height);
 
