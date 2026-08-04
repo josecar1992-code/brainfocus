@@ -13,6 +13,8 @@ import { notesRouter } from "./routes/notes.js";
 import { nutritionRouter } from "./routes/nutrition.js";
 import { remindersRouter } from "./routes/reminders.js";
 import { tasksRouter } from "./routes/tasks.js";
+import { vehicleMaintenanceRouter } from "./routes/vehicleMaintenance.js";
+import { vehiclesRouter } from "./routes/vehicles.js";
 
 const app = express();
 
@@ -38,6 +40,8 @@ app.use("/events", eventsRouter);
 app.use("/notes", notesRouter);
 app.use("/nutrition", nutritionRouter);
 app.use("/exercise", exerciseRouter);
+app.use("/vehicles", vehiclesRouter);
+app.use("/vehicle-maintenance", vehicleMaintenanceRouter);
 
 app.use(errorHandler);
 

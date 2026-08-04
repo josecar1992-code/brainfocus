@@ -163,6 +163,32 @@ create table if not exists public.exercise_logs (
 );
 
 -- ============================================================
+-- Vehículos
+-- ============================================================
+create table if not exists public.vehicles (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  brand text not null,
+  model text not null,
+  year integer,
+  vehicle_type text,
+  plate text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.vehicle_maintenance (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  vehicle_id uuid not null references public.vehicles(id) on delete cascade,
+  date timestamptz not null,
+  description text not null, -- ej. "cambio de aceite"
+  mileage numeric,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- ============================================================
 -- Índices
 -- ============================================================
 create index if not exists idx_tasks_user on public.tasks(user_id);
@@ -174,6 +200,8 @@ create index if not exists idx_notes_user on public.notes(user_id);
 create index if not exists idx_nutrition_user on public.nutrition_logs(user_id, logged_at);
 create index if not exists idx_exercise_user on public.exercise_logs(user_id, logged_at);
 create index if not exists idx_agent_actions_user on public.agent_actions(user_id, created_at);
+create index if not exists idx_vehicles_user on public.vehicles(user_id);
+create index if not exists idx_vehicle_maintenance_vehicle on public.vehicle_maintenance(vehicle_id, date);
 
 -- ============================================================
 -- RLS — activo en todas las tablas de datos
@@ -188,6 +216,8 @@ alter table public.events enable row level security;
 alter table public.notes enable row level security;
 alter table public.nutrition_logs enable row level security;
 alter table public.exercise_logs enable row level security;
+alter table public.vehicles enable row level security;
+alter table public.vehicle_maintenance enable row level security;
 
 create policy "owner_select_profiles" on public.profiles for select using (id = auth.uid());
 create policy "owner_modify_profiles" on public.profiles for all using (id = auth.uid()) with check (id = auth.uid());
@@ -198,7 +228,8 @@ declare
 begin
   for t in select unnest(array[
     'api_keys','agent_actions','lists','tasks',
-    'reminders','events','notes','nutrition_logs','exercise_logs'
+    'reminders','events','notes','nutrition_logs','exercise_logs',
+    'vehicles','vehicle_maintenance'
   ])
   loop
     execute format(

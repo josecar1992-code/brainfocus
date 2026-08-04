@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { supabase } from "./supabaseClient";
 
-export type ModuleKey = "tareas" | "agenda" | "notas";
+export type ModuleKey = "tareas" | "agenda" | "notas" | "vehiculos";
 
 export const MODULES: { key: ModuleKey; label: string; icon: string }[] = [
   { key: "tareas", label: "Tareas", icon: "✓" },
   { key: "agenda", label: "Agenda", icon: "◷" },
   { key: "notas", label: "Notas", icon: "✎" },
+  { key: "vehiculos", label: "Vehículos", icon: "🚗" },
 ];
 
 function getInitials(email?: string | null) {

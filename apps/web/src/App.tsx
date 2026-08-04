@@ -8,6 +8,7 @@ import { MODULES, Sidebar, type ModuleKey } from "./Sidebar";
 import { NotesPage } from "./NotesPage";
 import { supabase } from "./supabaseClient";
 import { TasksPage } from "./TasksPage";
+import { VehiclesPage } from "./VehiclesPage";
 
 type AccessState = "checking" | "granted";
 
@@ -74,6 +75,7 @@ export function App() {
             {activeModule === "tareas" && <TasksPage />}
             {activeModule === "agenda" && <AgendaPage />}
             {activeModule === "notas" && <NotesPage />}
+            {activeModule === "vehiculos" && <VehiclesPage />}
           </div>
         </main>
       </div>
