@@ -3,6 +3,8 @@ import { useState } from "react";
 import { api, type List, type NewTask, type Task } from "./api";
 import { IconTrash } from "./icons";
 
+const PRIORITY_ORDER: Record<Task["priority"], number> = { high: 0, normal: 1, low: 2 };
+
 const PRIORITIES: { value: Task["priority"]; label: string; className: string }[] = [
   { value: "low", label: "Baja", className: "text-white/50 bg-white/5" },
   { value: "normal", label: "Normal", className: "text-electric-cyan bg-electric-cyan/10" },
@@ -27,7 +29,7 @@ function PriorityBadge({ priority }: { priority: Task["priority"] }) {
   );
 }
 
-function NewTaskForm({ lists }: { lists: List[] }) {
+function NewTaskModal({ lists, onClose }: { lists: List[]; onClose: () => void }) {
   const queryClient = useQueryClient();
   const [title, setTitle] = useState("");
   const [notes, setNotes] = useState("");
@@ -45,14 +47,7 @@ function NewTaskForm({ lists }: { lists: List[] }) {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
       queryClient.invalidateQueries({ queryKey: ["events"] });
       queryClient.invalidateQueries({ queryKey: ["reminders"] });
-      setTitle("");
-      setNotes("");
-      setListId("");
-      setPriority("normal");
-      setCrearEvento(false);
-      setFecha("");
-      setHora("");
-      setCrearRecordatorio(true);
+      onClose();
     },
     onError: (err) => setError(err instanceof Error ? err.message : "No se pudo crear la tarea"),
   });
@@ -82,8 +77,9 @@ function NewTaskForm({ lists }: { lists: List[] }) {
   }
 
   return (
-    <div className="bg-white/5 rounded-2xl shadow-sm border border-white/10 p-5">
-      <p className="text-xs font-semibold uppercase tracking-wide text-white/40 mb-3">Nueva tarea</p>
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center px-4 z-20 overflow-y-auto py-8">
+      <div className="w-full max-w-sm border border-electric-cyan/20 bg-night-blue rounded-2xl p-6 shadow-[0_0_60px_-15px_rgba(0,210,255,0.25)]">
+      <h2 className="text-lg font-medium mb-3">Nueva tarea</h2>
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
         <div className="flex flex-col gap-1">
           <label className="text-xs text-white/50">Nombre</label>
@@ -184,14 +180,24 @@ function NewTaskForm({ lists }: { lists: List[] }) {
 
         {error && <p className="text-sm text-red-400">{error}</p>}
 
-        <button
-          type="submit"
-          disabled={createTask.isPending}
-          className="self-end bg-electric-cyan text-night-blue font-medium rounded-lg px-4 py-2 disabled:opacity-50 hover:brightness-110 transition"
-        >
-          {createTask.isPending ? "Creando..." : "Crear tarea"}
-        </button>
+        <div className="flex gap-2 mt-1">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 border border-white/10 rounded-lg px-3 py-2 text-white/70 hover:bg-white/5"
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            disabled={createTask.isPending}
+            className="flex-1 bg-electric-cyan text-night-blue font-medium rounded-lg px-3 py-2 disabled:opacity-50 hover:brightness-110 transition"
+          >
+            {createTask.isPending ? "Creando..." : "Crear tarea"}
+          </button>
+        </div>
       </form>
+      </div>
     </div>
   );
 }
@@ -364,6 +370,9 @@ function TaskDetail({ task, lists, onClose }: { task: Task; lists: List[]; onClo
 export function TasksPage() {
   const queryClient = useQueryClient();
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [categoriaFilter, setCategoriaFilter] = useState("");
+  const [prioridadFilter, setPrioridadFilter] = useState<Task["priority"] | "">("");
   const { data: tasks, isLoading } = useQuery({ queryKey: ["tasks"], queryFn: api.listTasks });
   const { data: lists } = useQuery({ queryKey: ["lists"], queryFn: api.listLists });
 
@@ -385,11 +394,25 @@ export function TasksPage() {
   const pendientes = tasks?.filter((t) => t.status !== "done").length ?? 0;
   const completadas = tasks?.filter((t) => t.status === "done").length ?? 0;
 
+  const visibleTasks = (tasks ?? [])
+    .filter((t) => !categoriaFilter || t.list_id === categoriaFilter)
+    .filter((t) => !prioridadFilter || t.priority === prioridadFilter)
+    .sort((a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority]);
+
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-bold text-white">Tareas</h1>
-        <p className="text-sm text-white/40">Lo que tenés pendiente, en un solo lugar</p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Tareas</h1>
+          <p className="text-sm text-white/40">Lo que tenés pendiente, en un solo lugar</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowForm(true)}
+          className="bg-electric-cyan text-night-blue font-medium rounded-lg px-3 py-2 text-sm hover:brightness-110 transition flex-shrink-0"
+        >
+          + Crear tarea
+        </button>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
@@ -397,20 +420,45 @@ export function TasksPage() {
         <StatCard valor={completadas} etiqueta="Completadas" />
       </div>
 
-      <NewTaskForm lists={lists ?? []} />
+      <div className="flex flex-wrap items-center gap-2">
+        <select
+          value={categoriaFilter}
+          onChange={(e) => setCategoriaFilter(e.target.value)}
+          className="border border-deep-blue/40 bg-black/20 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-electric-cyan/70 [color-scheme:dark]"
+        >
+          <option value="">Todas las categorías</option>
+          {(lists ?? []).map((l) => (
+            <option key={l.id} value={l.id}>
+              {l.name}
+            </option>
+          ))}
+        </select>
+        <select
+          value={prioridadFilter}
+          onChange={(e) => setPrioridadFilter(e.target.value as Task["priority"] | "")}
+          className="border border-deep-blue/40 bg-black/20 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-electric-cyan/70 [color-scheme:dark]"
+        >
+          <option value="">Toda prioridad</option>
+          {PRIORITIES.map((p) => (
+            <option key={p.value} value={p.value}>
+              {p.label}
+            </option>
+          ))}
+        </select>
+      </div>
 
       <div className="bg-white/5 rounded-2xl shadow-sm border border-white/10 overflow-hidden">
         <p className="text-xs font-semibold uppercase tracking-wide text-white/40 px-5 pt-5 pb-2">Lista</p>
 
         {isLoading && <p className="text-white/40 text-sm px-5 pb-5">Cargando...</p>}
 
-        {tasks && tasks.length === 0 && !isLoading && (
-          <p className="text-white/40 text-sm px-5 pb-5">No hay tareas todavía.</p>
+        {visibleTasks.length === 0 && !isLoading && (
+          <p className="text-white/40 text-sm px-5 pb-5">No hay tareas para este filtro.</p>
         )}
 
-        {tasks && tasks.length > 0 && (
+        {visibleTasks.length > 0 && (
           <ul>
-            {tasks.map((task: Task) => {
+            {visibleTasks.map((task: Task) => {
               const list = task.list_id ? listsById.get(task.list_id) : undefined;
               return (
                 <li
@@ -462,6 +510,7 @@ export function TasksPage() {
         )}
       </div>
 
+      {showForm && <NewTaskModal lists={lists ?? []} onClose={() => setShowForm(false)} />}
       {selectedTask && <TaskDetail task={selectedTask} lists={lists ?? []} onClose={() => setSelectedTask(null)} />}
     </div>
   );
