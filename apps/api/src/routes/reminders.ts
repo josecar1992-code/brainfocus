@@ -33,7 +33,13 @@ export const remindersRouter = createResourceRouter({
         await supabaseAdmin.from("reminders").delete().eq("id", row.id);
         throw err;
       }
-      if (jobId) await supabaseAdmin.from("reminders").update({ cron_job_id: jobId }).eq("id", row.id);
+      if (jobId) {
+        const { error } = await supabaseAdmin.from("reminders").update({ cron_job_id: jobId }).eq("id", row.id);
+        // El cron ya quedó creado en OpenClaw — si no se puede guardar el jobId acá,
+        // no hay forma de cancelarlo después (task/evento completado antes, etc.).
+        // Mejor decírselo a quien creó el recordatorio que dejarlo huérfano en silencio.
+        if (error) throw new Error(`Cron creado (${jobId}) pero no se pudo guardar cron_job_id: ${error.message}`);
+      }
     },
     async afterUpdate(_userId, before, after) {
       // sent_at recién puesto = ya no hace falta el cron. Si remind_at cambió
@@ -46,7 +52,10 @@ export const remindersRouter = createResourceRouter({
       if (!after.sent_at && after.remind_at !== before.remind_at) {
         await cancelReminderCron(before.cron_job_id);
         const jobId = await scheduleReminderCron(after);
-        await supabaseAdmin.from("reminders").update({ cron_job_id: jobId }).eq("id", after.id);
+        if (jobId) {
+          const { error } = await supabaseAdmin.from("reminders").update({ cron_job_id: jobId }).eq("id", after.id);
+          if (error) console.error(`[reminders] cron reprogramado (${jobId}) pero no se pudo guardar:`, error.message);
+        }
       }
     },
     async beforeDelete(_userId, row) {
