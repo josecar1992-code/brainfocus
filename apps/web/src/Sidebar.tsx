@@ -15,8 +15,8 @@ import { supabase } from "./supabaseClient";
 export type ModuleKey = "tareas" | "agenda" | "rutinas" | "notas" | "vehiculos" | "configuracion";
 
 export const MODULES: { key: ModuleKey; label: string; icon: ComponentType<SVGProps<SVGSVGElement>> }[] = [
-  { key: "tareas", label: "Tareas", icon: IconCheckSquare },
   { key: "agenda", label: "Agenda", icon: IconCalendar },
+  { key: "tareas", label: "Tareas", icon: IconCheckSquare },
   { key: "rutinas", label: "Rutinas", icon: IconRepeat },
   { key: "notas", label: "Notas y memorias", icon: IconNote },
   { key: "vehiculos", label: "Vehículos", icon: IconCar },
