@@ -8,6 +8,8 @@ import { IconTrash } from "./icons";
 import { OPTION_STYLE, SELECT_CLASS } from "./selectStyles";
 import { useCompleteTask } from "./useCompleteTask";
 
+const CR_OFFSET = "-06:00"; // Costa Rica, sin horario de verano — offset fijo
+
 const PRIORITY_ORDER: Record<Task["priority"], number> = { high: 0, normal: 1, low: 2 };
 
 const PRIORITIES: { value: Task["priority"]; label: string; className: string }[] = [
@@ -209,13 +211,33 @@ function TaskDetail({ task, lists, onClose }: { task: Task; lists: List[]; onClo
   const [notes, setNotes] = useState(task.notes ?? "");
   const [listId, setListId] = useState(task.list_id ?? "");
   const [priority, setPriority] = useState<Task["priority"]>(task.priority);
+  const [crearEvento, setCrearEvento] = useState(false);
+  const [fecha, setFecha] = useState("");
+  const [hora, setHora] = useState("");
+  const [crearRecordatorio, setCrearRecordatorio] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const { data: events } = useQuery({ queryKey: ["events"], queryFn: api.listEvents });
+  const existingEvent = events?.find((e) => e.task_id === task.id);
+
   const updateTask = useMutation({
-    mutationFn: () =>
-      api.updateTask(task.id, { title: title.trim(), notes: notes.trim(), list_id: listId, priority }),
+    mutationFn: async () => {
+      const updated = await api.updateTask(task.id, { title: title.trim(), notes: notes.trim(), list_id: listId, priority });
+      if (crearEvento && !existingEvent && fecha && hora) {
+        await api.addEventToTask({
+          task_id: task.id,
+          title: title.trim(),
+          description: notes.trim() || undefined,
+          starts_at: `${fecha}T${hora}:00${CR_OFFSET}`,
+          crearRecordatorio,
+        });
+      }
+      return updated;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["events"] });
+      queryClient.invalidateQueries({ queryKey: ["reminders"] });
       onClose();
     },
     onError: (err) => setError(err instanceof Error ? err.message : "No se pudo actualizar la tarea"),
@@ -236,6 +258,10 @@ function TaskDetail({ task, lists, onClose }: { task: Task; lists: List[]; onClo
     setError(null);
     if (!title.trim()) {
       setError("Ponele un nombre a la tarea.");
+      return;
+    }
+    if (crearEvento && !existingEvent && (!fecha || !hora)) {
+      setError("Si vas a crear un evento, completa fecha y hora.");
       return;
     }
     updateTask.mutate();
@@ -287,6 +313,59 @@ function TaskDetail({ task, lists, onClose }: { task: Task; lists: List[]; onClo
                 </select>
               </div>
             </div>
+
+            {existingEvent ? (
+              <p className="text-xs text-white/40">
+                Ya tiene un evento en Agenda ({new Date(existingEvent.starts_at).toLocaleString("es-CR")}).
+              </p>
+            ) : (
+              <>
+                <label className="flex items-center gap-2 text-sm text-white/70">
+                  <input
+                    type="checkbox"
+                    checked={crearEvento}
+                    onChange={(e) => setCrearEvento(e.target.checked)}
+                    className="accent-electric-cyan"
+                  />
+                  Crear evento en Agenda
+                </label>
+
+                {crearEvento && (
+                  <div className="flex flex-col gap-3 bg-black/20 rounded-xl p-3 border border-white/10">
+                    <div className="flex flex-col sm:flex-row gap-3 sm:gap-2">
+                      <div className="flex flex-col gap-1 flex-1">
+                        <label className="text-xs text-white/50">Fecha</label>
+                        <input
+                          type="date"
+                          value={fecha}
+                          onChange={(e) => setFecha(e.target.value)}
+                          className="border border-deep-blue/40 bg-black/20 rounded-lg px-3 py-2 focus:outline-none focus:border-electric-cyan/70 [color-scheme:dark]"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1 flex-1">
+                        <label className="text-xs text-white/50">Hora</label>
+                        <input
+                          type="time"
+                          value={hora}
+                          onChange={(e) => setHora(e.target.value)}
+                          className="border border-deep-blue/40 bg-black/20 rounded-lg px-3 py-2 focus:outline-none focus:border-electric-cyan/70 [color-scheme:dark]"
+                        />
+                      </div>
+                    </div>
+                    <label className="flex items-center gap-2 text-sm text-white/70">
+                      <input
+                        type="checkbox"
+                        checked={crearRecordatorio}
+                        onChange={(e) => setCrearRecordatorio(e.target.checked)}
+                        className="accent-electric-cyan"
+                      />
+                      Crear recordatorio (Quicks avisa 2 horas antes)
+                    </label>
+                  </div>
+                )}
+              </>
+            )}
+
             {error && <p className="text-sm text-red-400">{error}</p>}
             <div className="flex gap-2 mt-2">
               <button

@@ -42,6 +42,7 @@ export interface NewEvent {
   title: string;
   description?: string;
   starts_at: string;
+  list_id: string;
   crearRecordatorio: boolean;
 }
 
@@ -260,10 +261,27 @@ export const api = {
   listRoutineCompletions: (routineId: string) =>
     request<RoutineCompletion[]>(`/routine-completions?routine_id=${routineId}&limit=100`),
 
+  // Todo evento tiene obligatoriamente una tarea asociada (misma categoría), simétrico
+  // al flujo inverso (tarea -> evento) en createTask.
   async createEvent(input: NewEvent): Promise<Event> {
+    const task = await request<Task>("/tasks", {
+      method: "POST",
+      body: JSON.stringify({
+        title: input.title,
+        notes: input.description || undefined,
+        list_id: input.list_id,
+        due_date: input.starts_at,
+      }),
+    });
+
     const event = await request<Event>("/events", {
       method: "POST",
-      body: JSON.stringify({ title: input.title, description: input.description, starts_at: input.starts_at }),
+      body: JSON.stringify({
+        title: input.title,
+        description: input.description,
+        starts_at: input.starts_at,
+        task_id: task.id,
+      }),
     });
 
     if (input.crearRecordatorio) {
@@ -273,6 +291,42 @@ export const api = {
         body: JSON.stringify({
           title: `Recordatorio: ${input.title}`,
           event_id: event.id,
+          task_id: task.id,
+          remind_at: remindAt,
+        }),
+      });
+    }
+
+    return event;
+  },
+
+  // Agrega un evento a una tarea ya creada (edición posterior) — misma lógica que
+  // createTask cuando se marca "crear evento" desde el inicio.
+  async addEventToTask(input: {
+    task_id: string;
+    title: string;
+    description?: string;
+    starts_at: string;
+    crearRecordatorio: boolean;
+  }): Promise<Event> {
+    const event = await request<Event>("/events", {
+      method: "POST",
+      body: JSON.stringify({
+        title: input.title,
+        description: input.description,
+        starts_at: input.starts_at,
+        task_id: input.task_id,
+      }),
+    });
+
+    if (input.crearRecordatorio) {
+      const remindAt = new Date(new Date(input.starts_at).getTime() - TWO_HOURS_MS).toISOString();
+      await request("/reminders", {
+        method: "POST",
+        body: JSON.stringify({
+          title: `Recordatorio: ${input.title}`,
+          event_id: event.id,
+          task_id: input.task_id,
           remind_at: remindAt,
         }),
       });

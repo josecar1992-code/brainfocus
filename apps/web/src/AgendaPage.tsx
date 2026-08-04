@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { api, type Event, type Reminder, type Task } from "./api";
+import { api, type Event, type List, type Reminder, type Task } from "./api";
+import { CategorySelect } from "./CategorySelect";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { CornerBrackets } from "./CornerBrackets";
 import { IconBell, IconBellOff, IconCheckCircle } from "./icons";
@@ -55,10 +56,11 @@ function ReminderBadge({ reminder }: { reminder: Reminder }) {
   );
 }
 
-function NewEventForm({ onClose }: { onClose: () => void }) {
+function NewEventForm({ lists, onClose }: { lists: List[]; onClose: () => void }) {
   const queryClient = useQueryClient();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [listId, setListId] = useState("");
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [crearRecordatorio, setCrearRecordatorio] = useState(true);
@@ -69,6 +71,7 @@ function NewEventForm({ onClose }: { onClose: () => void }) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["events"] });
       queryClient.invalidateQueries({ queryKey: ["reminders"] });
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
       onClose();
     },
     onError: (err) => setError(err instanceof Error ? err.message : "No se pudo crear el evento"),
@@ -81,8 +84,12 @@ function NewEventForm({ onClose }: { onClose: () => void }) {
       setError("Completa nombre, fecha y hora.");
       return;
     }
+    if (!listId) {
+      setError("Elegí una categoría (o creá una nueva).");
+      return;
+    }
     const starts_at = `${date}T${time}:00${CR_OFFSET}`;
-    createEvent.mutate({ title, description: description.trim() || undefined, starts_at, crearRecordatorio });
+    createEvent.mutate({ title, description: description.trim() || undefined, starts_at, list_id: listId, crearRecordatorio });
   }
 
   return (
@@ -113,6 +120,11 @@ function NewEventForm({ onClose }: { onClose: () => void }) {
             rows={2}
             className="border border-deep-blue/40 bg-black/20 rounded-lg px-3 py-2 placeholder:text-white/30 focus:outline-none focus:border-electric-cyan/70 resize-none"
           />
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label className="text-xs text-white/50">Categoría</label>
+          <CategorySelect lists={lists} value={listId} onChange={setListId} />
         </div>
 
         <div className="flex gap-2">
@@ -446,6 +458,7 @@ export function AgendaPage() {
   const { data: allEvents, isLoading } = useQuery({ queryKey: ["events"], queryFn: api.listEvents });
   const { data: reminders } = useQuery({ queryKey: ["reminders"], queryFn: api.listReminders });
   const { data: tasks } = useQuery({ queryKey: ["tasks"], queryFn: api.listTasks });
+  const { data: lists } = useQuery({ queryKey: ["lists"], queryFn: api.listLists });
   const completeTask = useCompleteTask();
 
   const tasksById = new Map((tasks ?? []).map((t) => [t.id, t]));
@@ -647,7 +660,7 @@ export function AgendaPage() {
         </div>
       )}
 
-      {showForm && <NewEventForm onClose={() => setShowForm(false)} />}
+      {showForm && <NewEventForm lists={lists ?? []} onClose={() => setShowForm(false)} />}
       {selectedEvent && (
         <EventDetail
           event={selectedEvent}
