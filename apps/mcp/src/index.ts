@@ -17,6 +17,13 @@ interface Event {
   starts_at: string;
 }
 
+interface Note {
+  id: string;
+  title: string | null;
+  content: string | null;
+  created_at: string;
+}
+
 const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
 
 // Set chico y de grano grueso a propósito: cada tool se inyecta en el prompt
@@ -166,7 +173,9 @@ const tools = {
   },
 
   crear_nota: {
-    description: "Guarda una nota o información libre.",
+    description:
+      "Guarda una nota o información libre que el usuario te dicte o pida anotar. Se puede " +
+      "recuperar después con `buscar_notas`.",
     inputSchema: {
       type: "object",
       properties: {
@@ -181,6 +190,25 @@ const tools = {
         method: "POST",
         body: JSON.stringify({ title: args.titulo, content: args.contenido }),
       }),
+  },
+
+  buscar_notas: {
+    description:
+      "Busca o lista las notas guardadas del usuario. Si le pide 'buscá la nota de...' o " +
+      "'¿qué anoté sobre...?', usar `busqueda` (busca por palabra en título y contenido). Sin " +
+      "`busqueda`, trae las más recientes. Trae máximo 20.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        busqueda: { type: "string", description: "Palabra o frase a buscar en título/contenido. Opcional." },
+      },
+    },
+    argsSchema: z.object({ busqueda: z.string().optional() }),
+    handler: (args: { busqueda?: string }) => {
+      const params = new URLSearchParams({ limit: "20" });
+      if (args.busqueda) params.set("q", args.busqueda);
+      return apiRequest<Note[]>(`/notes?${params.toString()}`);
+    },
   },
 } as const;
 

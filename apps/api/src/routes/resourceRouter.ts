@@ -10,6 +10,10 @@ interface ResourceConfig {
   createSchema: ZodTypeAny;
   updateSchema: ZodTypeAny;
   orderBy?: { column: string; ascending?: boolean };
+  // Columnas de texto sobre las que ?q= busca (ilike, OR entre todas). Sin
+  // esto, ?q= se ignora — hoy solo lo usa `notes` (Quicks necesita poder
+  // buscar una nota por palabra suelta, no solo listar todo).
+  searchFields?: string[];
   // Efectos secundarios opcionales hacia sistemas externos (hoy: cron de
   // OpenClaw). afterUpdate/beforeDelete son best-effort — solo cancelan un
   // job externo, así que un fallo se registra en consola y no bloquea la
@@ -41,7 +45,7 @@ export function createResourceRouter(config: ResourceConfig): Router {
 
   const MAX_LIMIT = 200;
   const DEFAULT_LIMIT = 50;
-  const RESERVED_QUERY_PARAMS = new Set(["limit", "fields"]);
+  const RESERVED_QUERY_PARAMS = new Set(["limit", "fields", "q"]);
 
   router.get("/", requireScope(`${resourceName}:read`), async (req, res, next) => {
     try {
@@ -56,6 +60,11 @@ export function createResourceRouter(config: ResourceConfig): Router {
       for (const [key, value] of Object.entries(req.query)) {
         if (RESERVED_QUERY_PARAMS.has(key) || typeof value !== "string") continue;
         query = query.eq(key, value);
+      }
+
+      if (config.searchFields?.length && typeof req.query.q === "string" && req.query.q.trim()) {
+        const q = req.query.q.trim().replace(/[%,]/g, "");
+        query = query.or(config.searchFields.map((f) => `${f}.ilike.%${q}%`).join(","));
       }
 
       const { data, error } = await query

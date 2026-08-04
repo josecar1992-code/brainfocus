@@ -12,4 +12,5 @@ export const notesRouter = createResourceRouter({
   resourceName: "notes",
   createSchema,
   updateSchema: createSchema.partial(),
+  searchFields: ["title", "content"],
 });

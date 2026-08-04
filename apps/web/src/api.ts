@@ -37,6 +37,13 @@ export interface Reminder {
   cron_job_id: string | null;
 }
 
+export interface Note {
+  id: string;
+  title: string | null;
+  content: string | null;
+  created_at: string;
+}
+
 async function authHeader(): Promise<Record<string, string>> {
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
@@ -76,6 +83,11 @@ export const api = {
 
   listEvents: () => request<Event[]>("/events"),
   listReminders: () => request<Reminder[]>("/reminders"),
+
+  listNotes: () => request<Note[]>("/notes"),
+  createNote: (input: { title?: string; content: string }) =>
+    request<Note>("/notes", { method: "POST", body: JSON.stringify(input) }),
+  deleteNote: (id: string) => request<void>(`/notes/${id}`, { method: "DELETE" }),
 
   async createEvent(input: NewEvent): Promise<Event> {
     const event = await request<Event>("/events", {

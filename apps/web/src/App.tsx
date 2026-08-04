@@ -5,6 +5,7 @@ import { ApiError, api } from "./api";
 import { Header } from "./Header";
 import { Login } from "./Login";
 import { MODULES, Sidebar, type ModuleKey } from "./Sidebar";
+import { NotesPage } from "./NotesPage";
 import { supabase } from "./supabaseClient";
 import { TasksPage } from "./TasksPage";
 
@@ -72,6 +73,7 @@ export function App() {
           <div className="max-w-3xl mx-auto w-full">
             {activeModule === "tareas" && <TasksPage />}
             {activeModule === "agenda" && <AgendaPage />}
+            {activeModule === "notas" && <NotesPage />}
           </div>
         </main>
       </div>
