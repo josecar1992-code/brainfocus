@@ -471,35 +471,61 @@ export function AgendaPage() {
         )}
 
         {events.length > 0 && (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-white/40 text-left">
-                <th className="px-5 py-2 font-normal">Fecha</th>
-                <th className="px-3 py-2 font-normal">Hora</th>
-                <th className="px-3 py-2 font-normal">Evento</th>
-                <th className="px-3 py-2 font-normal">Descripción</th>
-                <th className="px-3 py-2 font-normal">Recordatorio</th>
-              </tr>
-            </thead>
-            <tbody>
+          <>
+            {/* Escritorio/tablet: tabla. En móvil amontonaba fecha+hora+evento+recordatorio
+                en columnas angostas, así que ahí se usa una lista de filas en su lugar. */}
+            <table className="w-full text-sm hidden md:table">
+              <thead>
+                <tr className="text-white/40 text-left">
+                  <th className="px-5 py-2 font-normal">Fecha</th>
+                  <th className="px-3 py-2 font-normal">Hora</th>
+                  <th className="px-3 py-2 font-normal">Evento</th>
+                  <th className="px-3 py-2 font-normal">Recordatorio</th>
+                </tr>
+              </thead>
+              <tbody>
+                {events.map((event: Event) => {
+                  const reminder = remindersByEvent.get(event.id);
+                  return (
+                    <tr
+                      key={event.id}
+                      onClick={() => setSelectedEvent(event)}
+                      className="border-t border-white/8 hover:bg-white/5 transition-colors cursor-pointer"
+                    >
+                      <td className="px-5 py-3 whitespace-nowrap">{formatDate(event.starts_at)}</td>
+                      <td className="px-3 py-3 whitespace-nowrap text-electric-cyan">{formatTime(event.starts_at)}</td>
+                      <td className="px-3 py-3 text-white/90">{event.title}</td>
+                      <td className="px-3 py-3">
+                        {reminder ? <ReminderBadge reminder={reminder} /> : <span className="text-white/30">—</span>}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+
+            <ul className="md:hidden divide-y divide-white/8">
               {events.map((event: Event) => {
                 const reminder = remindersByEvent.get(event.id);
                 return (
-                  <tr
-                    key={event.id}
-                    onClick={() => setSelectedEvent(event)}
-                    className="border-t border-white/8 hover:bg-white/5 transition-colors cursor-pointer"
-                  >
-                    <td className="px-5 py-3 whitespace-nowrap">{formatDate(event.starts_at)}</td>
-                    <td className="px-3 py-3 whitespace-nowrap text-electric-cyan">{formatTime(event.starts_at)}</td>
-                    <td className="px-3 py-3 text-white/90">{event.title}</td>
-                    <td className="px-3 py-3 text-white/50">{event.description ?? "—"}</td>
-                    <td className="px-3 py-3">{reminder ? <ReminderBadge reminder={reminder} /> : <span className="text-white/30">—</span>}</td>
-                  </tr>
+                  <li key={event.id}>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedEvent(event)}
+                      className="w-full flex items-center gap-3 px-4 py-3 text-left active:bg-white/5"
+                    >
+                      <div className="flex flex-col items-center w-12 flex-shrink-0 leading-tight">
+                        <span className="text-[11px] text-white/40 uppercase">{formatDate(event.starts_at)}</span>
+                        <span className="text-xs font-semibold text-electric-cyan">{formatTime(event.starts_at)}</span>
+                      </div>
+                      <p className="flex-1 min-w-0 text-sm text-white/90 truncate">{event.title}</p>
+                      {reminder && <ReminderBadge reminder={reminder} />}
+                    </button>
+                  </li>
                 );
               })}
-            </tbody>
-          </table>
+            </ul>
+          </>
         )}
       </div>
 
@@ -508,7 +534,7 @@ export function AgendaPage() {
           <p className="text-xs font-semibold uppercase tracking-wide text-white/40 px-5 pt-5 pb-2">
             Recordatorios sin evento
           </p>
-          <table className="w-full text-sm">
+          <table className="w-full text-sm hidden md:table">
             <thead>
               <tr className="text-white/40 text-left">
                 <th className="px-5 py-2 font-normal">Cuándo</th>
@@ -528,6 +554,18 @@ export function AgendaPage() {
               ))}
             </tbody>
           </table>
+
+          <ul className="md:hidden divide-y divide-white/8">
+            {looseReminders.map((reminder) => (
+              <li key={reminder.id} className="flex items-center gap-3 px-4 py-3">
+                <div className="flex flex-col min-w-0 flex-1">
+                  <span className="text-[11px] text-white/40">{formatDateTime(reminder.remind_at)}</span>
+                  <span className="text-sm text-white/90 truncate">{reminder.title}</span>
+                </div>
+                <ReminderBadge reminder={reminder} />
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
