@@ -5,18 +5,12 @@ import { CategorySelect } from "./CategorySelect";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { CornerBrackets } from "./CornerBrackets";
 import { IconTrash } from "./icons";
-import { OPTION_STYLE, SELECT_CLASS } from "./selectStyles";
+import { OPTION_STYLE, PRIORITIES, SELECT_CLASS } from "./selectStyles";
 import { useCompleteTask } from "./useCompleteTask";
 
 const CR_OFFSET = "-06:00"; // Costa Rica, sin horario de verano — offset fijo
 
 const PRIORITY_ORDER: Record<Task["priority"], number> = { high: 0, normal: 1, low: 2 };
-
-const PRIORITIES: { value: Task["priority"]; label: string; className: string }[] = [
-  { value: "low", label: "Baja", className: "text-white/50 bg-white/5" },
-  { value: "normal", label: "Normal", className: "text-electric-cyan bg-electric-cyan/10" },
-  { value: "high", label: "Alta", className: "text-red-400 bg-red-400/10" },
-];
 
 function formatCreatedDate(iso: string) {
   return new Date(iso).toLocaleDateString("es-CR", { day: "2-digit", month: "short", year: "numeric" });

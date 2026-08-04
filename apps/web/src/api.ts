@@ -44,6 +44,7 @@ export interface NewEvent {
   description?: string;
   starts_at: string;
   list_id: string;
+  priority?: Task["priority"];
   crearRecordatorio: boolean;
 }
 
@@ -271,6 +272,7 @@ export const api = {
         title: input.title,
         notes: input.description || undefined,
         list_id: input.list_id,
+        priority: input.priority,
         due_date: input.starts_at,
       }),
     });

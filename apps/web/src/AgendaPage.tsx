@@ -5,6 +5,7 @@ import { CategorySelect } from "./CategorySelect";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { CornerBrackets } from "./CornerBrackets";
 import { IconBell, IconBellOff, IconCheckCircle } from "./icons";
+import { OPTION_STYLE, PRIORITIES, SELECT_CLASS } from "./selectStyles";
 import { useCompleteTask } from "./useCompleteTask";
 
 const CR_OFFSET = "-06:00"; // Costa Rica, sin horario de verano — offset fijo
@@ -61,6 +62,7 @@ function NewEventForm({ lists, onClose }: { lists: List[]; onClose: () => void }
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [listId, setListId] = useState("");
+  const [priority, setPriority] = useState<Task["priority"]>("normal");
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [crearRecordatorio, setCrearRecordatorio] = useState(true);
@@ -89,7 +91,14 @@ function NewEventForm({ lists, onClose }: { lists: List[]; onClose: () => void }
       return;
     }
     const starts_at = `${date}T${time}:00${CR_OFFSET}`;
-    createEvent.mutate({ title, description: description.trim() || undefined, starts_at, list_id: listId, crearRecordatorio });
+    createEvent.mutate({
+      title,
+      description: description.trim() || undefined,
+      starts_at,
+      list_id: listId,
+      priority,
+      crearRecordatorio,
+    });
   }
 
   return (
@@ -122,9 +131,21 @@ function NewEventForm({ lists, onClose }: { lists: List[]; onClose: () => void }
           />
         </div>
 
-        <div className="flex flex-col gap-1">
-          <label className="text-xs text-white/50">Categoría</label>
-          <CategorySelect lists={lists} value={listId} onChange={setListId} />
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-2">
+          <div className="flex flex-col gap-1 flex-1">
+            <label className="text-xs text-white/50">Categoría</label>
+            <CategorySelect lists={lists} value={listId} onChange={setListId} />
+          </div>
+          <div className="flex flex-col gap-1 flex-1">
+            <label className="text-xs text-white/50">Prioridad</label>
+            <select value={priority} onChange={(e) => setPriority(e.target.value as Task["priority"])} className={SELECT_CLASS}>
+              {PRIORITIES.map((p) => (
+                <option key={p.value} value={p.value} style={OPTION_STYLE}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         <div className="flex gap-2">
@@ -367,7 +388,7 @@ function EventDetail({
   );
 }
 
-type DateFilter = "hoy" | "semana" | "mes" | "rango";
+type DateFilter = "hoy" | "semana" | "proxima_semana" | "mes" | "rango";
 
 function startOfDay(d: Date) {
   const r = new Date(d);
@@ -406,6 +427,7 @@ function DateFilterBar({
   const options: { key: DateFilter; label: string }[] = [
     { key: "hoy", label: "Hoy" },
     { key: "semana", label: "Esta semana" },
+    { key: "proxima_semana", label: "Próxima semana" },
     { key: "mes", label: "Este mes" },
     { key: "rango", label: "Rango de fechas" },
   ];
@@ -476,6 +498,9 @@ export function AgendaPage() {
     rangeTo = new Date(rangeFrom.getTime() + 24 * 60 * 60 * 1000);
   } else if (dateFilter === "semana") {
     rangeFrom = startOfWeek(now);
+    rangeTo = new Date(rangeFrom.getTime() + 7 * 24 * 60 * 60 * 1000);
+  } else if (dateFilter === "proxima_semana") {
+    rangeFrom = new Date(startOfWeek(now).getTime() + 7 * 24 * 60 * 60 * 1000);
     rangeTo = new Date(rangeFrom.getTime() + 7 * 24 * 60 * 60 * 1000);
   } else if (dateFilter === "mes") {
     rangeFrom = new Date(now.getFullYear(), now.getMonth(), 1);
