@@ -132,6 +132,19 @@ export const api = {
       body: JSON.stringify({ status: task.status === "done" ? "pending" : "done" }),
     }),
   deleteTask: (id: string) => request<void>(`/tasks/${id}`, { method: "DELETE" }),
+  updateTask: (
+    id: string,
+    input: { title: string; notes?: string; list_id?: string | null; priority: Task["priority"] },
+  ) =>
+    request<Task>(`/tasks/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        title: input.title,
+        notes: input.notes || null,
+        list_id: input.list_id || null,
+        priority: input.priority,
+      }),
+    }),
 
   listLists: () => request<List[]>("/lists"),
   createList: (input: { name: string; color?: string }) =>

@@ -196,8 +196,174 @@ function NewTaskForm({ lists }: { lists: List[] }) {
   );
 }
 
+function TaskDetail({ task, lists, onClose }: { task: Task; lists: List[]; onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const [editing, setEditing] = useState(false);
+  const [title, setTitle] = useState(task.title);
+  const [notes, setNotes] = useState(task.notes ?? "");
+  const [listId, setListId] = useState(task.list_id ?? "");
+  const [priority, setPriority] = useState<Task["priority"]>(task.priority);
+  const [error, setError] = useState<string | null>(null);
+
+  const updateTask = useMutation({
+    mutationFn: () =>
+      api.updateTask(task.id, { title: title.trim(), notes: notes.trim(), list_id: listId, priority }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      onClose();
+    },
+    onError: (err) => setError(err instanceof Error ? err.message : "No se pudo actualizar la tarea"),
+  });
+
+  const deleteTask = useMutation({
+    mutationFn: () => api.deleteTask(task.id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["reminders"] });
+      onClose();
+    },
+    onError: (err) => setError(err instanceof Error ? err.message : "No se pudo borrar la tarea"),
+  });
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    if (!title.trim()) {
+      setError("Ponele un nombre a la tarea.");
+      return;
+    }
+    updateTask.mutate();
+  }
+
+  const list = task.list_id ? lists.find((l) => l.id === task.list_id) : undefined;
+
+  return (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center px-4 z-20">
+      <div className="w-full max-w-sm border border-electric-cyan/20 bg-night-blue rounded-2xl p-6 flex flex-col gap-3 shadow-[0_0_60px_-15px_rgba(0,210,255,0.25)]">
+        {editing ? (
+          <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+            <h2 className="text-lg font-medium mb-1">Editar tarea</h2>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs text-white/50">Nombre</label>
+              <input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="border border-deep-blue/40 bg-black/20 rounded-lg px-3 py-2 focus:outline-none focus:border-electric-cyan/70"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs text-white/50">Detalle</label>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={2}
+                className="border border-deep-blue/40 bg-black/20 rounded-lg px-3 py-2 focus:outline-none focus:border-electric-cyan/70 resize-none"
+              />
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-2">
+              <div className="flex flex-col gap-1 flex-1">
+                <label className="text-xs text-white/50">Categoría</label>
+                <select
+                  value={listId}
+                  onChange={(e) => setListId(e.target.value)}
+                  className="border border-deep-blue/40 bg-black/20 rounded-lg px-3 py-2 focus:outline-none focus:border-electric-cyan/70 [color-scheme:dark]"
+                >
+                  <option value="">Sin categoría</option>
+                  {lists.map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {l.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex flex-col gap-1 flex-1">
+                <label className="text-xs text-white/50">Prioridad</label>
+                <select
+                  value={priority}
+                  onChange={(e) => setPriority(e.target.value as Task["priority"])}
+                  className="border border-deep-blue/40 bg-black/20 rounded-lg px-3 py-2 focus:outline-none focus:border-electric-cyan/70 [color-scheme:dark]"
+                >
+                  {PRIORITIES.map((p) => (
+                    <option key={p.value} value={p.value}>
+                      {p.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            {error && <p className="text-sm text-red-400">{error}</p>}
+            <div className="flex gap-2 mt-2">
+              <button
+                type="button"
+                onClick={() => setEditing(false)}
+                className="flex-1 border border-white/10 rounded-lg px-3 py-2 text-white/70 hover:bg-white/5"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={updateTask.isPending}
+                className="flex-1 bg-electric-cyan text-night-blue font-medium rounded-lg px-3 py-2 disabled:opacity-50 hover:brightness-110 transition"
+              >
+                {updateTask.isPending ? "Guardando..." : "Guardar"}
+              </button>
+            </div>
+          </form>
+        ) : (
+          <>
+            <h2 className="text-lg font-medium mb-1 text-white">{task.title}</h2>
+            <div className="flex items-center gap-2 flex-wrap">
+              {list && (
+                <span
+                  className="text-[11px] font-medium px-2 py-0.5 rounded-full"
+                  style={{ backgroundColor: `${list.color ?? "#5B6B82"}22`, color: list.color ?? "#8FA3BF" }}
+                >
+                  {list.name}
+                </span>
+              )}
+              <PriorityBadge priority={task.priority} />
+              <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-white/5 text-white/50">
+                {task.status === "done" ? "Completada" : task.status === "in_progress" ? "En curso" : "Pendiente"}
+              </span>
+            </div>
+            {task.notes && <p className="text-sm text-white/60 whitespace-pre-wrap">{task.notes}</p>}
+            {error && <p className="text-sm text-red-400">{error}</p>}
+            <div className="grid grid-cols-3 gap-2 mt-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="border border-white/10 rounded-lg px-2 py-2 text-sm text-white/70 hover:bg-white/5"
+              >
+                Cerrar
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditing(true)}
+                className="border border-electric-cyan/40 text-electric-cyan rounded-lg px-2 py-2 text-sm hover:bg-electric-cyan/10 transition"
+              >
+                Editar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (confirm(`¿Borrar "${task.title}"?`)) deleteTask.mutate();
+                }}
+                disabled={deleteTask.isPending}
+                className="border border-red-400/40 text-red-400 rounded-lg px-2 py-2 text-sm hover:bg-red-400/10 transition disabled:opacity-50"
+              >
+                {deleteTask.isPending ? "..." : "Borrar"}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function TasksPage() {
   const queryClient = useQueryClient();
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const { data: tasks, isLoading } = useQuery({ queryKey: ["tasks"], queryFn: api.listTasks });
   const { data: lists } = useQuery({ queryKey: ["lists"], queryFn: api.listLists });
 
@@ -249,12 +415,14 @@ export function TasksPage() {
               return (
                 <li
                   key={task.id}
-                  className="flex items-center gap-3 px-5 py-3 border-t border-white/8 first:border-t-0 hover:bg-white/5 transition-colors group"
+                  className="flex items-center gap-3 px-5 py-3 border-t border-white/8 first:border-t-0 hover:bg-white/5 transition-colors group cursor-pointer"
+                  onClick={() => setSelectedTask(task)}
                 >
                   <input
                     type="checkbox"
                     checked={task.status === "done"}
                     onChange={() => toggleTask.mutate(task)}
+                    onClick={(e) => e.stopPropagation()}
                     className="accent-electric-cyan w-4 h-4 flex-shrink-0"
                   />
                   <div className="flex-1 min-w-0">
@@ -278,7 +446,10 @@ export function TasksPage() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => deleteTask.mutate(task.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteTask.mutate(task.id);
+                    }}
                     aria-label="Borrar tarea"
                     className="text-white/20 hover:text-red-400 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100"
                   >
@@ -290,6 +461,8 @@ export function TasksPage() {
           </ul>
         )}
       </div>
+
+      {selectedTask && <TaskDetail task={selectedTask} lists={lists ?? []} onClose={() => setSelectedTask(null)} />}
     </div>
   );
 }
