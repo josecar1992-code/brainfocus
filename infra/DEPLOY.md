@@ -74,9 +74,14 @@ cd /opt/brainfocus
 docker compose build mcp
 ```
 
-Expone 5 tools de grano grueso a propósito (`listar_tareas`, `crear_tarea`, `completar_tarea`,
-`crear_recordatorio`, `crear_nota`) — cada tool registrado se inyecta en el prompt del agente en
-cada turno, así que el set se mantiene chico y crece solo con uso real, no por especulación.
+Expone un set de tools de grano grueso a propósito — cada tool registrado se inyecta en el prompt
+del agente en cada turno, así que el set se mantiene chico y crece solo con uso real, no por
+especulación:
+
+- Tareas/recordatorios/notas: `listar_tareas`, `crear_tarea`, `completar_tarea`,
+  `crear_recordatorio`, `crear_evento`, `crear_nota`, `buscar_notas`.
+- Vehículos: `listar_vehiculos`, `crear_vehiculo`, `listar_mantenimientos`, `crear_mantenimiento`.
+- Rutinas: `listar_categorias`, `listar_rutinas`, `crear_rutina`.
 
 ## 6. Conectar Quicks (OpenClaw) a la API — trabajo del lado de la sesión de OpenClaw
 
@@ -84,7 +89,11 @@ Documentado aquí para que quede como referencia, pero lo ejecuta y verifica la 
 (tiene el contexto completo del `SOUL.md` y de la allowlist real del agente).
 
 1. Generar una API key desde la propia API (ver README, sección "Generar una API key para el agente"),
-   con scopes acotados: `["tasks:read","tasks:write","reminders:read","reminders:write","notes:read","notes:write"]`.
+   con scopes acotados a lo que los tools de arriba realmente usan (mínimo privilegio, sin scopes
+   `:write` que ningún tool ejercita): `["tasks:read","tasks:write","reminders:read",
+   "reminders:write","notes:read","notes:write","events:read","events:write","vehicles:read",
+   "vehicles:write","vehicle_maintenance:read","vehicle_maintenance:write","lists:read",
+   "routines:read","routines:write"]`.
 2. Completar esa key en `/opt/brainfocus/apps/mcp/.env` (`BRAINFOCUS_API_KEY=...`) y reconstruir la
    imagen si ya se había construido antes sin ella (`docker compose build mcp`).
 3. Registrar el servidor MCP apuntando a `docker compose run` (no a un binario `node` directo, ya

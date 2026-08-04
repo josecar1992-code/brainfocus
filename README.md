@@ -27,18 +27,44 @@ bloquea hosts internos como `localhost`. Por eso `apps/mcp` es un proceso stdio 
 OpenClaw y que traduce tool calls a llamadas HTTP contra `apps/api`.
 
 Expone un set chico y de grano grueso a propósito (`listar_tareas`, `crear_tarea`, `completar_tarea`,
-`crear_recordatorio`, `crear_evento`, `crear_nota`, `buscar_notas`) — cada tool registrado se
-inyecta en el prompt del agente en cada turno, así que crece con uso real, no por especulación.
-`crear_evento` agenda un evento real (no solo un recordatorio suelto) y, por defecto, crea también
-un recordatorio 2 horas antes. `buscar_notas` deja que Quicks busque por palabra en título/contenido
-o traiga las últimas notas guardadas, usando el `?q=` genérico agregado a `resourceRouter`. Detalles
-de registro, allowlists y aislamiento entre agentes en [infra/DEPLOY.md](infra/DEPLOY.md).
+`crear_recordatorio`, `crear_evento`, `crear_nota`, `buscar_notas`, `listar_vehiculos`,
+`crear_vehiculo`, `listar_mantenimientos`, `crear_mantenimiento`, `listar_categorias`,
+`listar_rutinas`, `crear_rutina`) — cada tool registrado se inyecta en el prompt del agente en cada
+turno, así que crece con uso real, no por especulación. `crear_evento` agenda un evento real (no
+solo un recordatorio suelto) y, por defecto, crea también un recordatorio 2 horas antes.
+`buscar_notas` deja que Quicks busque por palabra en título/contenido o traiga las últimas notas
+guardadas, usando el `?q=` genérico agregado a `resourceRouter`. `crear_rutina` crea una tarea
+repetitiva (diaria, ciertos días de la semana, o cada N semanas) — ver sección "Módulo Rutinas" más
+abajo para el detalle de cómo funciona. Detalles de registro, allowlists y aislamiento entre agentes
+en [infra/DEPLOY.md](infra/DEPLOY.md).
 
 Los recordatorios (creados desde la app o por Quicks) programan automáticamente un aviso real de
 WhatsApp/Telegram como cron job de disparo único en OpenClaw (`apps/api/src/services/openclawCron.ts`)
 — no depende de que Quicks recuerde crear el cron en el chat. Completar/borrar la tarea o evento
 asociado, o borrar el recordatorio directamente, cancela ese cron automáticamente (ver hooks en
 `apps/api/src/routes/{tasks,events,reminders}.ts` y `apps/api/src/services/reminderCascade.ts`).
+
+## Módulo Rutinas (tareas repetitivas)
+
+Rutinas resuelve el caso "sacar la basura los martes y viernes a las 7pm": en vez de crear todos los
+eventos/tareas futuros de una vez, `apps/api/src/services/routines.ts` genera **una sola ocurrencia
+pendiente a la vez** (tarea + evento + recordatorio opcional). Cuando esa tarea se marca como hecha,
+el hook `afterUpdate` de `apps/api/src/routes/tasks.ts` llama a `advanceRoutine()`, que:
+
+1. Registra la ocurrencia cumplida en `routine_completions` (día programado + hora exacta real en
+   que se marcó hecha) — es el historial por rutina que se ve en el detalle de cada una.
+2. Calcula la siguiente fecha según la regla de recurrencia (`apps/api/src/services/
+   routineSchedule.ts`: diaria, ciertos días de la semana, o cada N semanas con una fecha ancla que
+   el usuario elige a mano para la paridad).
+3. Si esa fecha ya quedó en el pasado (la ocurrencia anterior se completó tarde, saltándose una o
+   más), sigue avanzando hasta la próxima ocurrencia igual o posterior a hoy — la cadena "se rompe",
+   no se recuperan los días saltados.
+
+**Un solo check de "hecho" para Tareas, Agenda y Rutinas**: `events.task_id` vincula cada evento con
+su tarea, así que el mismo checkbox (mismo `PATCH /tasks/:id`, ver `apps/web/src/
+useCompleteTask.ts`) aparece en los tres módulos — marcarla en cualquiera la refleja en los otros
+dos, y si es de una rutina dispara el avance automático. Pide confirmación (`ConfirmDialog`) solo al
+marcar como hecha, no al desmarcar, para no frenar el "deshacer" ante un click accidental.
 
 ## Modelo de acceso
 
@@ -91,7 +117,7 @@ credencial del tool `brainfocus-api` (ver `infra/`).
 
 Ver [infra/DEPLOY.md](infra/DEPLOY.md) para la guía paso a paso.
 
-### Estado actual (2026-08-03)
+### Estado actual (2026-08-04)
 
 | Componente | Estado |
 |---|---|
@@ -110,6 +136,13 @@ Ver [infra/DEPLOY.md](infra/DEPLOY.md) para la guía paso a paso.
 | Diseño visual | Rediseñado con la estética del portal de clientes de QuickWash (sidebar, header, cards, badges), respetando la paleta de marca de Focusbrain |
 | Logo | Logo oficial recortado (sin el fondo gris del canvas original) en sidebar, login, favicon e íconos PWA |
 | PWA | Instalable — manifest + service worker (`vite-plugin-pwa`, `apps/web/vite.config.ts`), cachea el shell de la app para carga offline; los datos siempre se piden en vivo a la API |
+| Módulo Tareas | Formulario con nombre/detalle/categoría (obligatoria)/prioridad, checkbox de crear evento+recordatorio; filtros de categoría y prioridad; orden por prioridad; click en cada tarea abre detalle editable |
+| Categorías | Gestión inline desde el propio desplegable de tareas/rutinas (`CategorySelect`, "+ Nueva categoría"), sin módulo aparte de configuración |
+| Módulo Vehículos | Vehículos personales + historial de mantenimientos por vehículo; Quicks puede leer y crear ambos (`listar_vehiculos`, `crear_vehiculo`, `listar_mantenimientos`, `crear_mantenimiento`) |
+| Módulo Rutinas | Tareas repetitivas (diaria / ciertos días / cada N semanas) que generan una ocurrencia a la vez y avanzan solas al completarse, con historial por rutina; Quicks puede leer y crear (`listar_categorias`, `listar_rutinas`, `crear_rutina`) — ver sección arriba |
+| Confirmación de borrado | `ConfirmDialog` reemplazó el `confirm()` nativo en **todo** borrado de la app (tareas, eventos, notas, categorías, vehículos, mantenimientos, rutinas) — regla fija para cualquier módulo nuevo |
+| Check de "hecho" unificado | Tareas, Agenda y Rutinas comparten el mismo checkbox (`events.task_id` + `useCompleteTask`), con confirmación solo al marcar como hecha |
+| Rediseño visual | Toda la app (no solo login) con la estética "red neuronal": glass cards, botones con gradiente, `NeuronBackground` de fondo (desactivado en móvil y con `prefers-reduced-motion` por rendimiento) |
 
 Sin pendientes de infraestructura por ahora — lo que sigue es UX/producto sobre `apps/web`.
 
