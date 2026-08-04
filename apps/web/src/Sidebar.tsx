@@ -1,13 +1,23 @@
 import { useState } from "react";
 import type { ComponentType, SVGProps } from "react";
-import { IconCalendar, IconCar, IconCheckSquare, IconLogOut, IconNote, IconSettings, IconX } from "./icons";
+import {
+  IconCalendar,
+  IconCar,
+  IconCheckSquare,
+  IconLogOut,
+  IconNote,
+  IconRepeat,
+  IconSettings,
+  IconX,
+} from "./icons";
 import { supabase } from "./supabaseClient";
 
-export type ModuleKey = "tareas" | "agenda" | "notas" | "vehiculos" | "configuracion";
+export type ModuleKey = "tareas" | "agenda" | "rutinas" | "notas" | "vehiculos" | "configuracion";
 
 export const MODULES: { key: ModuleKey; label: string; icon: ComponentType<SVGProps<SVGSVGElement>> }[] = [
   { key: "tareas", label: "Tareas", icon: IconCheckSquare },
   { key: "agenda", label: "Agenda", icon: IconCalendar },
+  { key: "rutinas", label: "Rutinas", icon: IconRepeat },
   { key: "notas", label: "Notas", icon: IconNote },
   { key: "vehiculos", label: "Vehículos", icon: IconCar },
   { key: "configuracion", label: "Configuración", icon: IconSettings },

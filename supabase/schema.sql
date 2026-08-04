@@ -189,6 +189,45 @@ create table if not exists public.vehicle_maintenance (
 );
 
 -- ============================================================
+-- Rutinas (tareas repetitivas) — solo existe UNA ocurrencia pendiente
+-- (current_task_id/current_event_id) a la vez; al completarse esa tarea,
+-- el hook afterUpdate de tasks.ts llama a advanceRoutine(), que registra el
+-- historial y crea la siguiente ocurrencia. No se generan todas las futuras
+-- de una vez.
+-- ============================================================
+create table if not exists public.routines (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  title text not null,
+  list_id uuid references public.lists(id) on delete set null,
+  frequency text not null, -- daily | weekly
+  interval_weeks integer not null default 1, -- solo weekly: 1 = toda semana, 2 = de por medio, etc.
+  days_of_week integer[] not null default '{}', -- 0 (domingo) .. 6 (sábado), solo weekly
+  time_of_day text not null, -- HH:MM
+  start_date date not null, -- ancla para la paridad de semanas, no necesariamente la 1ra tarea
+  crear_recordatorio boolean not null default true,
+  current_task_id uuid references public.tasks(id) on delete set null,
+  current_event_id uuid references public.events(id) on delete set null,
+  current_occurrence_date date,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.routine_completions (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  routine_id uuid not null references public.routines(id) on delete cascade,
+  occurrence_date date,
+  completed_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+
+-- tasks.routine_id se agrega acá (con alter) porque routines se declara
+-- después de tasks arriba, y la FK necesita que la tabla destino ya exista.
+alter table public.tasks
+  add column if not exists routine_id uuid references public.routines(id) on delete set null;
+
+-- ============================================================
 -- Índices
 -- ============================================================
 create index if not exists idx_tasks_user on public.tasks(user_id);
@@ -202,6 +241,9 @@ create index if not exists idx_exercise_user on public.exercise_logs(user_id, lo
 create index if not exists idx_agent_actions_user on public.agent_actions(user_id, created_at);
 create index if not exists idx_vehicles_user on public.vehicles(user_id);
 create index if not exists idx_vehicle_maintenance_vehicle on public.vehicle_maintenance(vehicle_id, date);
+create index if not exists idx_routines_user on public.routines(user_id);
+create index if not exists idx_routine_completions_routine on public.routine_completions(routine_id, completed_at);
+create index if not exists idx_tasks_routine on public.tasks(routine_id);
 
 -- ============================================================
 -- RLS — activo en todas las tablas de datos
@@ -218,6 +260,8 @@ alter table public.nutrition_logs enable row level security;
 alter table public.exercise_logs enable row level security;
 alter table public.vehicles enable row level security;
 alter table public.vehicle_maintenance enable row level security;
+alter table public.routines enable row level security;
+alter table public.routine_completions enable row level security;
 
 create policy "owner_select_profiles" on public.profiles for select using (id = auth.uid());
 create policy "owner_modify_profiles" on public.profiles for all using (id = auth.uid()) with check (id = auth.uid());
@@ -229,7 +273,7 @@ begin
   for t in select unnest(array[
     'api_keys','agent_actions','lists','tasks',
     'reminders','events','notes','nutrition_logs','exercise_logs',
-    'vehicles','vehicle_maintenance'
+    'vehicles','vehicle_maintenance','routines','routine_completions'
   ])
   loop
     execute format(

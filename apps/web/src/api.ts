@@ -95,6 +95,39 @@ export interface NewMaintenance {
   mileage?: number;
 }
 
+export interface Routine {
+  id: string;
+  title: string;
+  list_id: string | null;
+  frequency: "daily" | "weekly";
+  interval_weeks: number;
+  days_of_week: number[];
+  time_of_day: string;
+  start_date: string;
+  crear_recordatorio: boolean;
+  current_task_id: string | null;
+  current_event_id: string | null;
+  current_occurrence_date: string | null;
+}
+
+export interface NewRoutine {
+  title: string;
+  list_id: string;
+  frequency: "daily" | "weekly";
+  interval_weeks?: number;
+  days_of_week?: number[];
+  time_of_day: string;
+  start_date: string;
+  crear_recordatorio?: boolean;
+}
+
+export interface RoutineCompletion {
+  id: string;
+  routine_id: string;
+  occurrence_date: string | null;
+  completed_at: string;
+}
+
 async function authHeader(): Promise<Record<string, string>> {
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
@@ -212,6 +245,14 @@ export const api = {
   createMaintenance: (input: NewMaintenance) =>
     request<VehicleMaintenance>("/vehicle-maintenance", { method: "POST", body: JSON.stringify(input) }),
   deleteMaintenance: (id: string) => request<void>(`/vehicle-maintenance/${id}`, { method: "DELETE" }),
+
+  listRoutines: () => request<Routine[]>("/routines"),
+  createRoutine: (input: NewRoutine) => request<Routine>("/routines", { method: "POST", body: JSON.stringify(input) }),
+  updateRoutine: (id: string, input: Partial<NewRoutine>) =>
+    request<Routine>(`/routines/${id}`, { method: "PATCH", body: JSON.stringify(input) }),
+  deleteRoutine: (id: string) => request<void>(`/routines/${id}`, { method: "DELETE" }),
+  listRoutineCompletions: (routineId: string) =>
+    request<RoutineCompletion[]>(`/routine-completions?routine_id=${routineId}&limit=100`),
 
   async createEvent(input: NewEvent): Promise<Event> {
     const event = await request<Event>("/events", {

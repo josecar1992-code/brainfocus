@@ -7,6 +7,7 @@ import { Login } from "./Login";
 import { NeuronBackground } from "./NeuronBackground";
 import { MODULES, Sidebar, type ModuleKey } from "./Sidebar";
 import { NotesPage } from "./NotesPage";
+import { RoutinesPage } from "./RoutinesPage";
 import { SettingsPage } from "./SettingsPage";
 import { supabase } from "./supabaseClient";
 import { TasksPage } from "./TasksPage";
@@ -88,6 +89,7 @@ export function App() {
           <div className="max-w-3xl mx-auto w-full">
             {activeModule === "tareas" && <TasksPage />}
             {activeModule === "agenda" && <AgendaPage />}
+            {activeModule === "rutinas" && <RoutinesPage />}
             {activeModule === "notas" && <NotesPage />}
             {activeModule === "vehiculos" && <VehiclesPage />}
             {activeModule === "configuracion" && <SettingsPage />}
