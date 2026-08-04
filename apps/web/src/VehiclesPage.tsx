@@ -43,7 +43,7 @@ function VehicleForm({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-      <div className="flex gap-2">
+      <div className="flex flex-col sm:flex-row gap-3 sm:gap-2">
         <div className="flex flex-col gap-1 flex-1">
           <label className="text-xs text-white/50">Marca</label>
           <input
@@ -64,7 +64,7 @@ function VehicleForm({
         </div>
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex flex-col sm:flex-row gap-3 sm:gap-2">
         <div className="flex flex-col gap-1 flex-1">
           <label className="text-xs text-white/50">Año</label>
           <input
@@ -295,18 +295,18 @@ function VehicleDetail({ vehicle, onClose }: { vehicle: Vehicle; onClose: () => 
 
             {error && <p className="text-sm text-red-400">{error}</p>}
 
-            <div className="flex gap-2">
+            <div className="grid grid-cols-3 gap-2">
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 border border-white/10 rounded-lg px-3 py-2 text-sm text-white/70 hover:bg-white/5"
+                className="border border-white/10 rounded-lg px-2 py-2 text-sm text-white/70 hover:bg-white/5"
               >
                 Cerrar
               </button>
               <button
                 type="button"
                 onClick={() => setEditing(true)}
-                className="flex-1 border border-electric-cyan/40 text-electric-cyan rounded-lg px-3 py-2 text-sm hover:bg-electric-cyan/10 transition"
+                className="border border-electric-cyan/40 text-electric-cyan rounded-lg px-2 py-2 text-sm hover:bg-electric-cyan/10 transition"
               >
                 Editar
               </button>
@@ -317,9 +317,9 @@ function VehicleDetail({ vehicle, onClose }: { vehicle: Vehicle; onClose: () => 
                     deleteVehicle.mutate();
                 }}
                 disabled={deleteVehicle.isPending}
-                className="flex-1 border border-red-400/40 text-red-400 rounded-lg px-3 py-2 text-sm hover:bg-red-400/10 transition disabled:opacity-50"
+                className="border border-red-400/40 text-red-400 rounded-lg px-2 py-2 text-sm hover:bg-red-400/10 transition disabled:opacity-50"
               >
-                {deleteVehicle.isPending ? "Borrando..." : "Borrar"}
+                {deleteVehicle.isPending ? "..." : "Borrar"}
               </button>
             </div>
 
@@ -387,7 +387,7 @@ export function VehiclesPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="text-2xl font-bold text-white">Vehículos</h1>
           <p className="text-sm text-white/40">Tus vehículos y su historial de mantenimiento</p>
@@ -395,7 +395,7 @@ export function VehiclesPage() {
         <button
           type="button"
           onClick={() => setShowForm(true)}
-          className="bg-electric-cyan text-night-blue font-medium rounded-lg px-3 py-2 text-sm hover:brightness-110 transition"
+          className="bg-electric-cyan text-night-blue font-medium rounded-lg px-3 py-2 text-sm hover:brightness-110 transition flex-shrink-0"
         >
           + Agregar vehículo
         </button>

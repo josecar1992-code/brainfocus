@@ -24,6 +24,23 @@ interface Note {
   created_at: string;
 }
 
+interface Vehicle {
+  id: string;
+  brand: string;
+  model: string;
+  year: number | null;
+  vehicle_type: string | null;
+  plate: string | null;
+}
+
+interface VehicleMaintenance {
+  id: string;
+  vehicle_id: string;
+  date: string;
+  description: string;
+  mileage: number | null;
+}
+
 const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
 
 // Set chico y de grano grueso a propósito: cada tool se inyecta en el prompt
@@ -209,6 +226,86 @@ const tools = {
       if (args.busqueda) params.set("q", args.busqueda);
       return apiRequest<Note[]>(`/notes?${params.toString()}`);
     },
+  },
+
+  listar_vehiculos: {
+    description:
+      "Lista los vehículos del usuario (marca, modelo, año, tipo, placa) — usar esto primero para " +
+      "obtener el `id` de un vehículo antes de crear un mantenimiento o listar su historial.",
+    inputSchema: { type: "object", properties: {} },
+    argsSchema: z.object({}),
+    handler: () => apiRequest<Vehicle[]>("/vehicles?limit=100"),
+  },
+
+  crear_vehiculo: {
+    description: "Registra un vehículo nuevo del usuario.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        marca: { type: "string" },
+        modelo: { type: "string" },
+        anio: { type: "number" },
+        tipo: { type: "string", description: "ej. Sedán, SUV, Pickup, Moto. Opcional." },
+        placa: { type: "string" },
+      },
+      required: ["marca", "modelo"],
+    },
+    argsSchema: z.object({
+      marca: z.string().min(1),
+      modelo: z.string().min(1),
+      anio: z.number().int().optional(),
+      tipo: z.string().optional(),
+      placa: z.string().optional(),
+    }),
+    handler: (args: { marca: string; modelo: string; anio?: number; tipo?: string; placa?: string }) =>
+      apiRequest<Vehicle>("/vehicles", {
+        method: "POST",
+        body: JSON.stringify({ brand: args.marca, model: args.modelo, year: args.anio, vehicle_type: args.tipo, plate: args.placa }),
+      }),
+  },
+
+  crear_mantenimiento: {
+    description:
+      "Agrega una línea al historial de mantenimiento de un vehículo (ej. 'cambio de aceite'). " +
+      "Necesita el `id` del vehículo — usar `listar_vehiculos` primero si no se conoce.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        vehiculo_id: { type: "string" },
+        fecha: { type: "string", description: "ISO 8601 con offset; para Costa Rica usar -06:00." },
+        descripcion: { type: "string", description: "ej. 'Cambio de aceite'" },
+        kilometraje: { type: "number" },
+      },
+      required: ["vehiculo_id", "fecha", "descripcion"],
+    },
+    argsSchema: z.object({
+      vehiculo_id: z.string().uuid(),
+      fecha: z.string().datetime({ offset: true }),
+      descripcion: z.string().min(1),
+      kilometraje: z.number().optional(),
+    }),
+    handler: (args: { vehiculo_id: string; fecha: string; descripcion: string; kilometraje?: number }) =>
+      apiRequest<VehicleMaintenance>("/vehicle-maintenance", {
+        method: "POST",
+        body: JSON.stringify({
+          vehicle_id: args.vehiculo_id,
+          date: args.fecha,
+          description: args.descripcion,
+          mileage: args.kilometraje,
+        }),
+      }),
+  },
+
+  listar_mantenimientos: {
+    description: "Lista el historial de mantenimiento de un vehículo, del más reciente al más viejo.",
+    inputSchema: {
+      type: "object",
+      properties: { vehiculo_id: { type: "string" } },
+      required: ["vehiculo_id"],
+    },
+    argsSchema: z.object({ vehiculo_id: z.string().uuid() }),
+    handler: (args: { vehiculo_id: string }) =>
+      apiRequest<VehicleMaintenance[]>(`/vehicle-maintenance?vehicle_id=${args.vehiculo_id}&limit=100`),
   },
 } as const;
 

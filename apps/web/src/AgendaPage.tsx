@@ -280,18 +280,18 @@ function EventDetail({ event, reminder, onClose }: { event: Event; reminder?: Re
               </div>
             )}
             {error && <p className="text-sm text-red-400">{error}</p>}
-            <div className="flex gap-2 mt-3">
+            <div className="grid grid-cols-3 gap-2 mt-3">
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 border border-white/10 rounded-lg px-3 py-2 text-white/70 hover:bg-white/5"
+                className="border border-white/10 rounded-lg px-2 py-2 text-sm text-white/70 hover:bg-white/5"
               >
                 Cerrar
               </button>
               <button
                 type="button"
                 onClick={() => setEditing(true)}
-                className="flex-1 border border-electric-cyan/40 text-electric-cyan rounded-lg px-3 py-2 hover:bg-electric-cyan/10 transition"
+                className="border border-electric-cyan/40 text-electric-cyan rounded-lg px-2 py-2 text-sm hover:bg-electric-cyan/10 transition"
               >
                 Editar
               </button>
@@ -301,9 +301,9 @@ function EventDetail({ event, reminder, onClose }: { event: Event; reminder?: Re
                   if (confirm(`¿Borrar "${event.title}"? Esto también cancela el recordatorio.`)) deleteEvent.mutate();
                 }}
                 disabled={deleteEvent.isPending}
-                className="flex-1 border border-red-400/40 text-red-400 rounded-lg px-3 py-2 hover:bg-red-400/10 transition disabled:opacity-50"
+                className="border border-red-400/40 text-red-400 rounded-lg px-2 py-2 text-sm hover:bg-red-400/10 transition disabled:opacity-50"
               >
-                {deleteEvent.isPending ? "Borrando..." : "Borrar"}
+                {deleteEvent.isPending ? "..." : "Borrar"}
               </button>
             </div>
           </>
@@ -438,7 +438,7 @@ export function AgendaPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="text-2xl font-bold text-white">Agenda</h1>
           <p className="text-sm text-white/40">Tus eventos y recordatorios</p>
@@ -446,7 +446,7 @@ export function AgendaPage() {
         <button
           type="button"
           onClick={() => setShowForm(true)}
-          className="bg-electric-cyan text-night-blue font-medium rounded-lg px-3 py-2 text-sm hover:brightness-110 transition"
+          className="bg-electric-cyan text-night-blue font-medium rounded-lg px-3 py-2 text-sm hover:brightness-110 transition flex-shrink-0"
         >
           + Crear evento
         </button>
