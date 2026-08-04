@@ -8,6 +8,7 @@ export interface Task {
   status: "pending" | "in_progress" | "done";
   priority: "low" | "normal" | "high";
   due_date: string | null;
+  created_at: string;
 }
 
 export interface NewTask {

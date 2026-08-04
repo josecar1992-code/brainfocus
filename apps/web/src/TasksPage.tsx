@@ -18,6 +18,10 @@ const PRIORITIES: { value: Task["priority"]; label: string; className: string }[
   { value: "high", label: "Alta", className: "text-red-400 bg-red-400/10" },
 ];
 
+function formatCreatedDate(iso: string) {
+  return new Date(iso).toLocaleDateString("es-CR", { day: "2-digit", month: "short", year: "numeric" });
+}
+
 function StatCard({ valor, etiqueta }: { valor: number; etiqueta: string }) {
   return (
     <div className="bg-night-blue/40 backdrop-blur-md rounded-2xl border border-electric-cyan/10 shadow-[0_0_40px_-24px_rgba(0,210,255,0.35)] px-3 py-4 text-center">
@@ -401,6 +405,7 @@ function TaskDetail({ task, lists, onClose }: { task: Task; lists: List[]; onClo
                 {task.status === "done" ? "Completada" : task.status === "in_progress" ? "En curso" : "Pendiente"}
               </span>
             </div>
+            <p className="text-xs text-white/30">Creada {formatCreatedDate(task.created_at)}</p>
             {task.notes && <p className="text-sm text-white/60 whitespace-pre-wrap">{task.notes}</p>}
             {error && <p className="text-sm text-red-400">{error}</p>}
             <div className="grid grid-cols-3 gap-2 mt-2">
@@ -443,16 +448,56 @@ function TaskDetail({ task, lists, onClose }: { task: Task; lists: List[]; onClo
   );
 }
 
-export function TasksPage() {
-  const queryClient = useQueryClient();
+const SIN_CATEGORIA = "__sin_categoria__";
+
+function CategoryCard({
+  nombre,
+  color,
+  total,
+  pendientes,
+  onClick,
+}: {
+  nombre: string;
+  color: string | null;
+  total: number;
+  pendientes: number;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="text-left bg-night-blue/40 backdrop-blur-md rounded-2xl border border-electric-cyan/10 shadow-[0_0_40px_-24px_rgba(0,210,255,0.35)] p-4 hover:bg-white/10 transition-colors"
+    >
+      <div className="flex items-center gap-2">
+        <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: color ?? "#5B6B82" }} />
+        <p className="text-sm font-semibold text-white/90 truncate">{nombre}</p>
+      </div>
+      <p className="text-xs text-white/40 mt-2">
+        {pendientes} pendiente{pendientes === 1 ? "" : "s"} · {total} en total
+      </p>
+    </button>
+  );
+}
+
+function CategoryTasksView({
+  categoryId,
+  categoryName,
+  categoryColor,
+  tasks,
+  onBack,
+}: {
+  categoryId: string;
+  categoryName: string;
+  categoryColor: string | null;
+  tasks: Task[];
+  onBack: () => void;
+}) {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
-  const [showForm, setShowForm] = useState(false);
-  const [categoriaFilter, setCategoriaFilter] = useState("");
   const [prioridadFilter, setPrioridadFilter] = useState<Task["priority"] | "">("");
-  const { data: tasks, isLoading } = useQuery({ queryKey: ["tasks"], queryFn: api.listTasks });
+  const queryClient = useQueryClient();
   const { data: lists } = useQuery({ queryKey: ["lists"], queryFn: api.listLists });
-
   const completeTask = useCompleteTask();
 
   const deleteTask = useMutation({
@@ -464,15 +509,135 @@ export function TasksPage() {
     },
   });
 
-  const listsById = new Map((lists ?? []).map((l) => [l.id, l]));
+  const visibleTasks = tasks
+    .filter((t) => (categoryId === SIN_CATEGORIA ? !t.list_id : t.list_id === categoryId))
+    .filter((t) => !prioridadFilter || t.priority === prioridadFilter)
+    .sort((a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority]);
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          onClick={onBack}
+          className="border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white/70 hover:bg-white/5"
+        >
+          ← Categorías
+        </button>
+        <div className="flex items-center gap-2">
+          <span
+            className="w-3 h-3 rounded-full flex-shrink-0"
+            style={{ backgroundColor: categoryColor ?? "#5B6B82" }}
+          />
+          <h1 className="text-xl font-bold text-white">{categoryName}</h1>
+        </div>
+      </div>
+
+      <select
+        value={prioridadFilter}
+        onChange={(e) => setPrioridadFilter(e.target.value as Task["priority"] | "")}
+        className={`${SELECT_CLASS} py-1.5 text-sm`}
+      >
+        <option value="" style={OPTION_STYLE}>
+          Toda prioridad
+        </option>
+        {PRIORITIES.map((p) => (
+          <option key={p.value} value={p.value} style={OPTION_STYLE}>
+            {p.label}
+          </option>
+        ))}
+      </select>
+
+      <div className="bg-night-blue/40 backdrop-blur-md rounded-2xl border border-electric-cyan/10 shadow-[0_0_40px_-24px_rgba(0,210,255,0.35)] overflow-hidden">
+        {visibleTasks.length === 0 && <p className="text-white/40 text-sm px-5 py-5">No hay tareas para este filtro.</p>}
+
+        {visibleTasks.length > 0 && (
+          <ul>
+            {visibleTasks.map((task: Task) => (
+              <li
+                key={task.id}
+                className="flex items-center gap-3 px-5 py-3 border-t border-white/8 first:border-t-0 hover:bg-white/5 transition-colors group cursor-pointer"
+                onClick={() => setSelectedTask(task)}
+              >
+                <input
+                  type="checkbox"
+                  checked={task.status === "done"}
+                  onChange={() => completeTask.request(task)}
+                  onClick={(e) => e.stopPropagation()}
+                  className="accent-electric-cyan w-4 h-4 flex-shrink-0"
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className={`text-sm ${task.status === "done" ? "line-through text-white/30" : "text-white/90"}`}>
+                      {task.title}
+                    </span>
+                    <PriorityBadge priority={task.priority} />
+                  </div>
+                  {task.notes && <p className="text-xs text-white/40 mt-0.5 truncate">{task.notes}</p>}
+                  <p className="text-[11px] text-white/30 mt-0.5">Creada {formatCreatedDate(task.created_at)}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setTaskToDelete(task);
+                  }}
+                  aria-label="Borrar tarea"
+                  className="text-white/20 hover:text-red-400 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100"
+                >
+                  <IconTrash className="w-4 h-4" strokeWidth={1.75} />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {selectedTask && <TaskDetail task={selectedTask} lists={lists ?? []} onClose={() => setSelectedTask(null)} />}
+      {taskToDelete && (
+        <ConfirmDialog
+          message={`¿Borrar "${taskToDelete.title}"?`}
+          pending={deleteTask.isPending}
+          onCancel={() => setTaskToDelete(null)}
+          onConfirm={() => deleteTask.mutate(taskToDelete.id)}
+        />
+      )}
+      {completeTask.pendingTask && (
+        <ConfirmDialog
+          message={`¿Marcar "${completeTask.pendingTask.title}" como hecha?`}
+          confirmLabel="Marcar hecha"
+          pending={completeTask.isPending}
+          onCancel={completeTask.cancel}
+          onConfirm={completeTask.confirm}
+        />
+      )}
+    </div>
+  );
+}
+
+export function TasksPage() {
+  const [showForm, setShowForm] = useState(false);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  const { data: tasks, isLoading } = useQuery({ queryKey: ["tasks"], queryFn: api.listTasks });
+  const { data: lists } = useQuery({ queryKey: ["lists"], queryFn: api.listLists });
 
   const pendientes = tasks?.filter((t) => t.status !== "done").length ?? 0;
   const completadas = tasks?.filter((t) => t.status === "done").length ?? 0;
 
-  const visibleTasks = (tasks ?? [])
-    .filter((t) => !categoriaFilter || t.list_id === categoriaFilter)
-    .filter((t) => !prioridadFilter || t.priority === prioridadFilter)
-    .sort((a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority]);
+  if (selectedCategoryId && tasks) {
+    const category = (lists ?? []).find((l) => l.id === selectedCategoryId);
+    return (
+      <CategoryTasksView
+        categoryId={selectedCategoryId}
+        categoryName={category?.name ?? "Sin categoría"}
+        categoryColor={category?.color ?? null}
+        tasks={tasks}
+        onBack={() => setSelectedCategoryId(null)}
+      />
+    );
+  }
+
+  const sinCategoriaCount = tasks?.filter((t) => !t.list_id).length ?? 0;
 
   return (
     <div className="space-y-5">
@@ -495,119 +660,36 @@ export function TasksPage() {
         <StatCard valor={completadas} etiqueta="Completadas" />
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <select
-          value={categoriaFilter}
-          onChange={(e) => setCategoriaFilter(e.target.value)}
-          className={`${SELECT_CLASS} py-1.5 text-sm`}
-        >
-          <option value="" style={OPTION_STYLE}>
-            Todas las categorías
-          </option>
-          {(lists ?? []).map((l) => (
-            <option key={l.id} value={l.id} style={OPTION_STYLE}>
-              {l.name}
-            </option>
-          ))}
-        </select>
-        <select
-          value={prioridadFilter}
-          onChange={(e) => setPrioridadFilter(e.target.value as Task["priority"] | "")}
-          className={`${SELECT_CLASS} py-1.5 text-sm`}
-        >
-          <option value="" style={OPTION_STYLE}>
-            Toda prioridad
-          </option>
-          {PRIORITIES.map((p) => (
-            <option key={p.value} value={p.value} style={OPTION_STYLE}>
-              {p.label}
-            </option>
-          ))}
-        </select>
-      </div>
+      {isLoading && <p className="text-white/40 text-sm">Cargando...</p>}
 
-      <div className="bg-night-blue/40 backdrop-blur-md rounded-2xl border border-electric-cyan/10 shadow-[0_0_40px_-24px_rgba(0,210,255,0.35)] overflow-hidden">
-        <p className="text-xs font-semibold uppercase tracking-wide text-white/40 px-5 pt-5 pb-2">Lista</p>
-
-        {isLoading && <p className="text-white/40 text-sm px-5 pb-5">Cargando...</p>}
-
-        {visibleTasks.length === 0 && !isLoading && (
-          <p className="text-white/40 text-sm px-5 pb-5">No hay tareas para este filtro.</p>
-        )}
-
-        {visibleTasks.length > 0 && (
-          <ul>
-            {visibleTasks.map((task: Task) => {
-              const list = task.list_id ? listsById.get(task.list_id) : undefined;
-              return (
-                <li
-                  key={task.id}
-                  className="flex items-center gap-3 px-5 py-3 border-t border-white/8 first:border-t-0 hover:bg-white/5 transition-colors group cursor-pointer"
-                  onClick={() => setSelectedTask(task)}
-                >
-                  <input
-                    type="checkbox"
-                    checked={task.status === "done"}
-                    onChange={() => completeTask.request(task)}
-                    onClick={(e) => e.stopPropagation()}
-                    className="accent-electric-cyan w-4 h-4 flex-shrink-0"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span
-                        className={`text-sm ${task.status === "done" ? "line-through text-white/30" : "text-white/90"}`}
-                      >
-                        {task.title}
-                      </span>
-                      {list && (
-                        <span
-                          className="text-[11px] font-medium px-2 py-0.5 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: `${list.color ?? "#5B6B82"}22`, color: list.color ?? "#8FA3BF" }}
-                        >
-                          {list.name}
-                        </span>
-                      )}
-                      <PriorityBadge priority={task.priority} />
-                    </div>
-                    {task.notes && <p className="text-xs text-white/40 mt-0.5 truncate">{task.notes}</p>}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setTaskToDelete(task);
-                    }}
-                    aria-label="Borrar tarea"
-                    className="text-white/20 hover:text-red-400 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100"
-                  >
-                    <IconTrash className="w-4 h-4" strokeWidth={1.75} />
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </div>
+      {tasks && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {(lists ?? []).map((l) => {
+            const catTasks = tasks.filter((t) => t.list_id === l.id);
+            return (
+              <CategoryCard
+                key={l.id}
+                nombre={l.name}
+                color={l.color}
+                total={catTasks.length}
+                pendientes={catTasks.filter((t) => t.status !== "done").length}
+                onClick={() => setSelectedCategoryId(l.id)}
+              />
+            );
+          })}
+          {sinCategoriaCount > 0 && (
+            <CategoryCard
+              nombre="Sin categoría"
+              color={null}
+              total={sinCategoriaCount}
+              pendientes={tasks.filter((t) => !t.list_id && t.status !== "done").length}
+              onClick={() => setSelectedCategoryId(SIN_CATEGORIA)}
+            />
+          )}
+        </div>
+      )}
 
       {showForm && <NewTaskModal lists={lists ?? []} onClose={() => setShowForm(false)} />}
-      {selectedTask && <TaskDetail task={selectedTask} lists={lists ?? []} onClose={() => setSelectedTask(null)} />}
-      {taskToDelete && (
-        <ConfirmDialog
-          message={`¿Borrar "${taskToDelete.title}"?`}
-          pending={deleteTask.isPending}
-          onCancel={() => setTaskToDelete(null)}
-          onConfirm={() => deleteTask.mutate(taskToDelete.id)}
-        />
-      )}
-      {completeTask.pendingTask && (
-        <ConfirmDialog
-          message={`¿Marcar "${completeTask.pendingTask.title}" como hecha?`}
-          confirmLabel="Marcar hecha"
-          pending={completeTask.isPending}
-          onCancel={completeTask.cancel}
-          onConfirm={completeTask.confirm}
-        />
-      )}
     </div>
   );
 }
