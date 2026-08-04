@@ -54,7 +54,7 @@ export function NotesPage() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-bold text-white">Notas</h1>
+        <h1 className="text-2xl font-bold text-white">Notas y memorias</h1>
         <p className="text-sm text-white/40">Información libre — Quicks también puede leerlas y buscarlas por vos</p>
       </div>
 
