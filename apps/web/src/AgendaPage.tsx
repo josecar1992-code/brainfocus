@@ -23,11 +23,18 @@ function formatDateTime(iso: string) {
 }
 
 /** Pill de estado del recordatorio: pendiente, ya enviado, o guardado pero sin cron. */
-function ReminderBadge({ reminder }: { reminder: Reminder }) {
+function ReminderBadge({ reminder, iconOnly }: { reminder: Reminder; iconOnly?: boolean }) {
   if (reminder.sent_at) {
+    const title = `Recordatorio ya enviado (${formatDateTime(reminder.sent_at)})`;
+    if (iconOnly)
+      return (
+        <span title={title} className="flex-shrink-0">
+          <IconCheckCircle className="w-3.5 h-3.5 text-green-400" strokeWidth={2} />
+        </span>
+      );
     return (
       <span
-        title={`Recordatorio ya enviado (${formatDateTime(reminder.sent_at)})`}
+        title={title}
         className="inline-flex items-center gap-1 text-[11px] font-semibold text-green-400 bg-green-400/10 px-2 py-0.5 rounded-full"
       >
         <IconCheckCircle className="w-3 h-3" strokeWidth={2} />
@@ -36,9 +43,16 @@ function ReminderBadge({ reminder }: { reminder: Reminder }) {
     );
   }
   if (reminder.cron_job_id) {
+    const title = `Recordatorio programado para ${formatDateTime(reminder.remind_at)}`;
+    if (iconOnly)
+      return (
+        <span title={title} className="flex-shrink-0">
+          <IconBell className="w-3.5 h-3.5 text-electric-cyan" strokeWidth={2} />
+        </span>
+      );
     return (
       <span
-        title={`Recordatorio programado para ${formatDateTime(reminder.remind_at)}`}
+        title={title}
         className="inline-flex items-center gap-1 text-[11px] font-semibold text-electric-cyan bg-electric-cyan/10 px-2 py-0.5 rounded-full"
       >
         <IconBell className="w-3 h-3" strokeWidth={2} />
@@ -46,9 +60,16 @@ function ReminderBadge({ reminder }: { reminder: Reminder }) {
       </span>
     );
   }
+  const title = `Recordatorio guardado para ${formatDateTime(reminder.remind_at)}, pero sin aviso automático (OpenClaw no configurado o falló)`;
+  if (iconOnly)
+    return (
+      <span title={title} className="flex-shrink-0">
+        <IconBellOff className="w-3.5 h-3.5 text-white/40" strokeWidth={2} />
+      </span>
+    );
   return (
     <span
-      title={`Recordatorio guardado para ${formatDateTime(reminder.remind_at)}, pero sin aviso automático (OpenClaw no configurado o falló)`}
+      title={title}
       className="inline-flex items-center gap-1 text-[11px] font-semibold text-white/40 bg-white/5 px-2 py-0.5 rounded-full"
     >
       <IconBellOff className="w-3 h-3" strokeWidth={2} />
@@ -635,7 +656,7 @@ export function AgendaPage() {
                       >
                         {event.title}
                       </p>
-                      {reminder && <ReminderBadge reminder={reminder} />}
+                      {reminder && <ReminderBadge reminder={reminder} iconOnly />}
                     </button>
                   </li>
                 );
