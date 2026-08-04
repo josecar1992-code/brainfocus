@@ -313,7 +313,7 @@ function EventDetail({ event, reminder, onClose }: { event: Event; reminder?: Re
   );
 }
 
-type DateFilter = "hoy" | "semana" | "rango";
+type DateFilter = "hoy" | "semana" | "mes" | "rango";
 
 function startOfDay(d: Date) {
   const r = new Date(d);
@@ -352,6 +352,7 @@ function DateFilterBar({
   const options: { key: DateFilter; label: string }[] = [
     { key: "hoy", label: "Hoy" },
     { key: "semana", label: "Esta semana" },
+    { key: "mes", label: "Este mes" },
     { key: "rango", label: "Rango de fechas" },
   ];
   return (
@@ -418,6 +419,9 @@ export function AgendaPage() {
   } else if (dateFilter === "semana") {
     rangeFrom = startOfWeek(now);
     rangeTo = new Date(rangeFrom.getTime() + 7 * 24 * 60 * 60 * 1000);
+  } else if (dateFilter === "mes") {
+    rangeFrom = new Date(now.getFullYear(), now.getMonth(), 1);
+    rangeTo = new Date(now.getFullYear(), now.getMonth() + 1, 1);
   } else {
     rangeFrom = rangeStart ? startOfDay(new Date(`${rangeStart}T00:00:00`)) : startOfDay(now);
     rangeTo = rangeEnd
