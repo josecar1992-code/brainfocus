@@ -27,9 +27,18 @@ bloquea hosts internos como `localhost`. Por eso `apps/mcp` es un proceso stdio 
 OpenClaw y que traduce tool calls a llamadas HTTP contra `apps/api`.
 
 Expone un set chico y de grano grueso a propósito (`listar_tareas`, `crear_tarea`, `completar_tarea`,
-`crear_recordatorio`, `crear_nota`) — cada tool registrado se inyecta en el prompt del agente en
-cada turno, así que crece con uso real, no por especulación. Detalles de registro, allowlists y
-aislamiento entre agentes en [infra/DEPLOY.md](infra/DEPLOY.md).
+`crear_recordatorio`, `crear_evento`, `crear_nota`, `buscar_notas`) — cada tool registrado se
+inyecta en el prompt del agente en cada turno, así que crece con uso real, no por especulación.
+`crear_evento` agenda un evento real (no solo un recordatorio suelto) y, por defecto, crea también
+un recordatorio 2 horas antes. `buscar_notas` deja que Quicks busque por palabra en título/contenido
+o traiga las últimas notas guardadas, usando el `?q=` genérico agregado a `resourceRouter`. Detalles
+de registro, allowlists y aislamiento entre agentes en [infra/DEPLOY.md](infra/DEPLOY.md).
+
+Los recordatorios (creados desde la app o por Quicks) programan automáticamente un aviso real de
+WhatsApp/Telegram como cron job de disparo único en OpenClaw (`apps/api/src/services/openclawCron.ts`)
+— no depende de que Quicks recuerde crear el cron en el chat. Completar/borrar la tarea o evento
+asociado, o borrar el recordatorio directamente, cancela ese cron automáticamente (ver hooks en
+`apps/api/src/routes/{tasks,events,reminders}.ts` y `apps/api/src/services/reminderCascade.ts`).
 
 ## Modelo de acceso
 
@@ -95,6 +104,12 @@ Ver [infra/DEPLOY.md](infra/DEPLOY.md) para la guía paso a paso.
 | Migración de `tareas.md` | Hecha — 14 tareas reales cargadas en `public.tasks` (limpieza, pintura, trámites de Registro Nacional/OIJ, etc.), archivo retirado como fuente de verdad |
 | Prueba de punta a punta | Verificada dos veces (Focusbrain y OpenClaw por separado): crear tarea → completar → listar filtrado, con auditoría en `agent_actions` |
 | Login | Completo y verificado en producción: contraseña, magic link y Google OAuth, los tres probados de punta a punta |
+| Módulo Agenda | Eventos con recordatorio automático, filtros de fecha (Hoy / Esta semana / Este mes / Rango), lista ordenada por proximidad, y cada fila abre un detalle con editar/borrar |
+| Módulo Notas | Nombre + contenido desde la app; Quicks puede escribir (`crear_nota`) y leer/buscar (`buscar_notas`) |
+| Recordatorios ↔ cron de OpenClaw | Automático de punta a punta y verificado en producción (crear, reprogramar si cambia la fecha, cancelar al completar/borrar tarea o evento) |
+| Diseño visual | Rediseñado con la estética del portal de clientes de QuickWash (sidebar, header, cards, badges), respetando la paleta de marca de Focusbrain |
+| Logo | Logo oficial recortado (sin el fondo gris del canvas original) en sidebar, login, favicon e íconos PWA |
+| PWA | Instalable — manifest + service worker (`vite-plugin-pwa`, `apps/web/vite.config.ts`), cachea el shell de la app para carga offline; los datos siempre se piden en vivo a la API |
 
 Sin pendientes de infraestructura por ahora — lo que sigue es UX/producto sobre `apps/web`.
 

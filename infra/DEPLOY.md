@@ -120,7 +120,9 @@ Documentado aquí para que quede como referencia, pero lo ejecuta y verifica la 
      automáticamente (`tool cron` sobre `POST /tools/invoke`, ver
      `apps/api/src/services/openclawCron.ts` y el detalle del contrato en
      `HANDOFF_TO_OPENCLAW.md`), tanto si el recordatorio se creó desde la app como desde Quicks.
-     Falta cargar `OPENCLAW_GATEWAY_URL`/`OPENCLAW_GATEWAY_TOKEN`/`OPENCLAW_REMINDER_TO` en
-     `apps/api/.env` en el VPS (paso manual del dueño, el token sale de
-     `/root/.openclaw/openclaw.json`) — mientras falten, el recordatorio se sigue guardando y
-     viendo en la app, solo sin aviso automático.
+     **Hecho y verificado en producción**: `OPENCLAW_GATEWAY_URL`/`OPENCLAW_GATEWAY_TOKEN`/
+     `OPENCLAW_REMINDER_TO` ya están cargados en `apps/api/.env` del VPS (`host.docker.internal:18789`,
+     ya que OpenClaw corre nativo por systemd, no en Docker — ver `extra_hosts` en
+     `docker-compose.yml`). Probado de punta a punta: crear evento con recordatorio → cron real
+     creado en OpenClaw → borrar evento → cron cancelado (`openclaw cron get <id>` responde
+     `cron job not found`, que es el resultado esperado tras cancelar).
