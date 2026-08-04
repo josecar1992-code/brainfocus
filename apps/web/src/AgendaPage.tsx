@@ -437,7 +437,7 @@ function DateFilterBar({
 export function AgendaPage() {
   const [showForm, setShowForm] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
-  const [dateFilter, setDateFilter] = useState<DateFilter>("semana");
+  const [dateFilter, setDateFilter] = useState<DateFilter>("hoy");
   const now = new Date();
   const [rangeStart, setRangeStart] = useState(toDateInputValue(startOfWeek(now)));
   const [rangeEnd, setRangeEnd] = useState(
