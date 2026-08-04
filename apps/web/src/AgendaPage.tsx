@@ -313,10 +313,94 @@ function EventDetail({ event, reminder, onClose }: { event: Event; reminder?: Re
   );
 }
 
+type DateFilter = "hoy" | "semana" | "rango";
+
+function startOfDay(d: Date) {
+  const r = new Date(d);
+  r.setHours(0, 0, 0, 0);
+  return r;
+}
+
+function startOfWeek(d: Date) {
+  // Semana empieza lunes.
+  const r = startOfDay(d);
+  const day = r.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  r.setDate(r.getDate() + diff);
+  return r;
+}
+
+function toDateInputValue(d: Date) {
+  return d.toISOString().slice(0, 10);
+}
+
+function DateFilterBar({
+  filter,
+  onFilter,
+  rangeStart,
+  rangeEnd,
+  onRangeStart,
+  onRangeEnd,
+}: {
+  filter: DateFilter;
+  onFilter: (f: DateFilter) => void;
+  rangeStart: string;
+  rangeEnd: string;
+  onRangeStart: (v: string) => void;
+  onRangeEnd: (v: string) => void;
+}) {
+  const options: { key: DateFilter; label: string }[] = [
+    { key: "hoy", label: "Hoy" },
+    { key: "semana", label: "Esta semana" },
+    { key: "rango", label: "Rango de fechas" },
+  ];
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {options.map((o) => (
+        <button
+          key={o.key}
+          type="button"
+          onClick={() => onFilter(o.key)}
+          className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-all duration-150 ${
+            filter === o.key
+              ? "bg-electric-cyan text-night-blue"
+              : "bg-white/5 text-white/60 border border-white/10 hover:bg-white/10"
+          }`}
+        >
+          {o.label}
+        </button>
+      ))}
+      {filter === "rango" && (
+        <div className="flex items-center gap-2 ml-1">
+          <input
+            type="date"
+            value={rangeStart}
+            onChange={(e) => onRangeStart(e.target.value)}
+            className="border border-deep-blue/40 bg-black/20 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-electric-cyan/70 [color-scheme:dark]"
+          />
+          <span className="text-white/40 text-sm">a</span>
+          <input
+            type="date"
+            value={rangeEnd}
+            onChange={(e) => onRangeEnd(e.target.value)}
+            className="border border-deep-blue/40 bg-black/20 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-electric-cyan/70 [color-scheme:dark]"
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function AgendaPage() {
   const [showForm, setShowForm] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
-  const { data: events, isLoading } = useQuery({ queryKey: ["events"], queryFn: api.listEvents });
+  const [dateFilter, setDateFilter] = useState<DateFilter>("semana");
+  const now = new Date();
+  const [rangeStart, setRangeStart] = useState(toDateInputValue(startOfWeek(now)));
+  const [rangeEnd, setRangeEnd] = useState(
+    toDateInputValue(new Date(startOfWeek(now).getTime() + 6 * 24 * 60 * 60 * 1000)),
+  );
+  const { data: allEvents, isLoading } = useQuery({ queryKey: ["events"], queryFn: api.listEvents });
   const { data: reminders } = useQuery({ queryKey: ["reminders"], queryFn: api.listReminders });
 
   const remindersByEvent = new Map<string, Reminder>();
@@ -325,6 +409,28 @@ export function AgendaPage() {
     if (reminder.event_id) remindersByEvent.set(reminder.event_id, reminder);
     else looseReminders.push(reminder);
   }
+
+  let rangeFrom: Date;
+  let rangeTo: Date;
+  if (dateFilter === "hoy") {
+    rangeFrom = startOfDay(now);
+    rangeTo = new Date(rangeFrom.getTime() + 24 * 60 * 60 * 1000);
+  } else if (dateFilter === "semana") {
+    rangeFrom = startOfWeek(now);
+    rangeTo = new Date(rangeFrom.getTime() + 7 * 24 * 60 * 60 * 1000);
+  } else {
+    rangeFrom = rangeStart ? startOfDay(new Date(`${rangeStart}T00:00:00`)) : startOfDay(now);
+    rangeTo = rangeEnd
+      ? new Date(startOfDay(new Date(`${rangeEnd}T00:00:00`)).getTime() + 24 * 60 * 60 * 1000)
+      : new Date(rangeFrom.getTime() + 24 * 60 * 60 * 1000);
+  }
+
+  const events = (allEvents ?? [])
+    .filter((e) => {
+      const t = new Date(e.starts_at).getTime();
+      return t >= rangeFrom.getTime() && t < rangeTo.getTime();
+    })
+    .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime());
 
   return (
     <div className="space-y-5">
@@ -342,16 +448,25 @@ export function AgendaPage() {
         </button>
       </div>
 
+      <DateFilterBar
+        filter={dateFilter}
+        onFilter={setDateFilter}
+        rangeStart={rangeStart}
+        rangeEnd={rangeEnd}
+        onRangeStart={setRangeStart}
+        onRangeEnd={setRangeEnd}
+      />
+
       <div className="bg-white/5 rounded-2xl shadow-sm border border-white/10 overflow-hidden">
         <p className="text-xs font-semibold uppercase tracking-wide text-white/40 px-5 pt-5 pb-2">Eventos</p>
 
         {isLoading && <p className="text-white/40 text-sm px-5 pb-5">Cargando...</p>}
 
-        {events && events.length === 0 && !isLoading && (
-          <p className="text-white/40 text-sm px-5 pb-5">No hay eventos todavía.</p>
+        {events.length === 0 && !isLoading && (
+          <p className="text-white/40 text-sm px-5 pb-5">No hay eventos en este rango.</p>
         )}
 
-        {events && events.length > 0 && (
+        {events.length > 0 && (
           <table className="w-full text-sm">
             <thead>
               <tr className="text-white/40 text-left">
