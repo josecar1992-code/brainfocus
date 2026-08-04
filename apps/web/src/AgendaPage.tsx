@@ -161,8 +161,161 @@ function NewEventForm({ onClose }: { onClose: () => void }) {
   );
 }
 
+function EventDetail({ event, reminder, onClose }: { event: Event; reminder?: Reminder; onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const [editing, setEditing] = useState(false);
+  const start = new Date(event.starts_at);
+  const [title, setTitle] = useState(event.title);
+  const [description, setDescription] = useState(event.description ?? "");
+  const [date, setDate] = useState(start.toISOString().slice(0, 10));
+  const [time, setTime] = useState(start.toISOString().slice(11, 16));
+  const [error, setError] = useState<string | null>(null);
+
+  const updateEvent = useMutation({
+    mutationFn: () =>
+      api.updateEvent(event.id, {
+        title,
+        description: description.trim() || undefined,
+        starts_at: `${date}T${time}:00${CR_OFFSET}`,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["events"] });
+      queryClient.invalidateQueries({ queryKey: ["reminders"] });
+      onClose();
+    },
+    onError: (err) => setError(err instanceof Error ? err.message : "No se pudo actualizar el evento"),
+  });
+
+  const deleteEvent = useMutation({
+    mutationFn: () => api.deleteEvent(event.id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["events"] });
+      queryClient.invalidateQueries({ queryKey: ["reminders"] });
+      onClose();
+    },
+    onError: (err) => setError(err instanceof Error ? err.message : "No se pudo borrar el evento"),
+  });
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    if (!title.trim() || !date || !time) {
+      setError("Completa nombre, fecha y hora.");
+      return;
+    }
+    updateEvent.mutate();
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center px-4 z-20">
+      <div className="w-full max-w-sm border border-electric-cyan/20 bg-night-blue rounded-2xl p-6 flex flex-col gap-3 shadow-[0_0_60px_-15px_rgba(0,210,255,0.25)]">
+        {editing ? (
+          <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+            <h2 className="text-lg font-medium mb-1">Editar evento</h2>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs text-white/50">Nombre</label>
+              <input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="border border-deep-blue/40 bg-black/20 rounded-lg px-3 py-2 focus:outline-none focus:border-electric-cyan/70"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs text-white/50">Descripción</label>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={2}
+                className="border border-deep-blue/40 bg-black/20 rounded-lg px-3 py-2 focus:outline-none focus:border-electric-cyan/70 resize-none"
+              />
+            </div>
+            <div className="flex gap-2">
+              <div className="flex flex-col gap-1 flex-1">
+                <label className="text-xs text-white/50">Fecha</label>
+                <input
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  className="border border-deep-blue/40 bg-black/20 rounded-lg px-3 py-2 focus:outline-none focus:border-electric-cyan/70 [color-scheme:dark]"
+                />
+              </div>
+              <div className="flex flex-col gap-1 flex-1">
+                <label className="text-xs text-white/50">Hora</label>
+                <input
+                  type="time"
+                  value={time}
+                  onChange={(e) => setTime(e.target.value)}
+                  className="border border-deep-blue/40 bg-black/20 rounded-lg px-3 py-2 focus:outline-none focus:border-electric-cyan/70 [color-scheme:dark]"
+                />
+              </div>
+            </div>
+            {error && <p className="text-sm text-red-400">{error}</p>}
+            <div className="flex gap-2 mt-2">
+              <button
+                type="button"
+                onClick={() => setEditing(false)}
+                className="flex-1 border border-white/10 rounded-lg px-3 py-2 text-white/70 hover:bg-white/5"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={updateEvent.isPending}
+                className="flex-1 bg-electric-cyan text-night-blue font-medium rounded-lg px-3 py-2 disabled:opacity-50 hover:brightness-110 transition"
+              >
+                {updateEvent.isPending ? "Guardando..." : "Guardar"}
+              </button>
+            </div>
+          </form>
+        ) : (
+          <>
+            <h2 className="text-lg font-medium mb-1 text-white">{event.title}</h2>
+            <p className="text-sm text-electric-cyan">
+              {formatDate(event.starts_at)} · {formatTime(event.starts_at)}
+            </p>
+            {event.description && <p className="text-sm text-white/60 whitespace-pre-wrap">{event.description}</p>}
+            {reminder && (
+              <div className="mt-1">
+                <ReminderBadge reminder={reminder} />
+              </div>
+            )}
+            {error && <p className="text-sm text-red-400">{error}</p>}
+            <div className="flex gap-2 mt-3">
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 border border-white/10 rounded-lg px-3 py-2 text-white/70 hover:bg-white/5"
+              >
+                Cerrar
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditing(true)}
+                className="flex-1 border border-electric-cyan/40 text-electric-cyan rounded-lg px-3 py-2 hover:bg-electric-cyan/10 transition"
+              >
+                Editar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (confirm(`¿Borrar "${event.title}"? Esto también cancela el recordatorio.`)) deleteEvent.mutate();
+                }}
+                disabled={deleteEvent.isPending}
+                className="flex-1 border border-red-400/40 text-red-400 rounded-lg px-3 py-2 hover:bg-red-400/10 transition disabled:opacity-50"
+              >
+                {deleteEvent.isPending ? "Borrando..." : "Borrar"}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function AgendaPage() {
   const [showForm, setShowForm] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const { data: events, isLoading } = useQuery({ queryKey: ["events"], queryFn: api.listEvents });
   const { data: reminders } = useQuery({ queryKey: ["reminders"], queryFn: api.listReminders });
 
@@ -213,7 +366,11 @@ export function AgendaPage() {
               {events.map((event: Event) => {
                 const reminder = remindersByEvent.get(event.id);
                 return (
-                  <tr key={event.id} className="border-t border-white/8 hover:bg-white/5 transition-colors">
+                  <tr
+                    key={event.id}
+                    onClick={() => setSelectedEvent(event)}
+                    className="border-t border-white/8 hover:bg-white/5 transition-colors cursor-pointer"
+                  >
                     <td className="px-5 py-3 whitespace-nowrap">{formatDate(event.starts_at)}</td>
                     <td className="px-3 py-3 whitespace-nowrap text-electric-cyan">{formatTime(event.starts_at)}</td>
                     <td className="px-3 py-3 text-white/90">{event.title}</td>
@@ -256,6 +413,13 @@ export function AgendaPage() {
       )}
 
       {showForm && <NewEventForm onClose={() => setShowForm(false)} />}
+      {selectedEvent && (
+        <EventDetail
+          event={selectedEvent}
+          reminder={remindersByEvent.get(selectedEvent.id)}
+          onClose={() => setSelectedEvent(null)}
+        />
+      )}
     </div>
   );
 }

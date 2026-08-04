@@ -82,6 +82,10 @@ export const api = {
     }),
 
   listEvents: () => request<Event[]>("/events"),
+  updateEvent: (id: string, input: { title: string; description?: string; starts_at: string }) =>
+    request<Event>(`/events/${id}`, { method: "PATCH", body: JSON.stringify(input) }),
+  deleteEvent: (id: string) => request<void>(`/events/${id}`, { method: "DELETE" }),
+
   listReminders: () => request<Reminder[]>("/reminders"),
 
   listNotes: () => request<Note[]>("/notes"),
