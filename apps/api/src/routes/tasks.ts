@@ -4,7 +4,7 @@ import { cancelPendingRemindersFor } from "../services/reminderCascade.js";
 
 const createSchema = z.object({
   title: z.string().min(1),
-  notes: z.string().optional(),
+  notes: z.string().optional().nullable(),
   list_id: z.string().uuid().optional().nullable(),
   status: z.enum(["pending", "in_progress", "done"]).optional(),
   priority: z.enum(["low", "normal", "high"]).optional(),
