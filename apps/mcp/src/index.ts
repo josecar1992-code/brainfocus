@@ -41,6 +41,25 @@ interface VehicleMaintenance {
   mileage: number | null;
 }
 
+interface Category {
+  id: string;
+  name: string;
+  color: string | null;
+}
+
+interface Routine {
+  id: string;
+  title: string;
+  list_id: string | null;
+  frequency: "daily" | "weekly";
+  interval_weeks: number;
+  days_of_week: number[];
+  time_of_day: string;
+  start_date: string;
+  crear_recordatorio: boolean;
+  current_occurrence_date: string | null;
+}
+
 const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
 
 // Set chico y de grano grueso a propósito: cada tool se inyecta en el prompt
@@ -306,6 +325,98 @@ const tools = {
     argsSchema: z.object({ vehiculo_id: z.string().uuid() }),
     handler: (args: { vehiculo_id: string }) =>
       apiRequest<VehicleMaintenance[]>(`/vehicle-maintenance?vehicle_id=${args.vehiculo_id}&limit=100`),
+  },
+
+  listar_categorias: {
+    description:
+      "Lista las categorías del usuario (id, nombre, color) — usar esto primero para obtener el " +
+      "`categoria_id` antes de crear una rutina o una tarea con categoría.",
+    inputSchema: { type: "object", properties: {} },
+    argsSchema: z.object({}),
+    handler: () => apiRequest<Category[]>("/lists?limit=100"),
+  },
+
+  listar_rutinas: {
+    description:
+      "Lista las rutinas (tareas repetitivas) del usuario: frecuencia, días, hora y la fecha de la " +
+      "próxima ocurrencia pendiente.",
+    inputSchema: { type: "object", properties: {} },
+    argsSchema: z.object({}),
+    handler: () => apiRequest<Routine[]>("/routines"),
+  },
+
+  crear_rutina: {
+    description:
+      "Crea una rutina: una tarea que se repite (diaria, ciertos días de la semana, o cada N " +
+      "semanas — ej. 'sacar la basura los martes y viernes' o 'cada domingo de por medio'). " +
+      "Genera automáticamente la tarea y el evento de la próxima ocurrencia; al marcarse esa tarea " +
+      "como hecha, la siguiente se crea sola — nunca hay que crear las ocurrencias a mano. Necesita " +
+      "`categoria_id` — usar `listar_categorias` primero si no se conoce.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        titulo: { type: "string", description: "ej. 'Sacar la basura'" },
+        categoria_id: { type: "string" },
+        frecuencia: { type: "string", enum: ["diaria", "semanal"] },
+        dias_semana: {
+          type: "array",
+          items: { type: "number" },
+          description: "0=domingo .. 6=sábado. Requerido si frecuencia es 'semanal'.",
+        },
+        cada_cuantas_semanas: {
+          type: "number",
+          description: "1 = toda semana (default), 2 = de por medio, 3, 4... Solo aplica a 'semanal'.",
+        },
+        hora: { type: "string", description: "HH:MM, 24 horas. ej. '19:00'" },
+        fecha_inicio: {
+          type: "string",
+          description:
+            "YYYY-MM-DD. Ancla para contar la paridad de semanas (ej. de qué domingo en adelante " +
+            "cuenta 'de por medio'). Si no se especifica, se usa la fecha de hoy.",
+        },
+        crear_recordatorio: {
+          type: "boolean",
+          description: "Si Quicks debe avisar justo a la hora de cada ocurrencia. Default true.",
+        },
+      },
+      required: ["titulo", "categoria_id", "frecuencia", "hora"],
+    },
+    argsSchema: z.object({
+      titulo: z.string().min(1),
+      categoria_id: z.string().uuid(),
+      frecuencia: z.enum(["diaria", "semanal"]),
+      dias_semana: z.array(z.number().int().min(0).max(6)).optional(),
+      cada_cuantas_semanas: z.number().int().min(1).max(52).optional(),
+      hora: z.string().regex(/^\d{2}:\d{2}$/),
+      fecha_inicio: z
+        .string()
+        .regex(/^\d{4}-\d{2}-\d{2}$/)
+        .optional(),
+      crear_recordatorio: z.boolean().optional(),
+    }),
+    handler: (args: {
+      titulo: string;
+      categoria_id: string;
+      frecuencia: "diaria" | "semanal";
+      dias_semana?: number[];
+      cada_cuantas_semanas?: number;
+      hora: string;
+      fecha_inicio?: string;
+      crear_recordatorio?: boolean;
+    }) =>
+      apiRequest<Routine>("/routines", {
+        method: "POST",
+        body: JSON.stringify({
+          title: args.titulo,
+          list_id: args.categoria_id,
+          frequency: args.frecuencia === "diaria" ? "daily" : "weekly",
+          days_of_week: args.dias_semana,
+          interval_weeks: args.cada_cuantas_semanas,
+          time_of_day: args.hora,
+          start_date: args.fecha_inicio ?? new Date().toISOString().slice(0, 10),
+          crear_recordatorio: args.crear_recordatorio,
+        }),
+      }),
   },
 } as const;
 
