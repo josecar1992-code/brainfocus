@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api, type NewMaintenance, type NewVehicle, type Vehicle, type VehicleMaintenance } from "./api";
+import { IconX } from "./icons";
 
 const VEHICLE_TYPES = ["Sedán", "SUV", "Pickup", "Hatchback", "Moto", "Otro"];
 
@@ -366,7 +367,7 @@ function VehicleDetail({ vehicle, onClose }: { vehicle: Vehicle; onClose: () => 
                         aria-label="Borrar registro"
                         className="text-white/20 hover:text-red-400 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100"
                       >
-                        ×
+                        <IconX className="w-4 h-4" strokeWidth={1.75} />
                       </button>
                     </li>
                   ))}

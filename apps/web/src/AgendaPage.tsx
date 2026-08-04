@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api, type Event, type Reminder } from "./api";
+import { IconBell, IconBellOff, IconCheckCircle } from "./icons";
 
 const CR_OFFSET = "-06:00"; // Costa Rica, sin horario de verano — offset fijo
 
@@ -24,7 +25,8 @@ function ReminderBadge({ reminder }: { reminder: Reminder }) {
         title={`Recordatorio ya enviado (${formatDateTime(reminder.sent_at)})`}
         className="inline-flex items-center gap-1 text-[11px] font-semibold text-green-400 bg-green-400/10 px-2 py-0.5 rounded-full"
       >
-        ✅ Enviado
+        <IconCheckCircle className="w-3 h-3" strokeWidth={2} />
+        Enviado
       </span>
     );
   }
@@ -34,7 +36,8 @@ function ReminderBadge({ reminder }: { reminder: Reminder }) {
         title={`Recordatorio programado para ${formatDateTime(reminder.remind_at)}`}
         className="inline-flex items-center gap-1 text-[11px] font-semibold text-electric-cyan bg-electric-cyan/10 px-2 py-0.5 rounded-full"
       >
-        🔔 Programado
+        <IconBell className="w-3 h-3" strokeWidth={2} />
+        Programado
       </span>
     );
   }
@@ -43,7 +46,8 @@ function ReminderBadge({ reminder }: { reminder: Reminder }) {
       title={`Recordatorio guardado para ${formatDateTime(reminder.remind_at)}, pero sin aviso automático (OpenClaw no configurado o falló)`}
       className="inline-flex items-center gap-1 text-[11px] font-semibold text-white/40 bg-white/5 px-2 py-0.5 rounded-full"
     >
-      🔕 Sin aviso
+      <IconBellOff className="w-3 h-3" strokeWidth={2} />
+      Sin aviso
     </span>
   );
 }

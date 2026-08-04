@@ -1,13 +1,15 @@
 import { useState } from "react";
+import type { ComponentType, SVGProps } from "react";
+import { IconCalendar, IconCar, IconCheckSquare, IconLogOut, IconNote, IconX } from "./icons";
 import { supabase } from "./supabaseClient";
 
 export type ModuleKey = "tareas" | "agenda" | "notas" | "vehiculos";
 
-export const MODULES: { key: ModuleKey; label: string; icon: string }[] = [
-  { key: "tareas", label: "Tareas", icon: "✓" },
-  { key: "agenda", label: "Agenda", icon: "◷" },
-  { key: "notas", label: "Notas", icon: "✎" },
-  { key: "vehiculos", label: "Vehículos", icon: "🚗" },
+export const MODULES: { key: ModuleKey; label: string; icon: ComponentType<SVGProps<SVGSVGElement>> }[] = [
+  { key: "tareas", label: "Tareas", icon: IconCheckSquare },
+  { key: "agenda", label: "Agenda", icon: IconCalendar },
+  { key: "notas", label: "Notas", icon: IconNote },
+  { key: "vehiculos", label: "Vehículos", icon: IconCar },
 ];
 
 function getInitials(email?: string | null) {
@@ -47,7 +49,7 @@ function NavLinks({ active, onChange }: { active: ModuleKey; onChange: (m: Modul
               : "text-white/50 hover:text-white/90 hover:bg-white/6"
           }`}
         >
-          <span className="w-4 text-center">{m.icon}</span>
+          <m.icon className="w-[18px] h-[18px] flex-shrink-0" strokeWidth={active === m.key ? 2.25 : 1.75} />
           {m.label}
         </button>
       ))}
@@ -72,7 +74,7 @@ function UserBlock({ email }: { email?: string | null }) {
         onClick={() => supabase.auth.signOut()}
         className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-white/45 hover:text-white/80 hover:bg-white/6 transition-all duration-150"
       >
-        <span className="w-4 text-center text-white/35">⏻</span>
+        <IconLogOut className="w-[18px] h-[18px] text-white/35 flex-shrink-0" strokeWidth={1.75} />
         Cerrar sesión
       </button>
     </div>
@@ -127,9 +129,9 @@ export function Sidebar({ active, onChange, email }: SidebarProps) {
                 type="button"
                 aria-label="Cerrar menú"
                 onClick={() => setMobileOpen(false)}
-                className="text-white/40 hover:text-white/80 p-1.5 rounded-lg hover:bg-white/8 transition-colors text-xl leading-none"
+                className="text-white/40 hover:text-white/80 p-1.5 rounded-lg hover:bg-white/8 transition-colors"
               >
-                ×
+                <IconX className="w-5 h-5" strokeWidth={1.75} />
               </button>
             </div>
             <div className="mx-2 h-px bg-white/8 mb-2" />

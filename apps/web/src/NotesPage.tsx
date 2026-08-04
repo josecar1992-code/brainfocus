@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api, type Note } from "./api";
+import { IconX } from "./icons";
 
 function formatDateTime(iso: string) {
   return new Date(iso).toLocaleDateString("es-CR", {
@@ -104,7 +105,7 @@ export function NotesPage() {
                     aria-label="Borrar nota"
                     className="text-white/20 hover:text-red-400 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100"
                   >
-                    ×
+                    <IconX className="w-4 h-4" strokeWidth={1.75} />
                   </button>
                 </div>
               </li>
