@@ -92,7 +92,7 @@ export function Login() {
               <div className="relative w-16 h-16 flex items-center justify-center">
                 <div className="absolute inset-0 rounded-full border border-electric-cyan/40 animate-ringPulse" />
                 <div className="absolute inset-[-6px] rounded-full border border-deep-blue/30 animate-ringPulse [animation-delay:0.6s]" />
-                <img src="/logo.jpeg" alt="Focusbrain" className="w-14 h-14 rounded-2xl relative" />
+                <img src="/logo.png" alt="Focusbrain" className="w-14 h-14 rounded-2xl relative" />
               </div>
 
               <h1 className="text-2xl">

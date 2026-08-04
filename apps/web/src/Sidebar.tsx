@@ -18,7 +18,7 @@ function Brand() {
   return (
     <div className="flex items-center gap-3">
       <img
-        src="/logo.jpeg"
+        src="/logo.png"
         alt="Focusbrain"
         className="w-9 h-9 rounded-xl object-cover shadow-lg shadow-electric-cyan/20 flex-shrink-0"
       />
