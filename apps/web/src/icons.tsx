@@ -91,6 +91,32 @@ export function IconBell(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+export function IconSettings(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 13a7.6 7.6 0 0 0 0-2l2-1.5-2-3.4-2.3.9a7.6 7.6 0 0 0-1.7-1L15 3.5h-4l-.4 2.5a7.6 7.6 0 0 0-1.7 1l-2.3-.9-2 3.4L6.6 11a7.6 7.6 0 0 0 0 2l-2 1.5 2 3.4 2.3-.9c.5.4 1.1.8 1.7 1l.4 2.5h4l.4-2.5a7.6 7.6 0 0 0 1.7-1l2.3.9 2-3.4-2-1.5Z" />
+    </Icon>
+  );
+}
+
+export function IconPlus(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <path d="M12 5v14M5 12h14" />
+    </Icon>
+  );
+}
+
+export function IconTrash(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m1 0-.7 12.1a2 2 0 0 1-2 1.9H9.7a2 2 0 0 1-2-1.9L7 7" />
+      <path d="M10 11v6M14 11v6" />
+    </Icon>
+  );
+}
+
 export function IconBellOff(props: SVGProps<SVGSVGElement>) {
   return (
     <Icon {...props}>

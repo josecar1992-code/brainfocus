@@ -1,6 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { api, type Task } from "./api";
+import { api, type List, type NewTask, type Task } from "./api";
+import { IconTrash } from "./icons";
+
+const PRIORITIES: { value: Task["priority"]; label: string; className: string }[] = [
+  { value: "low", label: "Baja", className: "text-white/50 bg-white/5" },
+  { value: "normal", label: "Normal", className: "text-electric-cyan bg-electric-cyan/10" },
+  { value: "high", label: "Alta", className: "text-red-400 bg-red-400/10" },
+];
 
 function StatCard({ valor, etiqueta }: { valor: number; etiqueta: string }) {
   return (
@@ -11,21 +18,203 @@ function StatCard({ valor, etiqueta }: { valor: number; etiqueta: string }) {
   );
 }
 
-export function TasksPage() {
+function PriorityBadge({ priority }: { priority: Task["priority"] }) {
+  const p = PRIORITIES.find((x) => x.value === priority) ?? PRIORITIES[1];
+  return (
+    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0 ${p.className}`}>
+      {p.label}
+    </span>
+  );
+}
+
+function NewTaskForm({ lists }: { lists: List[] }) {
   const queryClient = useQueryClient();
   const [title, setTitle] = useState("");
-
-  const { data: tasks, isLoading } = useQuery({ queryKey: ["tasks"], queryFn: api.listTasks });
+  const [notes, setNotes] = useState("");
+  const [listId, setListId] = useState("");
+  const [priority, setPriority] = useState<Task["priority"]>("normal");
+  const [crearEvento, setCrearEvento] = useState(false);
+  const [fecha, setFecha] = useState("");
+  const [hora, setHora] = useState("");
+  const [crearRecordatorio, setCrearRecordatorio] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const createTask = useMutation({
     mutationFn: api.createTask,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tasks"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["events"] });
+      queryClient.invalidateQueries({ queryKey: ["reminders"] });
+      setTitle("");
+      setNotes("");
+      setListId("");
+      setPriority("normal");
+      setCrearEvento(false);
+      setFecha("");
+      setHora("");
+      setCrearRecordatorio(true);
+    },
+    onError: (err) => setError(err instanceof Error ? err.message : "No se pudo crear la tarea"),
   });
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    if (!title.trim()) {
+      setError("Ponele un nombre a la tarea.");
+      return;
+    }
+    if (crearEvento && (!fecha || !hora)) {
+      setError("Si vas a crear un evento, completa fecha y hora.");
+      return;
+    }
+    const input: NewTask = {
+      title: title.trim(),
+      notes: notes.trim() || undefined,
+      list_id: listId || undefined,
+      priority,
+      crearEvento,
+      fecha: crearEvento ? fecha : undefined,
+      hora: crearEvento ? hora : undefined,
+      crearRecordatorio: crearEvento ? crearRecordatorio : undefined,
+    };
+    createTask.mutate(input);
+  }
+
+  return (
+    <div className="bg-white/5 rounded-2xl shadow-sm border border-white/10 p-5">
+      <p className="text-xs font-semibold uppercase tracking-wide text-white/40 mb-3">Nueva tarea</p>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+        <div className="flex flex-col gap-1">
+          <label className="text-xs text-white/50">Nombre</label>
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="ej. Llamar al banco"
+            className="border border-deep-blue/40 bg-black/20 rounded-lg px-3 py-2 placeholder:text-white/30 focus:outline-none focus:border-electric-cyan/70 transition"
+          />
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label className="text-xs text-white/50">Detalle</label>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Opcional"
+            rows={2}
+            className="border border-deep-blue/40 bg-black/20 rounded-lg px-3 py-2 placeholder:text-white/30 focus:outline-none focus:border-electric-cyan/70 resize-none transition"
+          />
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-2">
+          <div className="flex flex-col gap-1 flex-1">
+            <label className="text-xs text-white/50">Categoría</label>
+            <select
+              value={listId}
+              onChange={(e) => setListId(e.target.value)}
+              className="border border-deep-blue/40 bg-black/20 rounded-lg px-3 py-2 focus:outline-none focus:border-electric-cyan/70 [color-scheme:dark]"
+            >
+              <option value="">Sin categoría</option>
+              {lists.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1 flex-1">
+            <label className="text-xs text-white/50">Prioridad</label>
+            <select
+              value={priority}
+              onChange={(e) => setPriority(e.target.value as Task["priority"])}
+              className="border border-deep-blue/40 bg-black/20 rounded-lg px-3 py-2 focus:outline-none focus:border-electric-cyan/70 [color-scheme:dark]"
+            >
+              {PRIORITIES.map((p) => (
+                <option key={p.value} value={p.value}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <label className="flex items-center gap-2 text-sm text-white/70">
+          <input
+            type="checkbox"
+            checked={crearEvento}
+            onChange={(e) => setCrearEvento(e.target.checked)}
+            className="accent-electric-cyan"
+          />
+          Crear evento en Agenda
+        </label>
+
+        {crearEvento && (
+          <div className="flex flex-col gap-3 bg-black/20 rounded-xl p-3 border border-white/10">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-2">
+              <div className="flex flex-col gap-1 flex-1">
+                <label className="text-xs text-white/50">Fecha</label>
+                <input
+                  type="date"
+                  value={fecha}
+                  onChange={(e) => setFecha(e.target.value)}
+                  className="border border-deep-blue/40 bg-black/20 rounded-lg px-3 py-2 focus:outline-none focus:border-electric-cyan/70 [color-scheme:dark]"
+                />
+              </div>
+              <div className="flex flex-col gap-1 flex-1">
+                <label className="text-xs text-white/50">Hora</label>
+                <input
+                  type="time"
+                  value={hora}
+                  onChange={(e) => setHora(e.target.value)}
+                  className="border border-deep-blue/40 bg-black/20 rounded-lg px-3 py-2 focus:outline-none focus:border-electric-cyan/70 [color-scheme:dark]"
+                />
+              </div>
+            </div>
+            <label className="flex items-center gap-2 text-sm text-white/70">
+              <input
+                type="checkbox"
+                checked={crearRecordatorio}
+                onChange={(e) => setCrearRecordatorio(e.target.checked)}
+                className="accent-electric-cyan"
+              />
+              Crear recordatorio (Quicks avisa 2 horas antes)
+            </label>
+          </div>
+        )}
+
+        {error && <p className="text-sm text-red-400">{error}</p>}
+
+        <button
+          type="submit"
+          disabled={createTask.isPending}
+          className="self-end bg-electric-cyan text-night-blue font-medium rounded-lg px-4 py-2 disabled:opacity-50 hover:brightness-110 transition"
+        >
+          {createTask.isPending ? "Creando..." : "Crear tarea"}
+        </button>
+      </form>
+    </div>
+  );
+}
+
+export function TasksPage() {
+  const queryClient = useQueryClient();
+  const { data: tasks, isLoading } = useQuery({ queryKey: ["tasks"], queryFn: api.listTasks });
+  const { data: lists } = useQuery({ queryKey: ["lists"], queryFn: api.listLists });
 
   const toggleTask = useMutation({
     mutationFn: api.toggleTask,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tasks"] }),
   });
+
+  const deleteTask = useMutation({
+    mutationFn: api.deleteTask,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["reminders"] });
+    },
+  });
+
+  const listsById = new Map((lists ?? []).map((l) => [l.id, l]));
 
   const pendientes = tasks?.filter((t) => t.status !== "done").length ?? 0;
   const completadas = tasks?.filter((t) => t.status === "done").length ?? 0;
@@ -42,31 +231,7 @@ export function TasksPage() {
         <StatCard valor={completadas} etiqueta="Completadas" />
       </div>
 
-      <div className="bg-white/5 rounded-2xl shadow-sm border border-white/10 p-5">
-        <p className="text-xs font-semibold uppercase tracking-wide text-white/40 mb-3">Nueva tarea</p>
-        <form
-          className="flex gap-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (!title.trim()) return;
-            createTask.mutate(title);
-            setTitle("");
-          }}
-        >
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="ej. Llamar al banco"
-            className="flex-1 border border-deep-blue/40 bg-black/20 rounded-lg px-3 py-2 placeholder:text-white/30 focus:outline-none focus:border-electric-cyan/70 transition"
-          />
-          <button
-            type="submit"
-            className="bg-electric-cyan text-night-blue font-medium rounded-lg px-4 py-2 hover:brightness-110 transition"
-          >
-            Agregar
-          </button>
-        </form>
-      </div>
+      <NewTaskForm lists={lists ?? []} />
 
       <div className="bg-white/5 rounded-2xl shadow-sm border border-white/10 overflow-hidden">
         <p className="text-xs font-semibold uppercase tracking-wide text-white/40 px-5 pt-5 pb-2">Lista</p>
@@ -79,22 +244,49 @@ export function TasksPage() {
 
         {tasks && tasks.length > 0 && (
           <ul>
-            {tasks.map((task: Task) => (
-              <li
-                key={task.id}
-                className="flex items-center gap-3 px-5 py-3 border-t border-white/8 first:border-t-0 hover:bg-white/5 transition-colors"
-              >
-                <input
-                  type="checkbox"
-                  checked={task.status === "done"}
-                  onChange={() => toggleTask.mutate(task)}
-                  className="accent-electric-cyan w-4 h-4 flex-shrink-0"
-                />
-                <span className={`text-sm ${task.status === "done" ? "line-through text-white/30" : "text-white/90"}`}>
-                  {task.title}
-                </span>
-              </li>
-            ))}
+            {tasks.map((task: Task) => {
+              const list = task.list_id ? listsById.get(task.list_id) : undefined;
+              return (
+                <li
+                  key={task.id}
+                  className="flex items-center gap-3 px-5 py-3 border-t border-white/8 first:border-t-0 hover:bg-white/5 transition-colors group"
+                >
+                  <input
+                    type="checkbox"
+                    checked={task.status === "done"}
+                    onChange={() => toggleTask.mutate(task)}
+                    className="accent-electric-cyan w-4 h-4 flex-shrink-0"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span
+                        className={`text-sm ${task.status === "done" ? "line-through text-white/30" : "text-white/90"}`}
+                      >
+                        {task.title}
+                      </span>
+                      {list && (
+                        <span
+                          className="text-[11px] font-medium px-2 py-0.5 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: `${list.color ?? "#5B6B82"}22`, color: list.color ?? "#8FA3BF" }}
+                        >
+                          {list.name}
+                        </span>
+                      )}
+                      <PriorityBadge priority={task.priority} />
+                    </div>
+                    {task.notes && <p className="text-xs text-white/40 mt-0.5 truncate">{task.notes}</p>}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => deleteTask.mutate(task.id)}
+                    aria-label="Borrar tarea"
+                    className="text-white/20 hover:text-red-400 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100"
+                  >
+                    <IconTrash className="w-4 h-4" strokeWidth={1.75} />
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>

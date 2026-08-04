@@ -6,6 +6,7 @@ import { Header } from "./Header";
 import { Login } from "./Login";
 import { MODULES, Sidebar, type ModuleKey } from "./Sidebar";
 import { NotesPage } from "./NotesPage";
+import { SettingsPage } from "./SettingsPage";
 import { supabase } from "./supabaseClient";
 import { TasksPage } from "./TasksPage";
 import { VehiclesPage } from "./VehiclesPage";
@@ -76,6 +77,7 @@ export function App() {
             {activeModule === "agenda" && <AgendaPage />}
             {activeModule === "notas" && <NotesPage />}
             {activeModule === "vehiculos" && <VehiclesPage />}
+            {activeModule === "configuracion" && <SettingsPage />}
           </div>
         </main>
       </div>

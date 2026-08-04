@@ -4,9 +4,27 @@ export interface Task {
   id: string;
   title: string;
   notes: string | null;
+  list_id: string | null;
   status: "pending" | "in_progress" | "done";
   priority: "low" | "normal" | "high";
   due_date: string | null;
+}
+
+export interface NewTask {
+  title: string;
+  notes?: string;
+  list_id?: string;
+  priority?: "low" | "normal" | "high";
+  crearEvento?: boolean;
+  fecha?: string; // YYYY-MM-DD, solo si crearEvento
+  hora?: string; // HH:MM, solo si crearEvento
+  crearRecordatorio?: boolean; // solo si crearEvento
+}
+
+export interface List {
+  id: string;
+  name: string;
+  color: string | null;
 }
 
 export interface Event {
@@ -103,16 +121,60 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
+const CR_OFFSET = "-06:00"; // Costa Rica, sin horario de verano — offset fijo
 
 export const api = {
   checkAccess: () => request<Task[]>("/tasks?limit=1"),
   listTasks: () => request<Task[]>("/tasks"),
-  createTask: (title: string) => request<Task>("/tasks", { method: "POST", body: JSON.stringify({ title }) }),
   toggleTask: (task: Task) =>
     request<Task>(`/tasks/${task.id}`, {
       method: "PATCH",
       body: JSON.stringify({ status: task.status === "done" ? "pending" : "done" }),
     }),
+  deleteTask: (id: string) => request<void>(`/tasks/${id}`, { method: "DELETE" }),
+
+  listLists: () => request<List[]>("/lists"),
+  createList: (input: { name: string; color?: string }) =>
+    request<List>("/lists", { method: "POST", body: JSON.stringify(input) }),
+  deleteList: (id: string) => request<void>(`/lists/${id}`, { method: "DELETE" }),
+
+  async createTask(input: NewTask): Promise<Task> {
+    const starts_at =
+      input.crearEvento && input.fecha && input.hora ? `${input.fecha}T${input.hora}:00${CR_OFFSET}` : undefined;
+
+    const task = await request<Task>("/tasks", {
+      method: "POST",
+      body: JSON.stringify({
+        title: input.title,
+        notes: input.notes || undefined,
+        list_id: input.list_id || undefined,
+        priority: input.priority,
+        due_date: starts_at,
+      }),
+    });
+
+    if (starts_at) {
+      const event = await request<Event>("/events", {
+        method: "POST",
+        body: JSON.stringify({ title: input.title, description: input.notes || undefined, starts_at }),
+      });
+
+      if (input.crearRecordatorio) {
+        const remindAt = new Date(new Date(starts_at).getTime() - TWO_HOURS_MS).toISOString();
+        await request("/reminders", {
+          method: "POST",
+          body: JSON.stringify({
+            title: `Recordatorio: ${input.title}`,
+            event_id: event.id,
+            task_id: task.id,
+            remind_at: remindAt,
+          }),
+        });
+      }
+    }
+
+    return task;
+  },
 
   listEvents: () => request<Event[]>("/events"),
   updateEvent: (id: string, input: { title: string; description?: string; starts_at: string }) =>
