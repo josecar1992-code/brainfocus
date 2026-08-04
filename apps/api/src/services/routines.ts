@@ -122,7 +122,15 @@ export async function advanceRoutine(userId: string, routineId: string): Promise
     completed_at: new Date().toISOString(),
   });
 
-  const anchorDate = routine.current_occurrence_date ?? routine.start_date;
-  const next = nextOccurrenceDate(ruleOf(routine), anchorDate);
+  // Si la ocurrencia anterior se cumplió muy tarde (se saltó una o más), no
+  // generamos las fechas ya vencidas: avanzamos hasta la próxima ocurrencia
+  // igual o posterior a hoy. La cadena "se rompe" — no se recuperan los días
+  // saltados, solo se retoma desde el día que toca.
+  const today = new Date().toISOString().slice(0, 10);
+  const rule = ruleOf(routine);
+  let next = nextOccurrenceDate(rule, routine.current_occurrence_date ?? routine.start_date);
+  while (next < today) {
+    next = nextOccurrenceDate(rule, next);
+  }
   await createOccurrence(routine, next);
 }
