@@ -344,10 +344,6 @@ function TaskDetail({ task, lists, onClose }: { task: Task; lists: List[]; onClo
       setError("Ponele un nombre a la tarea.");
       return;
     }
-    if (!listId) {
-      setError("Elegí una categoría (o creá una nueva).");
-      return;
-    }
     updateTask.mutate();
   }
 
