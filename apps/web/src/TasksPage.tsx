@@ -600,6 +600,7 @@ function CategoryTasksView({
         <ConfirmDialog
           message={`¿Marcar "${completeTask.pendingTask.title}" como hecha?`}
           confirmLabel="Marcar hecha"
+          variant="success"
           pending={completeTask.isPending}
           onCancel={completeTask.cancel}
           onConfirm={completeTask.confirm}
