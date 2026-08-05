@@ -6,6 +6,7 @@ import { ConfirmDialog } from "./ConfirmDialog";
 import { CornerBrackets } from "./CornerBrackets";
 import { IconRepeat } from "./icons";
 import { OPTION_STYLE, SELECT_CLASS } from "./selectStyles";
+import { TimePicker } from "./TimePicker";
 
 const DAYS = [
   { value: 0, short: "D", label: "Domingo" },
@@ -182,12 +183,7 @@ function RoutineForm({
       <div className="flex flex-col sm:flex-row gap-3 sm:gap-2">
         <div className="flex flex-col gap-1 flex-1">
           <label className="text-xs text-white/50">Hora</label>
-          <input
-            type="time"
-            value={timeOfDay}
-            onChange={(e) => setTimeOfDay(e.target.value)}
-            className="border border-deep-blue/40 bg-black/20 rounded-lg px-3 py-2 focus:outline-none focus:border-electric-cyan/70 [color-scheme:dark]"
-          />
+          <TimePicker value={timeOfDay} onChange={setTimeOfDay} />
         </div>
         <div className="flex flex-col gap-1 flex-1">
           <label className="text-xs text-white/50">Fecha de inicio</label>

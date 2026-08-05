@@ -7,6 +7,7 @@ import { CornerBrackets } from "./CornerBrackets";
 import { IconTrash } from "./icons";
 import { RoutineBadge } from "./RoutineBadge";
 import { OPTION_STYLE, PRIORITIES, SELECT_CLASS } from "./selectStyles";
+import { TimePicker } from "./TimePicker";
 import { useCompleteTask } from "./useCompleteTask";
 
 const CR_OFFSET = "-06:00"; // Costa Rica, sin horario de verano — offset fijo
@@ -169,12 +170,7 @@ function NewTaskModal({
               </div>
               <div className="flex flex-col gap-1 flex-1">
                 <label className="text-xs text-white/50">Hora</label>
-                <input
-                  type="time"
-                  value={hora}
-                  onChange={(e) => setHora(e.target.value)}
-                  className="border border-deep-blue/40 bg-black/20 rounded-lg px-3 py-2 focus:outline-none focus:border-electric-cyan/70 [color-scheme:dark]"
-                />
+                <TimePicker value={hora} onChange={setHora} />
               </div>
             </div>
             {puedeAvisar2h && (
@@ -368,12 +364,7 @@ function TaskDetail({ task, lists, onClose }: { task: Task; lists: List[]; onClo
                       </div>
                       <div className="flex flex-col gap-1 flex-1">
                         <label className="text-xs text-white/50">Hora</label>
-                        <input
-                          type="time"
-                          value={hora}
-                          onChange={(e) => setHora(e.target.value)}
-                          className="border border-deep-blue/40 bg-black/20 rounded-lg px-3 py-2 focus:outline-none focus:border-electric-cyan/70 [color-scheme:dark]"
-                        />
+                        <TimePicker value={hora} onChange={setHora} />
                       </div>
                     </div>
                     {puedeAvisar2h && (

@@ -7,6 +7,7 @@ import { CornerBrackets } from "./CornerBrackets";
 import { IconBell, IconBellOff, IconCheckCircle } from "./icons";
 import { RoutineBadge } from "./RoutineBadge";
 import { OPTION_STYLE, PRIORITIES, SELECT_CLASS } from "./selectStyles";
+import { TimePicker } from "./TimePicker";
 import { useCompleteTask } from "./useCompleteTask";
 
 const CR_OFFSET = "-06:00"; // Costa Rica, sin horario de verano — offset fijo
@@ -185,12 +186,7 @@ function NewEventForm({ lists, onClose }: { lists: List[]; onClose: () => void }
           </div>
           <div className="flex flex-col gap-1 flex-1">
             <label className="text-xs text-white/50">Hora</label>
-            <input
-              type="time"
-              value={time}
-              onChange={(e) => setTime(e.target.value)}
-              className="border border-deep-blue/40 bg-black/20 rounded-lg px-3 py-2 focus:outline-none focus:border-electric-cyan/70 [color-scheme:dark]"
-            />
+            <TimePicker value={time} onChange={setTime} />
           </div>
         </div>
 
@@ -332,12 +328,7 @@ function EventDetail({
               </div>
               <div className="flex flex-col gap-1 flex-1">
                 <label className="text-xs text-white/50">Hora</label>
-                <input
-                  type="time"
-                  value={time}
-                  onChange={(e) => setTime(e.target.value)}
-                  className="border border-deep-blue/40 bg-black/20 rounded-lg px-3 py-2 focus:outline-none focus:border-electric-cyan/70 [color-scheme:dark]"
-                />
+                <TimePicker value={time} onChange={setTime} />
               </div>
             </div>
             {error && <p className="text-sm text-red-400">{error}</p>}
