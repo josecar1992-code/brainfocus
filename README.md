@@ -31,7 +31,10 @@ Expone un set chico y de grano grueso a propósito (`listar_tareas`, `crear_tare
 `crear_vehiculo`, `listar_mantenimientos`, `crear_mantenimiento`, `listar_categorias`,
 `listar_rutinas`, `crear_rutina`) — cada tool registrado se inyecta en el prompt del agente en cada
 turno, así que crece con uso real, no por especulación. `crear_evento` agenda un evento real (no
-solo un recordatorio suelto) y, por defecto, crea también un recordatorio 2 horas antes.
+solo un recordatorio suelto) y puede crear hasta dos recordatorios independientes y activables por
+separado: uno 2 horas antes (`crear_recordatorio`, default true) y otro justo a la hora del evento
+(`recordatorio_hora_evento`, default false) — cualquiera que caiga en el pasado (ej. un evento a
+menos de 2h) se omite en silencio en vez de fallar la creación del evento.
 `buscar_notas` deja que Quicks busque por palabra en título/contenido o traiga las últimas notas
 guardadas, usando el `?q=` genérico agregado a `resourceRouter`. `crear_rutina` crea una tarea
 repetitiva (diaria, ciertos días de la semana, o cada N semanas) — ver sección "Módulo Rutinas" más
@@ -42,7 +45,12 @@ Los recordatorios (creados desde la app o por Quicks) programan automáticamente
 WhatsApp/Telegram como cron job de disparo único en OpenClaw (`apps/api/src/services/openclawCron.ts`)
 — no depende de que Quicks recuerde crear el cron en el chat. Completar/borrar la tarea o evento
 asociado, o borrar el recordatorio directamente, cancela ese cron automáticamente (ver hooks en
-`apps/api/src/routes/{tasks,events,reminders}.ts` y `apps/api/src/services/reminderCascade.ts`).
+`apps/api/src/routes/{tasks,events,reminders}.ts` y `apps/api/src/services/reminderCascade.ts`). La
+API rechaza con 400 cualquier `remind_at` que ya haya pasado (antes llegaba hasta OpenClaw y volvía
+como 500 genérico). El texto del mensaje (`reminders.title`) siempre incluye la hora real del evento
+y su descripción — necesario porque el aviso no se entrega literal: OpenClaw lo pasa como instrucción
+a un turno de agente (`payload.kind: "agentTurn"`), que puede redactarlo con sus palabras pero tiene
+la instrucción explícita de nunca omitir la hora.
 
 ## Módulo Rutinas (tareas repetitivas)
 
@@ -131,14 +139,16 @@ Ver [infra/DEPLOY.md](infra/DEPLOY.md) para la guía paso a paso.
 | Migración de `tareas.md` | Hecha — 14 tareas reales cargadas en `public.tasks` (limpieza, pintura, trámites de Registro Nacional/OIJ, etc.), archivo retirado como fuente de verdad |
 | Prueba de punta a punta | Verificada dos veces (Focusbrain y OpenClaw por separado): crear tarea → completar → listar filtrado, con auditoría en `agent_actions` |
 | Login | Completo y verificado en producción: contraseña, magic link y Google OAuth, los tres probados de punta a punta |
-| Módulo Agenda | Eventos con recordatorio automático, filtros de fecha (Hoy / Esta semana / Próxima semana / Este mes / Rango — default "Hoy"), lista ordenada por proximidad, checkbox de "hecho" (desktop y móvil, en móvil el badge de recordatorio muestra solo el ícono para dejar espacio al título), y cada fila abre un detalle con editar/borrar. Toda categoría es obligatoria al crear un evento (crea su tarea espejo automáticamente, con prioridad seleccionable) |
+| Módulo Agenda | Eventos con recordatorio automático, filtros de fecha (Hoy / Esta semana / Próxima semana / Este mes / Rango — default "Hoy"), lista ordenada por proximidad, checkbox de "hecho" (desktop y móvil, en móvil el badge de recordatorio muestra solo el ícono para dejar espacio al título), etiqueta "Rutina" cuando el evento viene de una rutina, y cada fila abre un detalle con editar/borrar. Toda categoría es obligatoria al crear un evento (crea su tarea espejo automáticamente, con prioridad seleccionable) |
+| Recordatorios duales en eventos | Dos checkboxes independientes al crear/editar un evento (Agenda, Tareas, `crear_evento` del MCP): "2 horas antes" (default on) y "a la hora del evento" (default on) — el de 2h se oculta solo si el evento queda a menos de 2h de distancia, para no ofrecer una opción que la API va a rechazar por caer en el pasado |
+| Selector de hora (`TimePicker.tsx`) | Reloj analógico propio (arrastrar/tocar hora y minuto, AM/PM) en los 5 lugares donde se elige una hora (Agenda, Tareas, Rutinas), en vez del `<input type="time">` nativo — mismo look en móvil y escritorio, y sin el bug del botón "Establecer" saliéndose de pantalla en algunos Android |
 | Módulo Notas | Nombre + contenido desde la app; Quicks puede escribir (`crear_nota`) y leer/buscar (`buscar_notas`) |
 | Recordatorios ↔ cron de OpenClaw | Automático de punta a punta y verificado en producción (crear, reprogramar si cambia la fecha, cancelar al completar/borrar tarea o evento). Canal default `whatsapp` (antes `telegram` por error: el destinatario configurado es un número de teléfono, no un chat ID de Telegram, lo que dejaba los avisos atascados en un reintento silencioso) — corregido en código, en la columna de la BD y en los cron jobs ya creados, verificado con un aviso real |
 | Diseño visual | Rediseñado con la estética del portal de clientes de QuickWash (sidebar, header, cards, badges), respetando la paleta de marca de Focusbrain |
 | Logo | Logo oficial recortado (sin el fondo gris del canvas original) en sidebar, login, favicon e íconos PWA |
 | Sidebar | Orden: Agenda, Tareas, Rutinas, Notas y memorias (renombrado, antes "Notas"), Documentos, Vehículos, Configuración — Agenda es el módulo por defecto al iniciar. En móvil, el drawer se abre desde la izquierda, junto al botón de hamburguesa |
 | PWA | Instalable — manifest + service worker (`vite-plugin-pwa`, `apps/web/vite.config.ts`), cachea el shell de la app para carga offline; los datos siempre se piden en vivo a la API |
-| Módulo Tareas | Vista de tarjetas de categorías con drill-down (click abre el listado de esa categoría); formulario con nombre/detalle/categoría (obligatoria)/prioridad, checkbox de crear evento+recordatorio; filtro de prioridad y fecha de creación visibles por tarea; click en cada tarea abre detalle editable, donde también se le puede agregar un evento a una tarea ya creada sin evento |
+| Módulo Tareas | Vista de tarjetas de categorías con drill-down (click abre el listado de esa categoría); formulario con nombre/detalle/categoría (obligatoria)/prioridad, checkbox de crear evento + los dos recordatorios independientes; filtro de prioridad, fecha de creación y etiqueta "Rutina" visibles por tarea; botón "+ Crear tarea" dentro de cada categoría (con esa categoría precargada); click en cada tarea abre detalle editable, donde también se le puede agregar un evento a una tarea ya creada sin evento |
 | Categorías | Gestión inline desde el propio desplegable de tareas/rutinas (`CategorySelect`, "+ Nueva categoría"), sin módulo aparte de configuración |
 | Módulo Vehículos | Vehículos personales + historial de mantenimientos por vehículo; Quicks puede leer y crear ambos (`listar_vehiculos`, `crear_vehiculo`, `listar_mantenimientos`, `crear_mantenimiento`) |
 | Módulo Rutinas | Tareas repetitivas (diaria / ciertos días / cada N semanas) que generan una ocurrencia a la vez y avanzan solas al completarse, con historial por rutina; Quicks puede leer y crear (`listar_categorias`, `listar_rutinas`, `crear_rutina`) — ver sección arriba |
