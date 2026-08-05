@@ -5,6 +5,7 @@ import { CategorySelect } from "./CategorySelect";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { CornerBrackets } from "./CornerBrackets";
 import { IconBell, IconBellOff, IconCheckCircle } from "./icons";
+import { RoutineBadge } from "./RoutineBadge";
 import { OPTION_STYLE, PRIORITIES, SELECT_CLASS } from "./selectStyles";
 import { useCompleteTask } from "./useCompleteTask";
 
@@ -348,6 +349,11 @@ function EventDetail({
             <h2 className={`text-lg font-medium mb-1 text-white ${task?.status === "done" ? "line-through text-white/40" : ""}`}>
               {event.title}
             </h2>
+            {task?.routine_id && (
+              <div className="mb-1">
+                <RoutineBadge />
+              </div>
+            )}
             <p className="text-sm text-electric-cyan">
               {formatDate(event.starts_at)} · {formatTime(event.starts_at)}
             </p>
@@ -613,6 +619,7 @@ export function AgendaPage() {
                           <span className={task?.status === "done" ? "line-through text-white/30" : ""}>
                             {event.title}
                           </span>
+                          {task?.routine_id && <RoutineBadge />}
                         </div>
                       </td>
                       <td className="px-3 py-3">
@@ -656,6 +663,7 @@ export function AgendaPage() {
                       >
                         {event.title}
                       </p>
+                      {task?.routine_id && <RoutineBadge iconOnly />}
                       {reminder && <ReminderBadge reminder={reminder} iconOnly />}
                     </button>
                   </li>

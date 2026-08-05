@@ -9,6 +9,7 @@ export interface Task {
   priority: "low" | "normal" | "high";
   due_date: string | null;
   created_at: string;
+  routine_id: string | null;
 }
 
 export interface NewTask {

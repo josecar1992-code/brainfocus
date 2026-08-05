@@ -5,6 +5,7 @@ import { CategorySelect } from "./CategorySelect";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { CornerBrackets } from "./CornerBrackets";
 import { IconTrash } from "./icons";
+import { RoutineBadge } from "./RoutineBadge";
 import { OPTION_STYLE, PRIORITIES, SELECT_CLASS } from "./selectStyles";
 import { useCompleteTask } from "./useCompleteTask";
 
@@ -395,6 +396,7 @@ function TaskDetail({ task, lists, onClose }: { task: Task; lists: List[]; onClo
                 </span>
               )}
               <PriorityBadge priority={task.priority} />
+              {task.routine_id && <RoutineBadge />}
               <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-white/5 text-white/50">
                 {task.status === "done" ? "Completada" : task.status === "in_progress" ? "En curso" : "Pendiente"}
               </span>
@@ -566,6 +568,7 @@ function CategoryTasksView({
                       {task.title}
                     </span>
                     <PriorityBadge priority={task.priority} />
+                    {task.routine_id && <RoutineBadge />}
                   </div>
                   {task.notes && <p className="text-xs text-white/40 mt-0.5 truncate">{task.notes}</p>}
                   <p className="text-[11px] text-white/30 mt-0.5">Creada {formatCreatedDate(task.created_at)}</p>
