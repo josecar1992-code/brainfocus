@@ -60,11 +60,12 @@ el hook `afterUpdate` de `apps/api/src/routes/tasks.ts` llama a `advanceRoutine(
    más), sigue avanzando hasta la próxima ocurrencia igual o posterior a hoy — la cadena "se rompe",
    no se recuperan los días saltados.
 
-**Un solo check de "hecho" para Tareas, Agenda y Rutinas**: `events.task_id` vincula cada evento con
-su tarea, así que el mismo checkbox (mismo `PATCH /tasks/:id`, ver `apps/web/src/
-useCompleteTask.ts`) aparece en los tres módulos — marcarla en cualquiera la refleja en los otros
-dos, y si es de una rutina dispara el avance automático. Pide confirmación (`ConfirmDialog`) solo al
-marcar como hecha, no al desmarcar, para no frenar el "deshacer" ante un click accidental.
+**Un solo check de "hecho" para Tareas y Agenda**: `events.task_id` vincula cada evento con su
+tarea, así que el mismo checkbox (mismo `PATCH /tasks/:id`, ver `apps/web/src/useCompleteTask.ts`)
+aparece en ambos módulos — marcarla en uno la refleja en el otro, y si la tarea es de una rutina
+dispara el avance automático igual (Rutinas no tiene el checkbox, por decisión explícita: se
+completa desde Tareas o Agenda). Pide confirmación (`ConfirmDialog`, verde vía `variant="success"`)
+solo al marcar como hecha, no al desmarcar, para no frenar el "deshacer" ante un click accidental.
 
 ## Modelo de acceso
 
@@ -130,18 +131,19 @@ Ver [infra/DEPLOY.md](infra/DEPLOY.md) para la guía paso a paso.
 | Migración de `tareas.md` | Hecha — 14 tareas reales cargadas en `public.tasks` (limpieza, pintura, trámites de Registro Nacional/OIJ, etc.), archivo retirado como fuente de verdad |
 | Prueba de punta a punta | Verificada dos veces (Focusbrain y OpenClaw por separado): crear tarea → completar → listar filtrado, con auditoría en `agent_actions` |
 | Login | Completo y verificado en producción: contraseña, magic link y Google OAuth, los tres probados de punta a punta |
-| Módulo Agenda | Eventos con recordatorio automático, filtros de fecha (Hoy / Esta semana / Este mes / Rango), lista ordenada por proximidad, y cada fila abre un detalle con editar/borrar |
+| Módulo Agenda | Eventos con recordatorio automático, filtros de fecha (Hoy / Esta semana / Próxima semana / Este mes / Rango — default "Hoy"), lista ordenada por proximidad, checkbox de "hecho" (desktop y móvil, en móvil el badge de recordatorio muestra solo el ícono para dejar espacio al título), y cada fila abre un detalle con editar/borrar. Toda categoría es obligatoria al crear un evento (crea su tarea espejo automáticamente, con prioridad seleccionable) |
 | Módulo Notas | Nombre + contenido desde la app; Quicks puede escribir (`crear_nota`) y leer/buscar (`buscar_notas`) |
-| Recordatorios ↔ cron de OpenClaw | Automático de punta a punta y verificado en producción (crear, reprogramar si cambia la fecha, cancelar al completar/borrar tarea o evento) |
+| Recordatorios ↔ cron de OpenClaw | Automático de punta a punta y verificado en producción (crear, reprogramar si cambia la fecha, cancelar al completar/borrar tarea o evento). Canal default `whatsapp` (antes `telegram` por error: el destinatario configurado es un número de teléfono, no un chat ID de Telegram, lo que dejaba los avisos atascados en un reintento silencioso) — corregido en código, en la columna de la BD y en los cron jobs ya creados, verificado con un aviso real |
 | Diseño visual | Rediseñado con la estética del portal de clientes de QuickWash (sidebar, header, cards, badges), respetando la paleta de marca de Focusbrain |
 | Logo | Logo oficial recortado (sin el fondo gris del canvas original) en sidebar, login, favicon e íconos PWA |
+| Sidebar | Orden: Agenda, Tareas, Rutinas, Notas y memorias (renombrado, antes "Notas"), Documentos, Vehículos, Configuración — Agenda es el módulo por defecto al iniciar. En móvil, el drawer se abre desde la izquierda, junto al botón de hamburguesa |
 | PWA | Instalable — manifest + service worker (`vite-plugin-pwa`, `apps/web/vite.config.ts`), cachea el shell de la app para carga offline; los datos siempre se piden en vivo a la API |
-| Módulo Tareas | Formulario con nombre/detalle/categoría (obligatoria)/prioridad, checkbox de crear evento+recordatorio; filtros de categoría y prioridad; orden por prioridad; click en cada tarea abre detalle editable |
+| Módulo Tareas | Vista de tarjetas de categorías con drill-down (click abre el listado de esa categoría); formulario con nombre/detalle/categoría (obligatoria)/prioridad, checkbox de crear evento+recordatorio; filtro de prioridad y fecha de creación visibles por tarea; click en cada tarea abre detalle editable, donde también se le puede agregar un evento a una tarea ya creada sin evento |
 | Categorías | Gestión inline desde el propio desplegable de tareas/rutinas (`CategorySelect`, "+ Nueva categoría"), sin módulo aparte de configuración |
 | Módulo Vehículos | Vehículos personales + historial de mantenimientos por vehículo; Quicks puede leer y crear ambos (`listar_vehiculos`, `crear_vehiculo`, `listar_mantenimientos`, `crear_mantenimiento`) |
 | Módulo Rutinas | Tareas repetitivas (diaria / ciertos días / cada N semanas) que generan una ocurrencia a la vez y avanzan solas al completarse, con historial por rutina; Quicks puede leer y crear (`listar_categorias`, `listar_rutinas`, `crear_rutina`) — ver sección arriba |
-| Confirmación de borrado | `ConfirmDialog` reemplazó el `confirm()` nativo en **todo** borrado de la app (tareas, eventos, notas, categorías, vehículos, mantenimientos, rutinas) — regla fija para cualquier módulo nuevo |
-| Check de "hecho" unificado | Tareas, Agenda y Rutinas comparten el mismo checkbox (`events.task_id` + `useCompleteTask`), con confirmación solo al marcar como hecha |
+| Confirmación de acciones | `ConfirmDialog` reemplazó el `confirm()` nativo en **todo** borrado de la app (tareas, eventos, notas, categorías, vehículos, mantenimientos, rutinas, documentos) — regla fija para cualquier módulo nuevo. Acepta `variant` (`"danger"` rojo por defecto, `"success"` verde) y deriva el texto de "procesando" del `confirmLabel`, para no repetir el texto de borrar en confirmaciones de otro tipo (ej. "Marcar hecha...") |
+| Check de "hecho" unificado | Tareas y Agenda comparten el mismo checkbox (`events.task_id` + `useCompleteTask`), con confirmación (verde, `variant="success"`) solo al marcar como hecha; se quitó del módulo Rutinas por decisión explícita, aunque completar la tarea de una rutina desde Tareas/Agenda sigue avanzando la rutina y quedando en su historial igual |
 | Rediseño visual | Toda la app (no solo login) con la estética "red neuronal": glass cards, botones con gradiente, `NeuronBackground` de fondo (desactivado en móvil y con `prefers-reduced-motion` por rendimiento) |
 | Módulo Documentos | PDFs/imágenes en un bucket privado de Supabase Storage (`documentos`), acceso solo vía URL firmada de 5 min; Quicks guarda por nombre (`guardar_documento`, sube los bytes del `MediaPath` tal cual, sin OCR ni descripción) y recupera (`enviar_documento`, devuelve la URL para reenviarlo como adjunto real) — tools registradas y verificadas en el catálogo del MCP, bind mount de media (`/root/.openclaw/media`) confirmado en producción |
 
