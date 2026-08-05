@@ -34,6 +34,14 @@ export function App() {
     return () => sub.subscription.unsubscribe();
   }, []);
 
+  // OJO: la dependencia es el user.id, no el objeto `session` entero. Supabase
+  // dispara onAuthStateChange (con un objeto `session` nuevo) en cada refresco
+  // de token, algo que pasa solo con volver el foco a la pestaña — típicamente
+  // al volver del selector nativo de archivos en Android. Si este efecto
+  // dependiera de `session`, cada refresco de token ponía `access` de nuevo en
+  // "checking", lo que desmonta TODA la app un instante (el early return de
+  // más abajo) y borra cualquier estado local en pantalla, como un archivo
+  // recién elegido para subir en el módulo Documentos.
   useEffect(() => {
     if (!session) {
       setAccess("checking");
@@ -52,7 +60,8 @@ export function App() {
           setAccess("granted");
         }
       });
-  }, [session]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.user.id]);
 
   if (!loaded) return null;
 
