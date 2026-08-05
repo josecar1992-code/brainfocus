@@ -88,7 +88,7 @@ function NewEventForm({ lists, onClose }: { lists: List[]; onClose: () => void }
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [crearRecordatorio, setCrearRecordatorio] = useState(true);
-  const [crearRecordatorioHoraEvento, setCrearRecordatorioHoraEvento] = useState(false);
+  const [crearRecordatorioHoraEvento, setCrearRecordatorioHoraEvento] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const puedeAvisar2h = canRemindTwoHoursBefore(date, time);
 

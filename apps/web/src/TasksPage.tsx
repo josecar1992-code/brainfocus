@@ -53,7 +53,7 @@ function NewTaskModal({
   const [fecha, setFecha] = useState("");
   const [hora, setHora] = useState("");
   const [crearRecordatorio, setCrearRecordatorio] = useState(true);
-  const [crearRecordatorioHoraEvento, setCrearRecordatorioHoraEvento] = useState(false);
+  const [crearRecordatorioHoraEvento, setCrearRecordatorioHoraEvento] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const puedeAvisar2h = canRemindTwoHoursBefore(fecha, hora);
 
@@ -236,7 +236,7 @@ function TaskDetail({ task, lists, onClose }: { task: Task; lists: List[]; onClo
   const [fecha, setFecha] = useState("");
   const [hora, setHora] = useState("");
   const [crearRecordatorio, setCrearRecordatorio] = useState(true);
-  const [crearRecordatorioHoraEvento, setCrearRecordatorioHoraEvento] = useState(false);
+  const [crearRecordatorioHoraEvento, setCrearRecordatorioHoraEvento] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const puedeAvisar2h = canRemindTwoHoursBefore(fecha, hora);
 
