@@ -71,6 +71,20 @@ interface Routine {
 
 const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
 
+// El mensaje que llega por WhatsApp es literalmente reminders.title (ver
+// openclawCron.ts en la API) — sin esto, el aviso solo decía "Recordatorio:
+// <título>", sin ninguna hora, y quien lo recibía asumía que la hora de
+// LLEGADA del aviso (2h antes por defecto) era la hora del evento.
+function formatReminderTitle(titulo: string, inicio: string, descripcion?: string) {
+  const hora = new Date(inicio).toLocaleTimeString("es-CR", {
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: "America/Costa_Rica",
+  });
+  const base = `Recordatorio: ${titulo} a las ${hora}`;
+  return descripcion ? `${base}. ${descripcion}` : base;
+}
+
 // Set chico y de grano grueso a propósito: cada tool se inyecta en el prompt
 // del agente en cada turno, así que más tools = más tokens gastados siempre.
 // Agregar nutrition/exercise/lists/events cuando haya uso real, no por especulación.
@@ -206,7 +220,7 @@ const tools = {
         await apiRequest("/reminders", {
           method: "POST",
           body: JSON.stringify({
-            title: `Recordatorio: ${args.titulo}`,
+            title: formatReminderTitle(args.titulo, args.inicio, args.descripcion),
             event_id: event.id,
             remind_at: remindAt,
           }),

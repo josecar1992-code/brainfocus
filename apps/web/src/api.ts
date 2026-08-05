@@ -169,6 +169,21 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
 const CR_OFFSET = "-06:00"; // Costa Rica, sin horario de verano — offset fijo
 
+// El mensaje que llega por WhatsApp es literalmente reminders.title (ver
+// openclawCron.ts) — sin esto, el aviso solo decía "Recordatorio: <título>",
+// sin ninguna hora, y quien lo recibía asumía que la hora de LLEGADA del aviso
+// (2h antes por defecto) era la hora del evento. Acá se arma el texto
+// completo: título, hora real del evento (America/Costa_Rica) y descripción.
+function formatReminderTitle(title: string, startsAt: string, description?: string) {
+  const hora = new Date(startsAt).toLocaleTimeString("es-CR", {
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: "America/Costa_Rica",
+  });
+  const base = `Recordatorio: ${title} a las ${hora}`;
+  return description ? `${base}. ${description}` : base;
+}
+
 export const api = {
   checkAccess: () => request<Task[]>("/tasks?limit=1"),
   listTasks: () => request<Task[]>("/tasks"),
@@ -228,7 +243,7 @@ export const api = {
         await request("/reminders", {
           method: "POST",
           body: JSON.stringify({
-            title: `Recordatorio: ${input.title}`,
+            title: formatReminderTitle(input.title, starts_at, input.notes),
             event_id: event.id,
             task_id: task.id,
             remind_at: remindAt,
@@ -301,7 +316,7 @@ export const api = {
       await request("/reminders", {
         method: "POST",
         body: JSON.stringify({
-          title: `Recordatorio: ${input.title}`,
+          title: formatReminderTitle(input.title, input.starts_at, input.description),
           event_id: event.id,
           task_id: task.id,
           remind_at: remindAt,
@@ -336,7 +351,7 @@ export const api = {
       await request("/reminders", {
         method: "POST",
         body: JSON.stringify({
-          title: `Recordatorio: ${input.title}`,
+          title: formatReminderTitle(input.title, input.starts_at, input.description),
           event_id: event.id,
           task_id: input.task_id,
           remind_at: remindAt,
