@@ -72,7 +72,11 @@ export async function scheduleReminderCron(reminder: ReminderForCron): Promise<s
       sessionTarget: "isolated",
       schedule: { at: reminder.remind_at },
       payload: { kind: "agentTurn", message: reminder.title },
-      delivery: { mode: "announce", channel: reminder.channel ?? "telegram", to: env.openclawReminderTo },
+      // env.openclawReminderTo es un número de teléfono ("+506..."), formato
+      // válido para WhatsApp — Telegram exige un chat ID numérico, así que
+      // "telegram" como default aquí rompía la entrega en silencio (el cron
+      // corría pero OpenClaw rechazaba el destinatario).
+      delivery: { mode: "announce", channel: reminder.channel ?? "whatsapp", to: env.openclawReminderTo },
     },
   });
 
