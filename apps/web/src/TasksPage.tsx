@@ -35,11 +35,19 @@ function PriorityBadge({ priority }: { priority: Task["priority"] }) {
   );
 }
 
-function NewTaskModal({ lists, onClose }: { lists: List[]; onClose: () => void }) {
+function NewTaskModal({
+  lists,
+  defaultListId,
+  onClose,
+}: {
+  lists: List[];
+  defaultListId?: string;
+  onClose: () => void;
+}) {
   const queryClient = useQueryClient();
   const [title, setTitle] = useState("");
   const [notes, setNotes] = useState("");
-  const [listId, setListId] = useState("");
+  const [listId, setListId] = useState(defaultListId ?? "");
   const [priority, setPriority] = useState<Task["priority"]>("normal");
   const [crearEvento, setCrearEvento] = useState(false);
   const [fecha, setFecha] = useState("");
@@ -492,6 +500,7 @@ function CategoryTasksView({
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
   const [prioridadFilter, setPrioridadFilter] = useState<Task["priority"] | "">("");
+  const [showForm, setShowForm] = useState(false);
   const queryClient = useQueryClient();
   const { data: lists } = useQuery({ queryKey: ["lists"], queryFn: api.listLists });
   const completeTask = useCompleteTask();
@@ -527,6 +536,13 @@ function CategoryTasksView({
           />
           <h1 className="text-xl font-bold text-white">{categoryName}</h1>
         </div>
+        <button
+          type="button"
+          onClick={() => setShowForm(true)}
+          className="ml-auto bg-gradient-to-br from-deep-blue via-electric-cyan to-electric-cyan text-night-blue font-semibold rounded-lg shadow-[0_0_18px_-4px_rgba(0,210,255,0.55)] px-3 py-1.5 text-sm hover:brightness-110 transition"
+        >
+          + Crear tarea
+        </button>
       </div>
 
       <select
@@ -591,6 +607,13 @@ function CategoryTasksView({
       </div>
 
       {selectedTask && <TaskDetail task={selectedTask} lists={lists ?? []} onClose={() => setSelectedTask(null)} />}
+      {showForm && (
+        <NewTaskModal
+          lists={lists ?? []}
+          defaultListId={categoryId === SIN_CATEGORIA ? undefined : categoryId}
+          onClose={() => setShowForm(false)}
+        />
+      )}
       {taskToDelete && (
         <ConfirmDialog
           message={`¿Borrar "${taskToDelete.title}"?`}
