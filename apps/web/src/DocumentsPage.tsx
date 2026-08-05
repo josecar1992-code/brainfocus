@@ -97,6 +97,27 @@ export function DocumentsPage() {
             onChange={handleFileChange}
             className="text-sm text-white/70 file:mr-3 file:rounded-lg file:border-0 file:bg-electric-cyan/15 file:text-electric-cyan file:px-3 file:py-2 file:text-sm file:font-medium hover:file:bg-electric-cyan/25 transition"
           />
+          {/* El texto nativo del navegador con el nombre del archivo elegido no
+              siempre se ve sobre el fondo oscuro (color heredado del sistema,
+              no de Tailwind) — esta línea confirma visiblemente la selección. */}
+          {pendingFile && (
+            <p className="text-xs text-electric-cyan/80 -mt-1 flex items-center gap-2">
+              <IconFile className="w-3.5 h-3.5 flex-shrink-0" strokeWidth={1.75} />
+              <span className="truncate">
+                {pendingFile.name} · {formatSize(pendingFile.size)}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setPendingFile(null);
+                  if (fileInputRef.current) fileInputRef.current.value = "";
+                }}
+                className="text-white/40 hover:text-red-400 transition-colors flex-shrink-0"
+              >
+                Quitar
+              </button>
+            </p>
+          )}
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
