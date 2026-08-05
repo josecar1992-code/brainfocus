@@ -184,6 +184,14 @@ function formatReminderTitle(title: string, startsAt: string, description?: stri
   return description ? `${base}. ${description}` : base;
 }
 
+// Si el evento empieza en menos de 2h (o ya pasó), "avisar 2h antes" cae en el
+// pasado — la API lo rechaza (400) porque OpenClaw no puede programar un cron
+// para una hora que ya pasó. Mejor omitir el recordatorio automático en ese
+// caso que hacer fallar la creación de la tarea/evento entero por esto.
+function isFutureReminder(remindAt: string) {
+  return new Date(remindAt).getTime() > Date.now();
+}
+
 export const api = {
   checkAccess: () => request<Task[]>("/tasks?limit=1"),
   listTasks: () => request<Task[]>("/tasks"),
@@ -240,15 +248,17 @@ export const api = {
 
       if (input.crearRecordatorio) {
         const remindAt = new Date(new Date(starts_at).getTime() - TWO_HOURS_MS).toISOString();
-        await request("/reminders", {
-          method: "POST",
-          body: JSON.stringify({
-            title: formatReminderTitle(input.title, starts_at, input.notes),
-            event_id: event.id,
-            task_id: task.id,
-            remind_at: remindAt,
-          }),
-        });
+        if (isFutureReminder(remindAt)) {
+          await request("/reminders", {
+            method: "POST",
+            body: JSON.stringify({
+              title: formatReminderTitle(input.title, starts_at, input.notes),
+              event_id: event.id,
+              task_id: task.id,
+              remind_at: remindAt,
+            }),
+          });
+        }
       }
     }
 
@@ -313,15 +323,17 @@ export const api = {
 
     if (input.crearRecordatorio) {
       const remindAt = new Date(new Date(input.starts_at).getTime() - TWO_HOURS_MS).toISOString();
-      await request("/reminders", {
-        method: "POST",
-        body: JSON.stringify({
-          title: formatReminderTitle(input.title, input.starts_at, input.description),
-          event_id: event.id,
-          task_id: task.id,
-          remind_at: remindAt,
-        }),
-      });
+      if (isFutureReminder(remindAt)) {
+        await request("/reminders", {
+          method: "POST",
+          body: JSON.stringify({
+            title: formatReminderTitle(input.title, input.starts_at, input.description),
+            event_id: event.id,
+            task_id: task.id,
+            remind_at: remindAt,
+          }),
+        });
+      }
     }
 
     return event;
@@ -348,15 +360,17 @@ export const api = {
 
     if (input.crearRecordatorio) {
       const remindAt = new Date(new Date(input.starts_at).getTime() - TWO_HOURS_MS).toISOString();
-      await request("/reminders", {
-        method: "POST",
-        body: JSON.stringify({
-          title: formatReminderTitle(input.title, input.starts_at, input.description),
-          event_id: event.id,
-          task_id: input.task_id,
-          remind_at: remindAt,
-        }),
-      });
+      if (isFutureReminder(remindAt)) {
+        await request("/reminders", {
+          method: "POST",
+          body: JSON.stringify({
+            title: formatReminderTitle(input.title, input.starts_at, input.description),
+            event_id: event.id,
+            task_id: input.task_id,
+            remind_at: remindAt,
+          }),
+        });
+      }
     }
 
     return event;

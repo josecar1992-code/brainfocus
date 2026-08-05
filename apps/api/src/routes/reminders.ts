@@ -3,7 +3,7 @@ import { createResourceRouter } from "./resourceRouter.js";
 import { supabaseAdmin } from "../supabaseClient.js";
 import { scheduleReminderCron, cancelReminderCron } from "../services/openclawCron.js";
 
-const createSchema = z.object({
+const baseSchema = z.object({
   title: z.string().min(1),
   task_id: z.string().uuid().optional().nullable(),
   event_id: z.string().uuid().optional().nullable(),
@@ -11,13 +11,24 @@ const createSchema = z.object({
   channel: z.enum(["telegram", "whatsapp", "email"]).optional(),
 });
 
+// Sin esto, un remind_at ya pasado (ej. "2h antes" de un evento que empieza en
+// menos de 2h) llegaba hasta OpenClaw y volvía como 500 genérico ("tool
+// execution failed") sin explicar por qué — acá se corta antes, con un 400 claro.
+const notInPast = (data: { remind_at: string }) => new Date(data.remind_at).getTime() > Date.now();
+const notInPastMessage = { message: "El recordatorio no puede programarse en el pasado", path: ["remind_at"] };
+
+const createSchema = baseSchema.refine(notInPast, notInPastMessage);
+
 export const remindersRouter = createResourceRouter({
   table: "reminders",
   resourceName: "reminders",
   createSchema,
-  updateSchema: createSchema
+  updateSchema: baseSchema
     .partial()
-    .extend({ sent_at: z.string().datetime({ offset: true }).optional().nullable() }),
+    .extend({ sent_at: z.string().datetime({ offset: true }).optional().nullable() })
+    // Solo valida si remind_at viene en el body (ej. reprogramar) — un update
+    // que solo toca sent_at u otro campo no debería fallar por esto.
+    .refine((data) => !data.remind_at || notInPast(data as { remind_at: string }), notInPastMessage),
   orderBy: { column: "remind_at", ascending: true },
   hooks: {
     // Se crea el registro tal cual (venga de la app o del MCP de Quicks) y acá

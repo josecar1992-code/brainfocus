@@ -215,7 +215,10 @@ const tools = {
         body: JSON.stringify({ title: args.titulo, description: args.descripcion, starts_at: args.inicio }),
       });
 
-      if (args.crear_recordatorio ?? true) {
+      // Si el evento empieza en menos de 2h (o ya pasó), "avisar 2h antes" cae
+      // en el pasado y la API lo rechaza (400) — mejor omitir el recordatorio
+      // automático que hacer fallar la creación del evento entero por esto.
+      if ((args.crear_recordatorio ?? true) && new Date(args.inicio).getTime() - TWO_HOURS_MS > Date.now()) {
         const remindAt = new Date(new Date(args.inicio).getTime() - TWO_HOURS_MS).toISOString();
         await apiRequest("/reminders", {
           method: "POST",
