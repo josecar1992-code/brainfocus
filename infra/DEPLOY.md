@@ -85,10 +85,9 @@ especulación:
 - Documentos: `guardar_documento`, `enviar_documento`. Ninguna de las dos hace OCR, extracción de
   texto ni descripción de imagen — solo suben/bajan los bytes por nombre, así que el contenido del
   archivo nunca pasa por el contexto del agente (solo viajan `name`/`mime_type`/`size`).
-  **`guardar_documento` necesita que el volumen del servicio `mcp` en `docker-compose.yml` apunte
-  al directorio real donde OpenClaw deja los archivos de media (`MediaPath`) — ajustar la ruta
-  placeholder (`/ruta/real/de/openclaw/media`) antes de usarla, y reconstruir la imagen
-  (`docker compose build mcp`) después del cambio.**
+  `guardar_documento` necesita ver el directorio real donde OpenClaw deja los archivos de media
+  (`MediaPath`) — confirmado en este VPS: `/root/.openclaw/media`, ya montado como bind mount
+  read-only en el servicio `mcp` de `docker-compose.yml`.
 
 ## 6. Conectar Quicks (OpenClaw) a la API — trabajo del lado de la sesión de OpenClaw
 
