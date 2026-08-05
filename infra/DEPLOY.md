@@ -82,6 +82,13 @@ especulación:
   `crear_recordatorio`, `crear_evento`, `crear_nota`, `buscar_notas`.
 - Vehículos: `listar_vehiculos`, `crear_vehiculo`, `listar_mantenimientos`, `crear_mantenimiento`.
 - Rutinas: `listar_categorias`, `listar_rutinas`, `crear_rutina`.
+- Documentos: `guardar_documento`, `enviar_documento`. Ninguna de las dos hace OCR, extracción de
+  texto ni descripción de imagen — solo suben/bajan los bytes por nombre, así que el contenido del
+  archivo nunca pasa por el contexto del agente (solo viajan `name`/`mime_type`/`size`).
+  **`guardar_documento` necesita que el volumen del servicio `mcp` en `docker-compose.yml` apunte
+  al directorio real donde OpenClaw deja los archivos de media (`MediaPath`) — ajustar la ruta
+  placeholder (`/ruta/real/de/openclaw/media`) antes de usarla, y reconstruir la imagen
+  (`docker compose build mcp`) después del cambio.**
 
 ## 6. Conectar Quicks (OpenClaw) a la API — trabajo del lado de la sesión de OpenClaw
 
@@ -93,7 +100,7 @@ Documentado aquí para que quede como referencia, pero lo ejecuta y verifica la 
    `:write` que ningún tool ejercita): `["tasks:read","tasks:write","reminders:read",
    "reminders:write","notes:read","notes:write","events:read","events:write","vehicles:read",
    "vehicles:write","vehicle_maintenance:read","vehicle_maintenance:write","lists:read",
-   "routines:read","routines:write"]`.
+   "routines:read","routines:write","documents:read","documents:write"]`.
 2. Completar esa key en `/opt/brainfocus/apps/mcp/.env` (`BRAINFOCUS_API_KEY=...`) y reconstruir la
    imagen si ya se había construido antes sin ella (`docker compose build mcp`).
 3. Registrar el servidor MCP apuntando a `docker compose run` (no a un binario `node` directo, ya

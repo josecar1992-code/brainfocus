@@ -107,7 +107,7 @@ npm run dev
 curl -X POST http://localhost:3001/internal/api-keys \
   -H "Authorization: Bearer <tu-jwt-de-supabase>" \
   -H "Content-Type: application/json" \
-  -d '{"name":"quicks-agent","scopes":["tasks:read","tasks:write","notes:read","notes:write","events:read","events:write","reminders:read","reminders:write"]}'
+  -d '{"name":"quicks-agent","scopes":["tasks:read","tasks:write","notes:read","notes:write","events:read","events:write","reminders:read","reminders:write","documents:read","documents:write"]}'
 ```
 
 Guarda el `key` de la respuesta — solo se muestra una vez. Esa key se registra en OpenClaw como
@@ -143,6 +143,7 @@ Ver [infra/DEPLOY.md](infra/DEPLOY.md) para la guía paso a paso.
 | Confirmación de borrado | `ConfirmDialog` reemplazó el `confirm()` nativo en **todo** borrado de la app (tareas, eventos, notas, categorías, vehículos, mantenimientos, rutinas) — regla fija para cualquier módulo nuevo |
 | Check de "hecho" unificado | Tareas, Agenda y Rutinas comparten el mismo checkbox (`events.task_id` + `useCompleteTask`), con confirmación solo al marcar como hecha |
 | Rediseño visual | Toda la app (no solo login) con la estética "red neuronal": glass cards, botones con gradiente, `NeuronBackground` de fondo (desactivado en móvil y con `prefers-reduced-motion` por rendimiento) |
+| Módulo Documentos | PDFs/imágenes en un bucket privado de Supabase Storage (`documentos`), acceso solo vía URL firmada de 5 min; Quicks guarda por nombre (`guardar_documento`, sube los bytes del `MediaPath` tal cual, sin OCR ni descripción) y recupera (`enviar_documento`, devuelve la URL para reenviarlo como adjunto real) — pendiente de ajustar el volumen de `docker-compose.yml` (`mcp`) al directorio real de media de OpenClaw antes de que `guardar_documento` funcione en producción |
 
 Sin pendientes de infraestructura por ahora — lo que sigue es UX/producto sobre `apps/web`.
 

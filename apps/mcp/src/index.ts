@@ -1,8 +1,9 @@
+import { readFile } from "node:fs/promises";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
-import { apiRequest } from "./apiClient.js";
+import { apiRequest, apiUpload } from "./apiClient.js";
 
 interface Task {
   id: string;
@@ -45,6 +46,14 @@ interface Category {
   id: string;
   name: string;
   color: string | null;
+}
+
+interface Document {
+  id: string;
+  name: string;
+  mime_type: string | null;
+  size: number | null;
+  created_at: string;
 }
 
 interface Routine {
@@ -417,6 +426,62 @@ const tools = {
           crear_recordatorio: args.crear_recordatorio,
         }),
       }),
+  },
+
+  guardar_documento: {
+    description:
+      "Guarda un documento (PDF/imagen) que el usuario mandó por WhatsApp, con el nombre que " +
+      "pida usar para buscarlo después. Usa el MediaPath/MediaType que ya vienen expuestos del " +
+      "mensaje entrante — sube los bytes tal cual, sin leer ni describir el contenido. Si ya " +
+      "existe un documento con ese nombre, lo reemplaza (no duplica).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        nombre: { type: "string", description: "Nombre único por el que se va a buscar después." },
+        media_path: { type: "string", description: "Ruta local del archivo (MediaPath del mensaje entrante)." },
+        media_type: { type: "string", description: "MIME type del archivo (MediaType del mensaje entrante)." },
+      },
+      required: ["nombre", "media_path"],
+    },
+    argsSchema: z.object({
+      nombre: z.string().min(1),
+      media_path: z.string().min(1),
+      media_type: z.string().optional(),
+    }),
+    handler: async (args: { nombre: string; media_path: string; media_type?: string }) => {
+      const bytes = await readFile(args.media_path);
+      const form = new FormData();
+      form.set("name", args.nombre);
+      form.set(
+        "file",
+        new Blob([bytes], { type: args.media_type || "application/octet-stream" }),
+        args.nombre,
+      );
+      return apiUpload<Document>("/documents/upload", form);
+    },
+  },
+
+  enviar_documento: {
+    description:
+      "Busca un documento guardado por su nombre exacto y devuelve la URL para reenviarlo como " +
+      "adjunto real (imagen/documento, con forceDocument si aplica) — nunca describir ni leer el " +
+      "contenido, solo reenviar el archivo.",
+    inputSchema: {
+      type: "object",
+      properties: { nombre: { type: "string", description: "Nombre exacto con el que se guardó." } },
+      required: ["nombre"],
+    },
+    argsSchema: z.object({ nombre: z.string().min(1) }),
+    handler: async (args: { nombre: string }) => {
+      const params = new URLSearchParams({ name: args.nombre, limit: "1" });
+      const [doc] = await apiRequest<Document[]>(`/documents?${params.toString()}`);
+      if (!doc) throw new Error(`No hay ningún documento guardado con el nombre "${args.nombre}"`);
+
+      const download = await apiRequest<{ url: string; name: string; mime_type: string | null; size: number | null }>(
+        `/documents/${doc.id}/download-url`,
+      );
+      return download;
+    },
   },
 } as const;
 

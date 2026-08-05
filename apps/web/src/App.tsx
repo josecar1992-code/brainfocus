@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { AgendaPage } from "./AgendaPage";
 import { ApiError, api } from "./api";
+import { DocumentsPage } from "./DocumentsPage";
 import { Header } from "./Header";
 import { Login } from "./Login";
 import { NeuronBackground } from "./NeuronBackground";
@@ -91,6 +92,7 @@ export function App() {
             {activeModule === "agenda" && <AgendaPage />}
             {activeModule === "rutinas" && <RoutinesPage />}
             {activeModule === "notas" && <NotesPage />}
+            {activeModule === "documentos" && <DocumentsPage />}
             {activeModule === "vehiculos" && <VehiclesPage />}
             {activeModule === "configuracion" && <SettingsPage />}
           </div>

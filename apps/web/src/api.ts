@@ -132,6 +132,14 @@ export interface RoutineCompletion {
   completed_at: string;
 }
 
+export interface Document {
+  id: string;
+  name: string;
+  mime_type: string | null;
+  size: number | null;
+  created_at: string;
+}
+
 async function authHeader(): Promise<Record<string, string>> {
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
@@ -337,4 +345,30 @@ export const api = {
 
     return event;
   },
+
+  listDocuments: (q?: string) =>
+    request<Document[]>(`/documents${q ? `?q=${encodeURIComponent(q)}` : ""}`),
+  deleteDocument: (id: string) => request<void>(`/documents/${id}`, { method: "DELETE" }),
+
+  // Subida binaria: no puede pasar por request() porque esa fuerza
+  // Content-Type: application/json siempre — acá el navegador arma el
+  // multipart/form-data con su propio boundary.
+  async uploadDocument(name: string, file: File): Promise<Document> {
+    const form = new FormData();
+    form.set("name", name);
+    form.set("file", file);
+    const res = await fetch(`${apiUrl}/documents/upload`, {
+      method: "POST",
+      headers: await authHeader(),
+      body: form,
+    });
+    if (!res.ok) throw new ApiError(res.status, await res.text());
+    return res.json();
+  },
+
+  // URL firmada de vencimiento corto — se pide justo antes de descargar, nunca se guarda.
+  getDocumentDownloadUrl: (id: string) =>
+    request<{ url: string; name: string; mime_type: string | null; size: number | null }>(
+      `/documents/${id}/download-url`,
+    ),
 };

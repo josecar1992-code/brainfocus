@@ -40,3 +40,10 @@ services:
     profiles: ["tools"]
     network_mode: host
     env_file: ./apps/mcp/.env
+    # guardar_documento lee el archivo por su MediaPath (ruta absoluta que
+    # OpenClaw ya dejó en disco, en el host — OpenClaw corre nativo, no en
+    # Docker). Este contenedor necesita ver esa misma ruta para poder leerla
+    # con fs.readFile. AJUSTAR el lado izquierdo al directorio real de media
+    # de OpenClaw en el host antes de usar guardar_documento (ver DEPLOY.md).
+    volumes:
+      - /ruta/real/de/openclaw/media:/ruta/real/de/openclaw/media:ro

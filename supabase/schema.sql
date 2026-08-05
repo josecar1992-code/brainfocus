@@ -121,6 +121,22 @@ alter table public.events
 create index if not exists idx_events_task on public.events(task_id);
 
 -- ============================================================
+-- Documentos (PDFs/imágenes que Quicks guarda y reenvía por nombre) —
+-- bucket privado "documentos" en Supabase Storage, acceso solo vía URL
+-- firmada de vencimiento corto que genera la API (service-role), nunca
+-- directo desde el cliente.
+-- ============================================================
+create table if not exists public.documents (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  name text not null, -- nombre único por el que se busca/recupera, no el filename original
+  storage_path text not null, -- ruta opaca dentro del bucket, ej. "<user_id>/<uuid>"
+  mime_type text,
+  size bigint,
+  created_at timestamptz not null default now()
+);
+
+-- ============================================================
 -- Notas / información libre
 -- ============================================================
 create table if not exists public.notes (
@@ -243,6 +259,8 @@ create index if not exists idx_reminders_remind_at on public.reminders(user_id, 
 create index if not exists idx_reminders_event on public.reminders(event_id);
 create index if not exists idx_events_starts on public.events(user_id, starts_at);
 create index if not exists idx_notes_user on public.notes(user_id);
+create unique index if not exists idx_documents_user_name on public.documents(user_id, name);
+create index if not exists idx_documents_user on public.documents(user_id);
 create index if not exists idx_nutrition_user on public.nutrition_logs(user_id, logged_at);
 create index if not exists idx_exercise_user on public.exercise_logs(user_id, logged_at);
 create index if not exists idx_agent_actions_user on public.agent_actions(user_id, created_at);
@@ -262,6 +280,7 @@ alter table public.lists enable row level security;
 alter table public.tasks enable row level security;
 alter table public.reminders enable row level security;
 alter table public.events enable row level security;
+alter table public.documents enable row level security;
 alter table public.notes enable row level security;
 alter table public.nutrition_logs enable row level security;
 alter table public.exercise_logs enable row level security;
@@ -279,7 +298,7 @@ declare
 begin
   for t in select unnest(array[
     'api_keys','agent_actions','lists','tasks',
-    'reminders','events','notes','nutrition_logs','exercise_logs',
+    'reminders','events','notes','documents','nutrition_logs','exercise_logs',
     'vehicles','vehicle_maintenance','routines','routine_completions'
   ])
   loop
@@ -291,3 +310,19 @@ begin
     );
   end loop;
 end $$;
+
+-- ============================================================
+-- Storage: bucket "documentos" (privado) para el módulo Documentos
+-- ============================================================
+insert into storage.buckets (id, name, public)
+values ('documentos', 'documentos', false)
+on conflict (id) do nothing;
+
+-- Defensa en profundidad: el primer segmento de la ruta del objeto es el
+-- user_id (ver storage_path en public.documents), aunque en la práctica solo
+-- la API con service-role toca este bucket.
+create policy "owner_select_documentos_objects" on storage.objects for select
+  using (bucket_id = 'documentos' and (storage.foldername(name))[1] = auth.uid()::text);
+create policy "owner_modify_documentos_objects" on storage.objects for all
+  using (bucket_id = 'documentos' and (storage.foldername(name))[1] = auth.uid()::text)
+  with check (bucket_id = 'documentos' and (storage.foldername(name))[1] = auth.uid()::text);

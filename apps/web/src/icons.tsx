@@ -136,3 +136,30 @@ export function IconBellOff(props: SVGProps<SVGSVGElement>) {
     </Icon>
   );
 }
+
+export function IconFile(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <path d="M14 2.5H7a1.5 1.5 0 0 0-1.5 1.5v16A1.5 1.5 0 0 0 7 21.5h10a1.5 1.5 0 0 0 1.5-1.5V7.5L14 2.5Z" />
+      <path d="M13.5 2.5V7a1 1 0 0 0 1 1h4" />
+    </Icon>
+  );
+}
+
+export function IconDownload(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <path d="M12 3v13m0 0-4.5-4.5M12 16l4.5-4.5" />
+      <path d="M4.5 18.5V20a1.5 1.5 0 0 0 1.5 1.5h12a1.5 1.5 0 0 0 1.5-1.5v-1.5" />
+    </Icon>
+  );
+}
+
+export function IconUpload(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <path d="M12 20V7m0 0 4.5 4.5M12 7 7.5 11.5" />
+      <path d="M4.5 18.5V20a1.5 1.5 0 0 0 1.5 1.5h12a1.5 1.5 0 0 0 1.5-1.5v-1.5" />
+    </Icon>
+  );
+}
