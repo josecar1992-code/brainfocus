@@ -324,13 +324,41 @@ function TaskDetail({ task, lists, onClose }: { task: Task; lists: List[]; onClo
       setNewSubtask("");
     },
   });
+
+  // Optimista: sin esto, marcar/desmarcar tardaba lo mismo que el viaje
+  // redondo a la API (~1-2s) porque el checkbox está controlado por los
+  // datos de la query y no cambiaba hasta que volvía la respuesta y se
+  // revalidaba. Actualiza ambas cachés (["subtasks", task.id] acá y el
+  // ["subtasks"] global de CategoryTasksView) al toque, y si la API falla
+  // revierte y deja que onSettled reconcilie con el server.
   const toggleSubtask = useMutation({
     mutationFn: api.toggleSubtask,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["subtasks"] }),
+    onMutate: async (subtask) => {
+      await queryClient.cancelQueries({ queryKey: ["subtasks"] });
+      const previous = queryClient.getQueriesData<Subtask[]>({ queryKey: ["subtasks"] });
+      queryClient.setQueriesData<Subtask[]>({ queryKey: ["subtasks"] }, (old) =>
+        old?.map((s) => (s.id === subtask.id ? { ...s, done: !s.done } : s)),
+      );
+      return { previous };
+    },
+    onError: (_err, _subtask, context) => {
+      context?.previous.forEach(([key, data]) => queryClient.setQueryData(key, data));
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["subtasks"] }),
   });
+
   const deleteSubtask = useMutation({
     mutationFn: api.deleteSubtask,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["subtasks"] }),
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ["subtasks"] });
+      const previous = queryClient.getQueriesData<Subtask[]>({ queryKey: ["subtasks"] });
+      queryClient.setQueriesData<Subtask[]>({ queryKey: ["subtasks"] }, (old) => old?.filter((s) => s.id !== id));
+      return { previous };
+    },
+    onError: (_err, _id, context) => {
+      context?.previous.forEach(([key, data]) => queryClient.setQueryData(key, data));
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["subtasks"] }),
   });
 
   const updateTask = useMutation({
@@ -813,7 +841,7 @@ function CategoryTasksView({
                     {isOverdue(task) && <OverdueBadge />}
                     {progress && (
                       <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0 bg-white/5 text-white/50">
-                        {progress.done}/{progress.total}
+                        {progress.done}/{progress.total} · {progress.percent}%
                       </span>
                     )}
                   </div>
