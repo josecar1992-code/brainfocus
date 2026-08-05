@@ -7,6 +7,7 @@ import { CornerBrackets } from "./CornerBrackets";
 import { IconBell, IconBellOff, IconCheckCircle } from "./icons";
 import { RoutineBadge } from "./RoutineBadge";
 import { OPTION_STYLE, PRIORITIES, SELECT_CLASS } from "./selectStyles";
+import { StatusFilterTabs, type StatusFilter } from "./StatusFilterTabs";
 import { TimePicker } from "./TimePicker";
 import { useCompleteTask } from "./useCompleteTask";
 
@@ -504,6 +505,7 @@ export function AgendaPage() {
   const [showForm, setShowForm] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [dateFilter, setDateFilter] = useState<DateFilter>("hoy");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("pendientes");
   const now = new Date();
   const [rangeStart, setRangeStart] = useState(toDateInputValue(startOfWeek(now)));
   const [rangeEnd, setRangeEnd] = useState(
@@ -549,6 +551,12 @@ export function AgendaPage() {
       const t = new Date(e.starts_at).getTime();
       return t >= rangeFrom.getTime() && t < rangeTo.getTime();
     })
+    .filter((e) => {
+      // Sin tarea vinculada no hay "hecho" que mostrar — se cuenta como pendiente.
+      const status = e.task_id ? tasksById.get(e.task_id)?.status : undefined;
+      const done = status === "done";
+      return statusFilter === "hechas" ? done : !done;
+    })
     .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime());
 
   return (
@@ -567,14 +575,17 @@ export function AgendaPage() {
         </button>
       </div>
 
-      <DateFilterBar
-        filter={dateFilter}
-        onFilter={setDateFilter}
-        rangeStart={rangeStart}
-        rangeEnd={rangeEnd}
-        onRangeStart={setRangeStart}
-        onRangeEnd={setRangeEnd}
-      />
+      <div className="flex flex-wrap items-center gap-2">
+        <StatusFilterTabs value={statusFilter} onChange={setStatusFilter} />
+        <DateFilterBar
+          filter={dateFilter}
+          onFilter={setDateFilter}
+          rangeStart={rangeStart}
+          rangeEnd={rangeEnd}
+          onRangeStart={setRangeStart}
+          onRangeEnd={setRangeEnd}
+        />
+      </div>
 
       <div className="bg-night-blue/40 backdrop-blur-md rounded-2xl border border-electric-cyan/10 shadow-[0_0_40px_-24px_rgba(0,210,255,0.35)] overflow-hidden">
         <p className="text-xs font-semibold uppercase tracking-wide text-white/40 px-5 pt-5 pb-2">Eventos</p>

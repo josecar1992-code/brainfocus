@@ -7,6 +7,7 @@ import { CornerBrackets } from "./CornerBrackets";
 import { IconTrash } from "./icons";
 import { RoutineBadge } from "./RoutineBadge";
 import { OPTION_STYLE, PRIORITIES, SELECT_CLASS } from "./selectStyles";
+import { StatusFilterTabs, type StatusFilter } from "./StatusFilterTabs";
 import { TimePicker } from "./TimePicker";
 import { useCompleteTask } from "./useCompleteTask";
 
@@ -743,6 +744,7 @@ function CategoryTasksView({
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
   const [prioridadFilter, setPrioridadFilter] = useState<Task["priority"] | "">("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("pendientes");
   const [showForm, setShowForm] = useState(false);
   const queryClient = useQueryClient();
   const { data: lists } = useQuery({ queryKey: ["lists"], queryFn: api.listLists });
@@ -768,6 +770,7 @@ function CategoryTasksView({
   const visibleTasks = tasks
     .filter((t) => (categoryId === SIN_CATEGORIA ? !t.list_id : t.list_id === categoryId))
     .filter((t) => !prioridadFilter || t.priority === prioridadFilter)
+    .filter((t) => (statusFilter === "hechas" ? t.status === "done" : t.status !== "done"))
     .sort((a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority]);
 
   return (
@@ -796,20 +799,23 @@ function CategoryTasksView({
         </button>
       </div>
 
-      <select
-        value={prioridadFilter}
-        onChange={(e) => setPrioridadFilter(e.target.value as Task["priority"] | "")}
-        className={`${SELECT_CLASS} py-1.5 text-sm`}
-      >
-        <option value="" style={OPTION_STYLE}>
-          Toda prioridad
-        </option>
-        {PRIORITIES.map((p) => (
-          <option key={p.value} value={p.value} style={OPTION_STYLE}>
-            {p.label}
+      <div className="flex flex-wrap items-center gap-2">
+        <StatusFilterTabs value={statusFilter} onChange={setStatusFilter} />
+        <select
+          value={prioridadFilter}
+          onChange={(e) => setPrioridadFilter(e.target.value as Task["priority"] | "")}
+          className={`${SELECT_CLASS} py-1.5 text-sm`}
+        >
+          <option value="" style={OPTION_STYLE}>
+            Toda prioridad
           </option>
-        ))}
-      </select>
+          {PRIORITIES.map((p) => (
+            <option key={p.value} value={p.value} style={OPTION_STYLE}>
+              {p.label}
+            </option>
+          ))}
+        </select>
+      </div>
 
       <div className="bg-night-blue/40 backdrop-blur-md rounded-2xl border border-electric-cyan/10 shadow-[0_0_40px_-24px_rgba(0,210,255,0.35)] overflow-hidden">
         {visibleTasks.length === 0 && <p className="text-white/40 text-sm px-5 py-5">No hay tareas para este filtro.</p>}
