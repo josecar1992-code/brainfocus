@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { api, type List, type NewTask, type Task } from "./api";
+import { api, canRemindTwoHoursBefore, type List, type NewTask, type Task } from "./api";
 import { CategorySelect } from "./CategorySelect";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { CornerBrackets } from "./CornerBrackets";
@@ -55,6 +55,7 @@ function NewTaskModal({
   const [crearRecordatorio, setCrearRecordatorio] = useState(true);
   const [crearRecordatorioHoraEvento, setCrearRecordatorioHoraEvento] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const puedeAvisar2h = canRemindTwoHoursBefore(fecha, hora);
 
   const createTask = useMutation({
     mutationFn: api.createTask,
@@ -90,7 +91,7 @@ function NewTaskModal({
       crearEvento,
       fecha: crearEvento ? fecha : undefined,
       hora: crearEvento ? hora : undefined,
-      crearRecordatorio: crearEvento ? crearRecordatorio : undefined,
+      crearRecordatorio: crearEvento ? puedeAvisar2h && crearRecordatorio : undefined,
       crearRecordatorioHoraEvento: crearEvento ? crearRecordatorioHoraEvento : undefined,
     };
     createTask.mutate(input);
@@ -176,15 +177,17 @@ function NewTaskModal({
                 />
               </div>
             </div>
-            <label className="flex items-center gap-2 text-sm text-white/70">
-              <input
-                type="checkbox"
-                checked={crearRecordatorio}
-                onChange={(e) => setCrearRecordatorio(e.target.checked)}
-                className="accent-electric-cyan"
-              />
-              Avisar 2 horas antes
-            </label>
+            {puedeAvisar2h && (
+              <label className="flex items-center gap-2 text-sm text-white/70">
+                <input
+                  type="checkbox"
+                  checked={crearRecordatorio}
+                  onChange={(e) => setCrearRecordatorio(e.target.checked)}
+                  className="accent-electric-cyan"
+                />
+                Avisar 2 horas antes
+              </label>
+            )}
             <label className="flex items-center gap-2 text-sm text-white/70">
               <input
                 type="checkbox"
@@ -235,6 +238,7 @@ function TaskDetail({ task, lists, onClose }: { task: Task; lists: List[]; onClo
   const [crearRecordatorio, setCrearRecordatorio] = useState(true);
   const [crearRecordatorioHoraEvento, setCrearRecordatorioHoraEvento] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const puedeAvisar2h = canRemindTwoHoursBefore(fecha, hora);
 
   const { data: events } = useQuery({ queryKey: ["events"], queryFn: api.listEvents });
   const existingEvent = events?.find((e) => e.task_id === task.id);
@@ -248,7 +252,7 @@ function TaskDetail({ task, lists, onClose }: { task: Task; lists: List[]; onClo
           title: title.trim(),
           description: notes.trim() || undefined,
           starts_at: `${fecha}T${hora}:00${CR_OFFSET}`,
-          crearRecordatorio,
+          crearRecordatorio: puedeAvisar2h && crearRecordatorio,
           crearRecordatorioHoraEvento,
         });
       }
@@ -372,15 +376,17 @@ function TaskDetail({ task, lists, onClose }: { task: Task; lists: List[]; onClo
                         />
                       </div>
                     </div>
-                    <label className="flex items-center gap-2 text-sm text-white/70">
-                      <input
-                        type="checkbox"
-                        checked={crearRecordatorio}
-                        onChange={(e) => setCrearRecordatorio(e.target.checked)}
-                        className="accent-electric-cyan"
-                      />
-                      Avisar 2 horas antes
-                    </label>
+                    {puedeAvisar2h && (
+                      <label className="flex items-center gap-2 text-sm text-white/70">
+                        <input
+                          type="checkbox"
+                          checked={crearRecordatorio}
+                          onChange={(e) => setCrearRecordatorio(e.target.checked)}
+                          className="accent-electric-cyan"
+                        />
+                        Avisar 2 horas antes
+                      </label>
+                    )}
                     <label className="flex items-center gap-2 text-sm text-white/70">
                       <input
                         type="checkbox"

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { api, type Event, type List, type Reminder, type Task } from "./api";
+import { api, canRemindTwoHoursBefore, type Event, type List, type Reminder, type Task } from "./api";
 import { CategorySelect } from "./CategorySelect";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { CornerBrackets } from "./CornerBrackets";
@@ -90,6 +90,7 @@ function NewEventForm({ lists, onClose }: { lists: List[]; onClose: () => void }
   const [crearRecordatorio, setCrearRecordatorio] = useState(true);
   const [crearRecordatorioHoraEvento, setCrearRecordatorioHoraEvento] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const puedeAvisar2h = canRemindTwoHoursBefore(date, time);
 
   const createEvent = useMutation({
     mutationFn: api.createEvent,
@@ -120,7 +121,7 @@ function NewEventForm({ lists, onClose }: { lists: List[]; onClose: () => void }
       starts_at,
       list_id: listId,
       priority,
-      crearRecordatorio,
+      crearRecordatorio: puedeAvisar2h && crearRecordatorio,
       crearRecordatorioHoraEvento,
     });
   }
@@ -193,15 +194,17 @@ function NewEventForm({ lists, onClose }: { lists: List[]; onClose: () => void }
           </div>
         </div>
 
-        <label className="flex items-center gap-2 text-sm text-white/70 mt-1">
-          <input
-            type="checkbox"
-            checked={crearRecordatorio}
-            onChange={(e) => setCrearRecordatorio(e.target.checked)}
-            className="accent-electric-cyan"
-          />
-          Avisar 2 horas antes
-        </label>
+        {puedeAvisar2h && (
+          <label className="flex items-center gap-2 text-sm text-white/70 mt-1">
+            <input
+              type="checkbox"
+              checked={crearRecordatorio}
+              onChange={(e) => setCrearRecordatorio(e.target.checked)}
+              className="accent-electric-cyan"
+            />
+            Avisar 2 horas antes
+          </label>
+        )}
         <label className="flex items-center gap-2 text-sm text-white/70">
           <input
             type="checkbox"

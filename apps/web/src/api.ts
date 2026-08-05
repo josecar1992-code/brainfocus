@@ -194,6 +194,15 @@ function isFutureReminder(remindAt: string) {
   return new Date(remindAt).getTime() > Date.now();
 }
 
+// Para que el formulario oculte/desmarque solo el check de "avisar 2h antes"
+// cuando el evento queda a menos de 2h — evita que el usuario lo deje
+// prendido sin darse cuenta y se tope con el 400 de "recordatorio en el pasado".
+export function canRemindTwoHoursBefore(fecha: string, hora: string): boolean {
+  if (!fecha || !hora) return false;
+  const startsAt = new Date(`${fecha}T${hora}:00${CR_OFFSET}`).getTime();
+  return startsAt - TWO_HOURS_MS > Date.now();
+}
+
 // Compartido entre createTask/createEvent/addEventToTask: arma los 0-2
 // recordatorios de un evento (2h antes y/o justo a la hora), cada uno
 // activable por separado. Ambos se omiten en silencio si caen en el pasado.
