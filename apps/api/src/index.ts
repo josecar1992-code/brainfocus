@@ -15,6 +15,7 @@ import { nutritionRouter } from "./routes/nutrition.js";
 import { remindersRouter } from "./routes/reminders.js";
 import { routineCompletionsRouter } from "./routes/routineCompletions.js";
 import { routinesRouter } from "./routes/routines.js";
+import { subtasksRouter } from "./routes/subtasks.js";
 import { tasksRouter } from "./routes/tasks.js";
 import { vehicleMaintenanceRouter } from "./routes/vehicleMaintenance.js";
 import { vehiclesRouter } from "./routes/vehicles.js";
@@ -37,6 +38,7 @@ app.use(authenticate);
 
 app.use("/internal/api-keys", apiKeysRouter);
 app.use("/tasks", tasksRouter);
+app.use("/subtasks", subtasksRouter);
 app.use("/lists", listsRouter);
 app.use("/reminders", remindersRouter);
 app.use("/events", eventsRouter);

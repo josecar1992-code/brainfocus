@@ -73,6 +73,20 @@ create table if not exists public.tasks (
 );
 
 -- ============================================================
+-- Subtareas (checklist dentro de una tarea) — el % completado de la tarea
+-- principal se calcula en el cliente a partir de estas filas, no se guarda.
+-- ============================================================
+create table if not exists public.subtasks (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  task_id uuid not null references public.tasks(id) on delete cascade,
+  title text not null,
+  done boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- ============================================================
 -- Recordatorios (pueden o no estar ligados a una tarea o a un evento)
 -- ============================================================
 create table if not exists public.reminders (
@@ -255,6 +269,8 @@ alter table public.tasks
 -- ============================================================
 create index if not exists idx_tasks_user on public.tasks(user_id);
 create index if not exists idx_tasks_due on public.tasks(user_id, due_date);
+create index if not exists idx_subtasks_task on public.subtasks(task_id);
+create index if not exists idx_subtasks_user on public.subtasks(user_id);
 create index if not exists idx_reminders_remind_at on public.reminders(user_id, remind_at);
 create index if not exists idx_reminders_event on public.reminders(event_id);
 create index if not exists idx_events_starts on public.events(user_id, starts_at);
@@ -278,6 +294,7 @@ alter table public.api_keys enable row level security;
 alter table public.agent_actions enable row level security;
 alter table public.lists enable row level security;
 alter table public.tasks enable row level security;
+alter table public.subtasks enable row level security;
 alter table public.reminders enable row level security;
 alter table public.events enable row level security;
 alter table public.documents enable row level security;
@@ -297,7 +314,7 @@ declare
   t text;
 begin
   for t in select unnest(array[
-    'api_keys','agent_actions','lists','tasks',
+    'api_keys','agent_actions','lists','tasks','subtasks',
     'reminders','events','notes','documents','nutrition_logs','exercise_logs',
     'vehicles','vehicle_maintenance','routines','routine_completions'
   ])

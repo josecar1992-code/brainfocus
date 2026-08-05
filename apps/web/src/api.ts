@@ -22,6 +22,17 @@ export interface NewTask {
   hora?: string; // HH:MM, solo si crearEvento
   crearRecordatorio?: boolean; // solo si crearEvento — avisa 2h antes
   crearRecordatorioHoraEvento?: boolean; // solo si crearEvento — avisa justo a la hora
+  // Fecha límite sin crear evento en Agenda (independiente de crearEvento).
+  fechaEntrega?: string; // YYYY-MM-DD
+  horaEntrega?: string; // HH:MM, opcional — sin hora se asume fin del día
+}
+
+export interface Subtask {
+  id: string;
+  task_id: string;
+  title: string;
+  done: boolean;
+  created_at: string;
 }
 
 export interface List {
@@ -254,7 +265,13 @@ export const api = {
   deleteTask: (id: string) => request<void>(`/tasks/${id}`, { method: "DELETE" }),
   updateTask: (
     id: string,
-    input: { title: string; notes?: string; list_id?: string | null; priority: Task["priority"] },
+    input: {
+      title: string;
+      notes?: string;
+      list_id?: string | null;
+      priority: Task["priority"];
+      due_date?: string | null;
+    },
   ) =>
     request<Task>(`/tasks/${id}`, {
       method: "PATCH",
@@ -263,6 +280,7 @@ export const api = {
         notes: input.notes || null,
         list_id: input.list_id || null,
         priority: input.priority,
+        ...(input.due_date !== undefined ? { due_date: input.due_date } : {}),
       }),
     }),
 
@@ -274,6 +292,11 @@ export const api = {
   async createTask(input: NewTask): Promise<Task> {
     const starts_at =
       input.crearEvento && input.fecha && input.hora ? `${input.fecha}T${input.hora}:00${CR_OFFSET}` : undefined;
+    // Fecha de entrega sin evento: sin hora se asume fin del día (23:59), para
+    // que "vence el viernes" no dependa de que el usuario elija una hora.
+    const dueDateSinEvento = input.fechaEntrega
+      ? `${input.fechaEntrega}T${input.horaEntrega || "23:59"}:00${CR_OFFSET}`
+      : undefined;
 
     const task = await request<Task>("/tasks", {
       method: "POST",
@@ -282,7 +305,7 @@ export const api = {
         notes: input.notes || undefined,
         list_id: input.list_id || undefined,
         priority: input.priority,
-        due_date: starts_at,
+        due_date: starts_at ?? dueDateSinEvento,
       }),
     });
 
@@ -438,4 +461,14 @@ export const api = {
     request<{ url: string; name: string; mime_type: string | null; size: number | null }>(
       `/documents/${id}/download-url`,
     ),
+
+  // Sin taskId trae TODAS las subtareas del usuario — sirve para mostrar el
+  // % completado en las listas de tareas sin una consulta por tarea.
+  listSubtasks: (taskId?: string) =>
+    request<Subtask[]>(`/subtasks?limit=200${taskId ? `&task_id=${taskId}` : ""}`),
+  createSubtask: (input: { task_id: string; title: string }) =>
+    request<Subtask>("/subtasks", { method: "POST", body: JSON.stringify(input) }),
+  toggleSubtask: (subtask: Subtask) =>
+    request<Subtask>(`/subtasks/${subtask.id}`, { method: "PATCH", body: JSON.stringify({ done: !subtask.done }) }),
+  deleteSubtask: (id: string) => request<void>(`/subtasks/${id}`, { method: "DELETE" }),
 };

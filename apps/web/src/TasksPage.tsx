@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { api, canRemindTwoHoursBefore, type List, type NewTask, type Task } from "./api";
+import { api, canRemindTwoHoursBefore, type List, type NewTask, type Subtask, type Task } from "./api";
 import { CategorySelect } from "./CategorySelect";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { CornerBrackets } from "./CornerBrackets";
@@ -16,6 +16,49 @@ const PRIORITY_ORDER: Record<Task["priority"], number> = { high: 0, normal: 1, l
 
 function formatCreatedDate(iso: string) {
   return new Date(iso).toLocaleDateString("es-CR", { day: "2-digit", month: "short", year: "numeric" });
+}
+
+function formatDueDate(iso: string) {
+  return new Date(iso).toLocaleString("es-CR", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+// Para precargar los inputs de fecha/hora al editar: Supabase devuelve el
+// timestamptz en UTC ("...Z"), así que no se puede recortar el string tal
+// cual — hay que convertir a la hora de Costa Rica primero.
+function toDateInputValue(iso: string) {
+  return new Date(iso).toLocaleDateString("en-CA", { timeZone: "America/Costa_Rica" });
+}
+function toTimeInputValue(iso: string) {
+  return new Date(iso).toLocaleTimeString("en-GB", {
+    timeZone: "America/Costa_Rica",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function isOverdue(task: Task) {
+  return Boolean(task.due_date) && task.status !== "done" && new Date(task.due_date as string).getTime() < Date.now();
+}
+
+function OverdueBadge() {
+  return (
+    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0 bg-red-400/15 text-red-400">
+      Atrasada
+    </span>
+  );
+}
+
+// Progreso de subtareas — se calcula acá, no se guarda en ningún lado.
+function subtaskProgress(subtasks: Subtask[]) {
+  if (subtasks.length === 0) return null;
+  const done = subtasks.filter((s) => s.done).length;
+  return { done, total: subtasks.length, percent: Math.round((done / subtasks.length) * 100) };
 }
 
 function StatCard({ valor, etiqueta }: { valor: number; etiqueta: string }) {
@@ -55,6 +98,9 @@ function NewTaskModal({
   const [hora, setHora] = useState("");
   const [crearRecordatorio, setCrearRecordatorio] = useState(true);
   const [crearRecordatorioHoraEvento, setCrearRecordatorioHoraEvento] = useState(true);
+  // Independiente de crearEvento: una fecha límite sin crear nada en Agenda.
+  const [fechaEntrega, setFechaEntrega] = useState("");
+  const [horaEntrega, setHoraEntrega] = useState("");
   const [error, setError] = useState<string | null>(null);
   const puedeAvisar2h = canRemindTwoHoursBefore(fecha, hora);
 
@@ -94,6 +140,8 @@ function NewTaskModal({
       hora: crearEvento ? hora : undefined,
       crearRecordatorio: crearEvento ? puedeAvisar2h && crearRecordatorio : undefined,
       crearRecordatorioHoraEvento: crearEvento ? crearRecordatorioHoraEvento : undefined,
+      fechaEntrega: !crearEvento && fechaEntrega ? fechaEntrega : undefined,
+      horaEntrega: !crearEvento && fechaEntrega ? horaEntrega : undefined,
     };
     createTask.mutate(input);
   }
@@ -145,6 +193,26 @@ function NewTaskModal({
             </select>
           </div>
         </div>
+
+        {!crearEvento && (
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-2">
+            <div className="flex flex-col gap-1 flex-1">
+              <label className="text-xs text-white/50">Fecha de entrega (opcional)</label>
+              <input
+                type="date"
+                value={fechaEntrega}
+                onChange={(e) => setFechaEntrega(e.target.value)}
+                className="border border-deep-blue/40 bg-black/20 rounded-lg px-3 py-2 focus:outline-none focus:border-electric-cyan/70 [color-scheme:dark]"
+              />
+            </div>
+            {fechaEntrega && (
+              <div className="flex flex-col gap-1 flex-1">
+                <label className="text-xs text-white/50">Hora (opcional)</label>
+                <TimePicker value={horaEntrega} onChange={setHoraEntrega} />
+              </div>
+            )}
+          </div>
+        )}
 
         <label className="flex items-center gap-2 text-sm text-white/70">
           <input
@@ -233,15 +301,51 @@ function TaskDetail({ task, lists, onClose }: { task: Task; lists: List[]; onClo
   const [hora, setHora] = useState("");
   const [crearRecordatorio, setCrearRecordatorio] = useState(true);
   const [crearRecordatorioHoraEvento, setCrearRecordatorioHoraEvento] = useState(true);
+  // Fecha límite sin evento — precargada desde task.due_date si ya tenía una.
+  const [fechaEntrega, setFechaEntrega] = useState(task.due_date ? toDateInputValue(task.due_date) : "");
+  const [horaEntrega, setHoraEntrega] = useState(task.due_date ? toTimeInputValue(task.due_date) : "");
   const [error, setError] = useState<string | null>(null);
   const puedeAvisar2h = canRemindTwoHoursBefore(fecha, hora);
 
   const { data: events } = useQuery({ queryKey: ["events"], queryFn: api.listEvents });
   const existingEvent = events?.find((e) => e.task_id === task.id);
 
+  const { data: subtasks } = useQuery({
+    queryKey: ["subtasks", task.id],
+    queryFn: () => api.listSubtasks(task.id),
+  });
+  const progress = subtaskProgress(subtasks ?? []);
+  const [newSubtask, setNewSubtask] = useState("");
+
+  const createSubtask = useMutation({
+    mutationFn: () => api.createSubtask({ task_id: task.id, title: newSubtask.trim() }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["subtasks"] });
+      setNewSubtask("");
+    },
+  });
+  const toggleSubtask = useMutation({
+    mutationFn: api.toggleSubtask,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["subtasks"] }),
+  });
+  const deleteSubtask = useMutation({
+    mutationFn: api.deleteSubtask,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["subtasks"] }),
+  });
+
   const updateTask = useMutation({
     mutationFn: async () => {
-      const updated = await api.updateTask(task.id, { title: title.trim(), notes: notes.trim(), list_id: listId, priority });
+      const dueDateSinEvento =
+        !crearEvento && !existingEvent && fechaEntrega
+          ? `${fechaEntrega}T${horaEntrega || "23:59"}:00${CR_OFFSET}`
+          : undefined;
+      const updated = await api.updateTask(task.id, {
+        title: title.trim(),
+        notes: notes.trim(),
+        list_id: listId,
+        priority,
+        ...(dueDateSinEvento !== undefined ? { due_date: dueDateSinEvento } : {}),
+      });
       if (crearEvento && !existingEvent && fecha && hora) {
         await api.addEventToTask({
           task_id: task.id,
@@ -290,8 +394,8 @@ function TaskDetail({ task, lists, onClose }: { task: Task; lists: List[]; onClo
   const list = task.list_id ? lists.find((l) => l.id === task.list_id) : undefined;
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center px-4 z-20">
-      <div className="relative w-full max-w-sm border border-electric-cyan/20 bg-night-blue rounded-2xl p-6 flex flex-col gap-3 shadow-[0_0_60px_-15px_rgba(0,210,255,0.25)]">
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center px-4 z-20 overflow-y-auto py-8">
+      <div className="relative w-full max-w-sm border border-electric-cyan/20 bg-night-blue rounded-2xl p-6 flex flex-col gap-3 shadow-[0_0_60px_-15px_rgba(0,210,255,0.25)] max-h-full overflow-y-auto">
         <CornerBrackets />
         {editing ? (
           <form onSubmit={handleSubmit} className="flex flex-col gap-3">
@@ -340,6 +444,26 @@ function TaskDetail({ task, lists, onClose }: { task: Task; lists: List[]; onClo
               </p>
             ) : (
               <>
+                {!crearEvento && (
+                  <div className="flex flex-col sm:flex-row gap-3 sm:gap-2">
+                    <div className="flex flex-col gap-1 flex-1">
+                      <label className="text-xs text-white/50">Fecha de entrega (opcional)</label>
+                      <input
+                        type="date"
+                        value={fechaEntrega}
+                        onChange={(e) => setFechaEntrega(e.target.value)}
+                        className="border border-deep-blue/40 bg-black/20 rounded-lg px-3 py-2 focus:outline-none focus:border-electric-cyan/70 [color-scheme:dark]"
+                      />
+                    </div>
+                    {fechaEntrega && (
+                      <div className="flex flex-col gap-1 flex-1">
+                        <label className="text-xs text-white/50">Hora (opcional)</label>
+                        <TimePicker value={horaEntrega} onChange={setHoraEntrega} />
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <label className="flex items-center gap-2 text-sm text-white/70">
                   <input
                     type="checkbox"
@@ -424,12 +548,84 @@ function TaskDetail({ task, lists, onClose }: { task: Task; lists: List[]; onClo
               )}
               <PriorityBadge priority={task.priority} />
               {task.routine_id && <RoutineBadge />}
+              {isOverdue(task) && <OverdueBadge />}
               <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-white/5 text-white/50">
                 {task.status === "done" ? "Completada" : task.status === "in_progress" ? "En curso" : "Pendiente"}
               </span>
             </div>
             <p className="text-xs text-white/30">Creada {formatCreatedDate(task.created_at)}</p>
+            {task.due_date && (
+              <p className={`text-xs ${isOverdue(task) ? "text-red-400" : "text-white/40"}`}>
+                Vence {formatDueDate(task.due_date)}
+              </p>
+            )}
             {task.notes && <p className="text-sm text-white/60 whitespace-pre-wrap">{task.notes}</p>}
+
+            <div className="border-t border-white/8 pt-3 mt-1">
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-white/40">Subtareas</p>
+                {progress && (
+                  <p className="text-[11px] text-white/40">
+                    {progress.done}/{progress.total} · {progress.percent}%
+                  </p>
+                )}
+              </div>
+              {progress && (
+                <div className="h-1.5 rounded-full bg-white/8 overflow-hidden mb-2">
+                  <div
+                    className="h-full bg-electric-cyan transition-all"
+                    style={{ width: `${progress.percent}%` }}
+                  />
+                </div>
+              )}
+              {subtasks && subtasks.length > 0 && (
+                <ul className="flex flex-col gap-1 mb-2">
+                  {subtasks.map((s) => (
+                    <li key={s.id} className="flex items-center gap-2 group">
+                      <input
+                        type="checkbox"
+                        checked={s.done}
+                        onChange={() => toggleSubtask.mutate(s)}
+                        className="accent-electric-cyan w-4 h-4 flex-shrink-0"
+                      />
+                      <span className={`text-sm flex-1 ${s.done ? "line-through text-white/30" : "text-white/80"}`}>
+                        {s.title}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => deleteSubtask.mutate(s.id)}
+                        aria-label="Borrar subtarea"
+                        className="text-white/20 hover:text-red-400 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100"
+                      >
+                        <IconTrash className="w-3.5 h-3.5" strokeWidth={1.75} />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (newSubtask.trim()) createSubtask.mutate();
+                }}
+                className="flex gap-2"
+              >
+                <input
+                  value={newSubtask}
+                  onChange={(e) => setNewSubtask(e.target.value)}
+                  placeholder="Agregar subtarea..."
+                  className="flex-1 border border-deep-blue/40 bg-black/20 rounded-lg px-3 py-1.5 text-sm placeholder:text-white/30 focus:outline-none focus:border-electric-cyan/70 transition"
+                />
+                <button
+                  type="submit"
+                  disabled={!newSubtask.trim() || createSubtask.isPending}
+                  className="border border-electric-cyan/40 text-electric-cyan rounded-lg px-3 py-1.5 text-sm hover:bg-electric-cyan/10 transition disabled:opacity-40"
+                >
+                  +
+                </button>
+              </form>
+            </div>
+
             {error && <p className="text-sm text-red-400">{error}</p>}
             <div className="grid grid-cols-3 gap-2 mt-2">
               <button
@@ -522,7 +718,15 @@ function CategoryTasksView({
   const [showForm, setShowForm] = useState(false);
   const queryClient = useQueryClient();
   const { data: lists } = useQuery({ queryKey: ["lists"], queryFn: api.listLists });
+  const { data: allSubtasks } = useQuery({ queryKey: ["subtasks"], queryFn: () => api.listSubtasks() });
   const completeTask = useCompleteTask();
+
+  const subtasksByTask = new Map<string, Subtask[]>();
+  for (const s of allSubtasks ?? []) {
+    const list = subtasksByTask.get(s.task_id) ?? [];
+    list.push(s);
+    subtasksByTask.set(s.task_id, list);
+  }
 
   const deleteTask = useMutation({
     mutationFn: api.deleteTask,
@@ -584,7 +788,9 @@ function CategoryTasksView({
 
         {visibleTasks.length > 0 && (
           <ul>
-            {visibleTasks.map((task: Task) => (
+            {visibleTasks.map((task: Task) => {
+              const progress = subtaskProgress(subtasksByTask.get(task.id) ?? []);
+              return (
               <li
                 key={task.id}
                 className="flex items-center gap-3 px-5 py-3 border-t border-white/8 first:border-t-0 hover:bg-white/5 transition-colors group cursor-pointer"
@@ -604,9 +810,18 @@ function CategoryTasksView({
                     </span>
                     <PriorityBadge priority={task.priority} />
                     {task.routine_id && <RoutineBadge />}
+                    {isOverdue(task) && <OverdueBadge />}
+                    {progress && (
+                      <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0 bg-white/5 text-white/50">
+                        {progress.done}/{progress.total}
+                      </span>
+                    )}
                   </div>
                   {task.notes && <p className="text-xs text-white/40 mt-0.5 truncate">{task.notes}</p>}
-                  <p className="text-[11px] text-white/30 mt-0.5">Creada {formatCreatedDate(task.created_at)}</p>
+                  <p className="text-[11px] text-white/30 mt-0.5">
+                    Creada {formatCreatedDate(task.created_at)}
+                    {task.due_date && ` · Vence ${formatDueDate(task.due_date)}`}
+                  </p>
                 </div>
                 <button
                   type="button"
@@ -620,7 +835,8 @@ function CategoryTasksView({
                   <IconTrash className="w-4 h-4" strokeWidth={1.75} />
                 </button>
               </li>
-            ))}
+              );
+            })}
           </ul>
         )}
       </div>
