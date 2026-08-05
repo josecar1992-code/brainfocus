@@ -82,12 +82,16 @@ especulación:
   `crear_recordatorio`, `crear_evento`, `crear_nota`, `buscar_notas`.
 - Vehículos: `listar_vehiculos`, `crear_vehiculo`, `listar_mantenimientos`, `crear_mantenimiento`.
 - Rutinas: `listar_categorias`, `listar_rutinas`, `crear_rutina`.
-- Documentos: `guardar_documento`, `enviar_documento`. Ninguna de las dos hace OCR, extracción de
-  texto ni descripción de imagen — solo suben/bajan los bytes por nombre, así que el contenido del
-  archivo nunca pasa por el contexto del agente (solo viajan `name`/`mime_type`/`size`).
-  `guardar_documento` necesita ver el directorio real donde OpenClaw deja los archivos de media
-  (`MediaPath`) — confirmado en este VPS: `/root/.openclaw/media`, ya montado como bind mount
-  read-only en el servicio `mcp` de `docker-compose.yml`.
+- Documentos: `guardar_documento`, `buscar_documentos`, `enviar_documento`. Ninguna hace OCR,
+  extracción de texto ni descripción de imagen — solo suben/bajan los bytes por nombre, así que el
+  contenido del archivo nunca pasa por el contexto del agente (solo viajan `name`/`mime_type`/`size`).
+  `enviar_documento` busca por coincidencia parcial (`ILIKE`, sin distinguir mayúsculas/tildes) — si
+  hay más de un resultado devuelve la lista de nombres en vez de adivinar, para que el agente le
+  pregunte al usuario cuál quiere; `buscar_documentos` lista/filtra por nombre parcial para ese caso
+  o para explorar qué hay guardado. `guardar_documento` necesita ver el directorio real donde
+  OpenClaw deja los archivos de media (`MediaPath`) — confirmado en este VPS:
+  `/root/.openclaw/media`, ya montado como bind mount read-only en el servicio `mcp` de
+  `docker-compose.yml`.
 
 ## 6. Conectar Quicks (OpenClaw) a la API — trabajo del lado de la sesión de OpenClaw
 

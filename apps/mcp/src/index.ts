@@ -495,24 +495,62 @@ const tools = {
     },
   },
 
-  enviar_documento: {
+  buscar_documentos: {
     description:
-      "Busca un documento guardado por su nombre exacto y devuelve la URL para reenviarlo como " +
-      "adjunto real (imagen/documento, con forceDocument si aplica) — nunca describir ni leer el " +
-      "contenido, solo reenviar el archivo.",
+      "Lista los documentos guardados cuyo nombre contiene el texto buscado (sin importar " +
+      "mayúsculas/tildes/orden), o los últimos guardados si no se pasa nombre. Usar esto antes de " +
+      "`enviar_documento` cuando no estés seguro del nombre exacto, o cuando `enviar_documento` " +
+      "devuelva varias coincidencias y haya que preguntarle al usuario cuál quiere.",
     inputSchema: {
       type: "object",
-      properties: { nombre: { type: "string", description: "Nombre exacto con el que se guardó." } },
+      properties: {
+        nombre: { type: "string", description: "Palabra o frase a buscar en el nombre. Opcional." },
+      },
+    },
+    argsSchema: z.object({ nombre: z.string().optional() }),
+    handler: (args: { nombre?: string }) => {
+      const params = new URLSearchParams({ limit: "20" });
+      if (args.nombre) params.set("q", args.nombre);
+      return apiRequest<Document[]>(`/documents?${params.toString()}`);
+    },
+  },
+
+  enviar_documento: {
+    description:
+      "Busca un documento guardado por coincidencia parcial del nombre (sin importar " +
+      "mayúsculas/tildes/orden de palabras) y devuelve la URL para reenviarlo como adjunto real " +
+      "(imagen/documento, con forceDocument si aplica) — nunca describir ni leer el contenido, solo " +
+      "reenviar el archivo. Si hay más de una coincidencia, NO adivinar ni mandar la primera: devuelve " +
+      "la lista de nombres para que le preguntes al usuario cuál quiere y volvés a llamar esta tool " +
+      "con el nombre exacto que eligió.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        nombre: { type: "string", description: "Nombre completo o parcial con el que se guardó." },
+      },
       required: ["nombre"],
     },
     argsSchema: z.object({ nombre: z.string().min(1) }),
     handler: async (args: { nombre: string }) => {
-      const params = new URLSearchParams({ name: args.nombre, limit: "1" });
-      const [doc] = await apiRequest<Document[]>(`/documents?${params.toString()}`);
-      if (!doc) throw new Error(`No hay ningún documento guardado con el nombre "${args.nombre}"`);
+      const params = new URLSearchParams({ q: args.nombre, limit: "10" });
+      const matches = await apiRequest<Document[]>(`/documents?${params.toString()}`);
+
+      if (matches.length === 0) {
+        throw new Error(
+          `No encontré ningún documento guardado que coincida con "${args.nombre}". Usá ` +
+            "buscar_documentos para ver los nombres guardados.",
+        );
+      }
+      if (matches.length > 1) {
+        return {
+          ambiguo: true,
+          mensaje: "Hay más de un documento que coincide — preguntale al usuario cuál quiere y volvé a llamar con el nombre exacto.",
+          coincidencias: matches.map((d) => d.name),
+        };
+      }
 
       const download = await apiRequest<{ url: string; name: string; mime_type: string | null; size: number | null }>(
-        `/documents/${doc.id}/download-url`,
+        `/documents/${matches[0].id}/download-url`,
       );
       return download;
     },
