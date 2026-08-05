@@ -20,7 +20,8 @@ export interface NewTask {
   crearEvento?: boolean;
   fecha?: string; // YYYY-MM-DD, solo si crearEvento
   hora?: string; // HH:MM, solo si crearEvento
-  crearRecordatorio?: boolean; // solo si crearEvento
+  crearRecordatorio?: boolean; // solo si crearEvento — avisa 2h antes
+  crearRecordatorioHoraEvento?: boolean; // solo si crearEvento — avisa justo a la hora
 }
 
 export interface List {
@@ -46,7 +47,8 @@ export interface NewEvent {
   starts_at: string;
   list_id: string;
   priority?: Task["priority"];
-  crearRecordatorio: boolean;
+  crearRecordatorio: boolean; // avisa 2h antes
+  crearRecordatorioHoraEvento: boolean; // avisa justo a la hora del evento
 }
 
 export interface Reminder {
@@ -192,6 +194,46 @@ function isFutureReminder(remindAt: string) {
   return new Date(remindAt).getTime() > Date.now();
 }
 
+// Compartido entre createTask/createEvent/addEventToTask: arma los 0-2
+// recordatorios de un evento (2h antes y/o justo a la hora), cada uno
+// activable por separado. Ambos se omiten en silencio si caen en el pasado.
+async function createEventReminders(input: {
+  eventId: string;
+  taskId: string;
+  title: string;
+  startsAt: string;
+  description?: string;
+  crearRecordatorio?: boolean;
+  crearRecordatorioHoraEvento?: boolean;
+}) {
+  const base = { event_id: input.eventId, task_id: input.taskId };
+
+  if (input.crearRecordatorio) {
+    const remindAt = new Date(new Date(input.startsAt).getTime() - TWO_HOURS_MS).toISOString();
+    if (isFutureReminder(remindAt)) {
+      await request("/reminders", {
+        method: "POST",
+        body: JSON.stringify({
+          ...base,
+          title: formatReminderTitle(input.title, input.startsAt, input.description),
+          remind_at: remindAt,
+        }),
+      });
+    }
+  }
+
+  if (input.crearRecordatorioHoraEvento && isFutureReminder(input.startsAt)) {
+    await request("/reminders", {
+      method: "POST",
+      body: JSON.stringify({
+        ...base,
+        title: formatReminderTitle(input.title, input.startsAt, input.description),
+        remind_at: input.startsAt,
+      }),
+    });
+  }
+}
+
 export const api = {
   checkAccess: () => request<Task[]>("/tasks?limit=1"),
   listTasks: () => request<Task[]>("/tasks"),
@@ -246,20 +288,15 @@ export const api = {
         }),
       });
 
-      if (input.crearRecordatorio) {
-        const remindAt = new Date(new Date(starts_at).getTime() - TWO_HOURS_MS).toISOString();
-        if (isFutureReminder(remindAt)) {
-          await request("/reminders", {
-            method: "POST",
-            body: JSON.stringify({
-              title: formatReminderTitle(input.title, starts_at, input.notes),
-              event_id: event.id,
-              task_id: task.id,
-              remind_at: remindAt,
-            }),
-          });
-        }
-      }
+      await createEventReminders({
+        eventId: event.id,
+        taskId: task.id,
+        title: input.title,
+        startsAt: starts_at,
+        description: input.notes,
+        crearRecordatorio: input.crearRecordatorio,
+        crearRecordatorioHoraEvento: input.crearRecordatorioHoraEvento,
+      });
     }
 
     return task;
@@ -321,20 +358,15 @@ export const api = {
       }),
     });
 
-    if (input.crearRecordatorio) {
-      const remindAt = new Date(new Date(input.starts_at).getTime() - TWO_HOURS_MS).toISOString();
-      if (isFutureReminder(remindAt)) {
-        await request("/reminders", {
-          method: "POST",
-          body: JSON.stringify({
-            title: formatReminderTitle(input.title, input.starts_at, input.description),
-            event_id: event.id,
-            task_id: task.id,
-            remind_at: remindAt,
-          }),
-        });
-      }
-    }
+    await createEventReminders({
+      eventId: event.id,
+      taskId: task.id,
+      title: input.title,
+      startsAt: input.starts_at,
+      description: input.description,
+      crearRecordatorio: input.crearRecordatorio,
+      crearRecordatorioHoraEvento: input.crearRecordatorioHoraEvento,
+    });
 
     return event;
   },
@@ -347,6 +379,7 @@ export const api = {
     description?: string;
     starts_at: string;
     crearRecordatorio: boolean;
+    crearRecordatorioHoraEvento: boolean;
   }): Promise<Event> {
     const event = await request<Event>("/events", {
       method: "POST",
@@ -358,20 +391,15 @@ export const api = {
       }),
     });
 
-    if (input.crearRecordatorio) {
-      const remindAt = new Date(new Date(input.starts_at).getTime() - TWO_HOURS_MS).toISOString();
-      if (isFutureReminder(remindAt)) {
-        await request("/reminders", {
-          method: "POST",
-          body: JSON.stringify({
-            title: formatReminderTitle(input.title, input.starts_at, input.description),
-            event_id: event.id,
-            task_id: input.task_id,
-            remind_at: remindAt,
-          }),
-        });
-      }
-    }
+    await createEventReminders({
+      eventId: event.id,
+      taskId: input.task_id,
+      title: input.title,
+      startsAt: input.starts_at,
+      description: input.description,
+      crearRecordatorio: input.crearRecordatorio,
+      crearRecordatorioHoraEvento: input.crearRecordatorioHoraEvento,
+    });
 
     return event;
   },

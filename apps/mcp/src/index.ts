@@ -195,6 +195,10 @@ const tools = {
           type: "boolean",
           description: "Si crear el recordatorio automático 2h antes. Default true.",
         },
+        recordatorio_hora_evento: {
+          type: "boolean",
+          description: "Si además avisar justo a la hora del evento (independiente del de 2h antes). Default false.",
+        },
       },
       required: ["titulo", "inicio"],
     },
@@ -203,12 +207,14 @@ const tools = {
       descripcion: z.string().optional(),
       inicio: z.string().datetime({ offset: true }),
       crear_recordatorio: z.boolean().optional(),
+      recordatorio_hora_evento: z.boolean().optional(),
     }),
     handler: async (args: {
       titulo: string;
       descripcion?: string;
       inicio: string;
       crear_recordatorio?: boolean;
+      recordatorio_hora_evento?: boolean;
     }) => {
       const event = await apiRequest<Event>("/events", {
         method: "POST",
@@ -226,6 +232,17 @@ const tools = {
             title: formatReminderTitle(args.titulo, args.inicio, args.descripcion),
             event_id: event.id,
             remind_at: remindAt,
+          }),
+        });
+      }
+
+      if (args.recordatorio_hora_evento && new Date(args.inicio).getTime() > Date.now()) {
+        await apiRequest("/reminders", {
+          method: "POST",
+          body: JSON.stringify({
+            title: formatReminderTitle(args.titulo, args.inicio, args.descripcion),
+            event_id: event.id,
+            remind_at: args.inicio,
           }),
         });
       }

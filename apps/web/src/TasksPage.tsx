@@ -53,6 +53,7 @@ function NewTaskModal({
   const [fecha, setFecha] = useState("");
   const [hora, setHora] = useState("");
   const [crearRecordatorio, setCrearRecordatorio] = useState(true);
+  const [crearRecordatorioHoraEvento, setCrearRecordatorioHoraEvento] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const createTask = useMutation({
@@ -90,6 +91,7 @@ function NewTaskModal({
       fecha: crearEvento ? fecha : undefined,
       hora: crearEvento ? hora : undefined,
       crearRecordatorio: crearEvento ? crearRecordatorio : undefined,
+      crearRecordatorioHoraEvento: crearEvento ? crearRecordatorioHoraEvento : undefined,
     };
     createTask.mutate(input);
   }
@@ -181,7 +183,16 @@ function NewTaskModal({
                 onChange={(e) => setCrearRecordatorio(e.target.checked)}
                 className="accent-electric-cyan"
               />
-              Crear recordatorio (Quicks avisa 2 horas antes)
+              Avisar 2 horas antes
+            </label>
+            <label className="flex items-center gap-2 text-sm text-white/70">
+              <input
+                type="checkbox"
+                checked={crearRecordatorioHoraEvento}
+                onChange={(e) => setCrearRecordatorioHoraEvento(e.target.checked)}
+                className="accent-electric-cyan"
+              />
+              Avisar a la hora del evento
             </label>
           </div>
         )}
@@ -222,6 +233,7 @@ function TaskDetail({ task, lists, onClose }: { task: Task; lists: List[]; onClo
   const [fecha, setFecha] = useState("");
   const [hora, setHora] = useState("");
   const [crearRecordatorio, setCrearRecordatorio] = useState(true);
+  const [crearRecordatorioHoraEvento, setCrearRecordatorioHoraEvento] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const { data: events } = useQuery({ queryKey: ["events"], queryFn: api.listEvents });
@@ -237,6 +249,7 @@ function TaskDetail({ task, lists, onClose }: { task: Task; lists: List[]; onClo
           description: notes.trim() || undefined,
           starts_at: `${fecha}T${hora}:00${CR_OFFSET}`,
           crearRecordatorio,
+          crearRecordatorioHoraEvento,
         });
       }
       return updated;
@@ -366,7 +379,16 @@ function TaskDetail({ task, lists, onClose }: { task: Task; lists: List[]; onClo
                         onChange={(e) => setCrearRecordatorio(e.target.checked)}
                         className="accent-electric-cyan"
                       />
-                      Crear recordatorio (Quicks avisa 2 horas antes)
+                      Avisar 2 horas antes
+                    </label>
+                    <label className="flex items-center gap-2 text-sm text-white/70">
+                      <input
+                        type="checkbox"
+                        checked={crearRecordatorioHoraEvento}
+                        onChange={(e) => setCrearRecordatorioHoraEvento(e.target.checked)}
+                        className="accent-electric-cyan"
+                      />
+                      Avisar a la hora del evento
                     </label>
                   </div>
                 )}

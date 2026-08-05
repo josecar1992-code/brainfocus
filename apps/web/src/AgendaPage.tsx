@@ -88,6 +88,7 @@ function NewEventForm({ lists, onClose }: { lists: List[]; onClose: () => void }
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [crearRecordatorio, setCrearRecordatorio] = useState(true);
+  const [crearRecordatorioHoraEvento, setCrearRecordatorioHoraEvento] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const createEvent = useMutation({
@@ -120,6 +121,7 @@ function NewEventForm({ lists, onClose }: { lists: List[]; onClose: () => void }
       list_id: listId,
       priority,
       crearRecordatorio,
+      crearRecordatorioHoraEvento,
     });
   }
 
@@ -198,7 +200,16 @@ function NewEventForm({ lists, onClose }: { lists: List[]; onClose: () => void }
             onChange={(e) => setCrearRecordatorio(e.target.checked)}
             className="accent-electric-cyan"
           />
-          Crear recordatorio (Quicks avisa 2 horas antes)
+          Avisar 2 horas antes
+        </label>
+        <label className="flex items-center gap-2 text-sm text-white/70">
+          <input
+            type="checkbox"
+            checked={crearRecordatorioHoraEvento}
+            onChange={(e) => setCrearRecordatorioHoraEvento(e.target.checked)}
+            className="accent-electric-cyan"
+          />
+          Avisar a la hora del evento
         </label>
 
         {error && <p className="text-sm text-red-400">{error}</p>}
