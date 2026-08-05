@@ -136,7 +136,7 @@ export function Sidebar({ active, onChange, email }: SidebarProps) {
       {mobileOpen && (
         <div className="fixed inset-0 z-30 md:hidden">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
-          <div className="absolute top-0 left-0 h-full w-72 bg-night-blue/95 backdrop-blur-xl border-r border-electric-cyan/15 px-3 py-6 flex flex-col gap-3 shadow-2xl">
+          <div className="absolute top-0 right-0 h-full w-72 bg-night-blue/95 backdrop-blur-xl border-l border-electric-cyan/15 px-3 py-6 flex flex-col gap-3 shadow-2xl">
             <div className="flex items-center justify-between px-2 pb-2">
               <Brand />
               <button
