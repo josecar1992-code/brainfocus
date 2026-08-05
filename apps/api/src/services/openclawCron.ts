@@ -74,12 +74,15 @@ export async function scheduleReminderCron(reminder: ReminderForCron): Promise<s
       // kind: "agentTurn" significa que `message` no se entrega tal cual —
       // OpenClaw lo pasa como instrucción a Quicks, que redacta su propio
       // texto para WhatsApp. reminder.title (el que se ve en la app) ya trae
-      // la hora del evento y la descripción, pero al ser solo el título el
-      // agente a veces lo resumía y se comía la hora. Por eso el message que
-      // sí viaja acá es explícito en pedir que lo repita literal.
+      // la hora del evento y la descripción, pero el agente puede resumir el
+      // resto libremente — lo único no negociable es que la hora exacta
+      // quede en el mensaje final, así que se lo pedimos explícito.
       payload: {
         kind: "agentTurn",
-        message: `Avisale esto al usuario por WhatsApp, tal cual, sin resumir ni cambiar la hora: "${reminder.title}"`,
+        message:
+          `Avisale esto al usuario por WhatsApp: "${reminder.title}". Podés redactarlo con tus ` +
+          `palabras, pero la hora del evento que aparece ahí tiene que quedar sí o sí en el mensaje ` +
+          `final, textual, sin cambiarla ni omitirla.`,
       },
       // env.openclawReminderTo es un número de teléfono ("+506..."), formato
       // válido para WhatsApp — Telegram exige un chat ID numérico, así que
