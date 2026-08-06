@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { api, canRemindTwoHoursBefore, type List, type NewTask, type Subtask, type Task } from "./api";
 import { CategorySelect } from "./CategorySelect";
 import { ConfirmDialog } from "./ConfirmDialog";
@@ -747,7 +747,8 @@ function CategoryTasksView({
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("pendientes");
   const [showForm, setShowForm] = useState(false);
   const [draggingId, setDraggingId] = useState<string | null>(null);
-  const [dragOrderIds, setDragOrderIds] = useState<string[] | null>(null);
+  const [dragDeltaY, setDragDeltaY] = useState(0);
+  const dragStartRef = useRef<{ index: number; clientY: number; rowHeight: number } | null>(null);
   const queryClient = useQueryClient();
   const { data: lists } = useQuery({ queryKey: ["lists"], queryFn: api.listLists });
   const { data: allSubtasks } = useQuery({ queryKey: ["subtasks"], queryFn: () => api.listSubtasks() });
@@ -795,49 +796,52 @@ function CategoryTasksView({
     // float que se reparte al arrastrar (ver reorderTask), así que el orden
     // que arma el usuario se respeta tal cual.
     .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
-  const visibleTasksById = new Map(visibleTasks.map((t) => [t.id, t]));
-  const displayTasks = dragOrderIds
-    ? dragOrderIds.map((id) => visibleTasksById.get(id)).filter((t): t is Task => !!t)
-    : visibleTasks;
+  const draggingIndex = draggingId ? visibleTasks.findIndex((t) => t.id === draggingId) : -1;
+  // Índice "de destino" mientras se arrastra: no se reordena el array real
+  // hasta soltar — cada fila calcula su propio desplazamiento visual a
+  // partir de este número, así el ítem arrastrado sigue al dedo/mouse 1:1
+  // (sin el "salto"/"pegado" de recalcular el orden completo en cada pixel).
+  const dragTargetIndex =
+    draggingIndex === -1 || !dragStartRef.current
+      ? -1
+      : Math.max(
+          0,
+          Math.min(
+            visibleTasks.length - 1,
+            draggingIndex + Math.round(dragDeltaY / dragStartRef.current.rowHeight),
+          ),
+        );
 
   function handleDragPointerDown(e: React.PointerEvent<HTMLElement>, taskId: string) {
     e.stopPropagation();
     e.currentTarget.setPointerCapture(e.pointerId);
+    const row = e.currentTarget.closest<HTMLElement>("[data-task-row]");
+    const index = visibleTasks.findIndex((t) => t.id === taskId);
+    dragStartRef.current = { index, clientY: e.clientY, rowHeight: row?.offsetHeight || 56 };
     setDraggingId(taskId);
-    setDragOrderIds(visibleTasks.map((t) => t.id));
+    setDragDeltaY(0);
   }
 
   function handleDragPointerMove(e: React.PointerEvent<HTMLElement>) {
-    if (!draggingId) return;
+    if (!draggingId || !dragStartRef.current) return;
     e.preventDefault();
-    const el = document.elementFromPoint(e.clientX, e.clientY);
-    const row = el?.closest<HTMLElement>("[data-task-row]");
-    const overId = row?.dataset.taskRow;
-    if (!overId || overId === draggingId) return;
-    setDragOrderIds((prev) => {
-      if (!prev) return prev;
-      const from = prev.indexOf(draggingId);
-      const to = prev.indexOf(overId);
-      if (from === -1 || to === -1 || from === to) return prev;
-      const next = [...prev];
-      next.splice(from, 1);
-      next.splice(to, 0, draggingId);
-      return next;
-    });
+    setDragDeltaY(e.clientY - dragStartRef.current.clientY);
   }
 
   function handleDragPointerUp(e: React.PointerEvent<HTMLElement>) {
     e.currentTarget.releasePointerCapture(e.pointerId);
-    const ids = dragOrderIds;
     const dragged = draggingId;
+    const fromIndex = dragStartRef.current?.index ?? -1;
+    const toIndex = dragTargetIndex;
     setDraggingId(null);
-    setDragOrderIds(null);
-    if (!ids || !dragged) return;
-    const originalIdx = visibleTasks.findIndex((t) => t.id === dragged);
-    const newIdx = ids.indexOf(dragged);
-    if (newIdx === -1 || newIdx === originalIdx) return;
-    const prevOrder = newIdx > 0 ? (visibleTasksById.get(ids[newIdx - 1])?.sort_order ?? null) : null;
-    const nextOrder = newIdx < ids.length - 1 ? (visibleTasksById.get(ids[newIdx + 1])?.sort_order ?? null) : null;
+    setDragDeltaY(0);
+    dragStartRef.current = null;
+    if (!dragged || fromIndex === -1 || toIndex === -1 || fromIndex === toIndex) return;
+
+    // Vecinos en la lista YA sin el ítem arrastrado, en la posición de destino.
+    const rest = visibleTasks.filter((t) => t.id !== dragged);
+    const prevOrder = toIndex > 0 ? (rest[toIndex - 1]?.sort_order ?? null) : null;
+    const nextOrder = rest[toIndex]?.sort_order ?? null;
     const newSortOrder =
       prevOrder != null && nextOrder != null
         ? (prevOrder + nextOrder) / 2
@@ -897,15 +901,32 @@ function CategoryTasksView({
         {visibleTasks.length === 0 && <p className="text-white/40 text-sm px-5 py-5">No hay tareas para este filtro.</p>}
 
         {visibleTasks.length > 0 && (
-          <ul>
-            {displayTasks.map((task: Task) => {
+          <ul className="relative">
+            {visibleTasks.map((task: Task, index) => {
               const progress = subtaskProgress(subtasksByTask.get(task.id) ?? []);
+              const isDragging = draggingId === task.id;
+              // El ítem arrastrado sigue al puntero 1:1 (translateY = delta
+              // exacto); el resto solo se corre un lugar (arriba/abajo) para
+              // abrir hueco en el destino — sin tocar el orden real hasta soltar.
+              let translateY = 0;
+              if (isDragging) {
+                translateY = dragDeltaY;
+              } else if (draggingId && dragTargetIndex !== -1) {
+                if (index > draggingIndex && index <= dragTargetIndex) translateY = -(dragStartRef.current?.rowHeight ?? 56);
+                else if (index < draggingIndex && index >= dragTargetIndex) translateY = dragStartRef.current?.rowHeight ?? 56;
+              }
               return (
               <li
                 key={task.id}
                 data-task-row={task.id}
-                className={`flex items-center gap-3 px-5 py-3 border-t border-white/8 first:border-t-0 hover:bg-white/5 transition-colors group cursor-pointer ${
-                  draggingId === task.id ? "opacity-40" : ""
+                style={{
+                  transform: translateY ? `translateY(${translateY}px)` : undefined,
+                  transition: isDragging ? "none" : "transform 150ms ease",
+                  position: isDragging ? "relative" : undefined,
+                  zIndex: isDragging ? 10 : undefined,
+                }}
+                className={`flex items-center gap-3 px-5 py-3 border-t border-white/8 first:border-t-0 hover:bg-white/5 transition-colors group cursor-pointer bg-night-blue ${
+                  isDragging ? "shadow-[0_8px_24px_-8px_rgba(0,0,0,0.6)]" : ""
                 }`}
                 onClick={() => setSelectedTask(task)}
               >
