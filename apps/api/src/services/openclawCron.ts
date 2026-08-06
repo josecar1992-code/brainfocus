@@ -29,7 +29,7 @@ interface ReminderForCron {
 }
 
 function isConfigured(): boolean {
-  return Boolean(env.openclawGatewayUrl && env.openclawGatewayToken && env.openclawReminderTo);
+  return Boolean(env.openclawGatewayUrl && env.openclawGatewayToken);
 }
 
 // `action`/`job` van anidados dentro de `args` — un {tool, action, job} de
@@ -66,6 +66,20 @@ async function invoke(tool: string, action: string, args: Record<string, unknown
 export async function scheduleReminderCron(reminder: ReminderForCron): Promise<string | null> {
   if (!isConfigured()) return null;
 
+  // Default temporal a Telegram (05-ago-2026): WhatsApp tiene un "reachout
+  // timelock" activo en la cuenta hasta el 13-ago-2026
+  // (RESTRICT_ALL_COMPANIONS, disparado por Meta tras relogueo de la
+  // sesión), que bloquea en silencio toda entrega directa por ese canal.
+  // Revertir a "whatsapp" cuando se levante el bloqueo.
+  const channel = reminder.channel ?? "telegram";
+  // env.openclawReminderTo es un número de teléfono ("+506..."), formato
+  // válido para WhatsApp — Telegram exige un chat ID numérico (probado
+  // 05-ago-2026: "+506..." como `to` de Telegram falla con "recipient must
+  // be a numeric chat ID"), por eso usa su propia variable
+  // (openclawReminderToTelegram).
+  const to = channel === "telegram" ? env.openclawReminderToTelegram : env.openclawReminderTo;
+  if (!to) throw new Error(`No hay destinatario configurado para el canal "${channel}"`);
+
   const result = await invoke("cron", "add", {
     job: {
       displayName: `brainfocus:reminder:${reminder.id}`,
@@ -73,26 +87,18 @@ export async function scheduleReminderCron(reminder: ReminderForCron): Promise<s
       schedule: { at: reminder.remind_at },
       // kind: "agentTurn" significa que `message` no se entrega tal cual —
       // OpenClaw lo pasa como instrucción a Quicks, que redacta su propio
-      // texto para WhatsApp. reminder.title (el que se ve en la app) ya trae
-      // la hora del evento y la descripción, pero el agente puede resumir el
-      // resto libremente — lo único no negociable es que la hora exacta
-      // quede en el mensaje final, así que se lo pedimos explícito.
+      // texto. reminder.title (el que se ve en la app) ya trae la hora del
+      // evento y la descripción, pero el agente puede resumir el resto
+      // libremente — lo único no negociable es que la hora exacta quede en
+      // el mensaje final, así que se lo pedimos explícito.
       payload: {
         kind: "agentTurn",
         message:
-          `Avisale esto al usuario por WhatsApp: "${reminder.title}". Podés redactarlo con tus ` +
-          `palabras, pero la hora del evento que aparece ahí tiene que quedar sí o sí en el mensaje ` +
-          `final, textual, sin cambiarla ni omitirla.`,
+          `Avisale esto al usuario: "${reminder.title}". Podés redactarlo con tus palabras, pero ` +
+          `la hora del evento que aparece ahí tiene que quedar sí o sí en el mensaje final, textual, ` +
+          `sin cambiarla ni omitirla.`,
       },
-      // env.openclawReminderTo es un número de teléfono ("+506..."), formato
-      // válido para WhatsApp — Telegram exige un chat ID numérico (probado
-      // 05-ago-2026: "+506..." como `to` de Telegram falla con "recipient
-      // must be a numeric chat ID"), así que "telegram" como default aquí
-      // rompía la entrega en silencio. WhatsApp tuvo un timelock temporal
-      // de Meta hasta 13-ago-2026 que ya se puede haber levantado — para
-      // volver a usar Telegram hace falta el chat ID numérico real (no el
-      // teléfono) en OPENCLAW_REMINDER_TO_TELEGRAM o similar.
-      delivery: { mode: "announce", channel: reminder.channel ?? "whatsapp", to: env.openclawReminderTo },
+      delivery: { mode: "announce", channel, to },
     },
   });
 

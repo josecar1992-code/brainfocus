@@ -26,4 +26,9 @@ export const env = {
   openclawGatewayUrl: process.env.OPENCLAW_GATEWAY_URL,
   openclawGatewayToken: process.env.OPENCLAW_GATEWAY_TOKEN,
   openclawReminderTo: process.env.OPENCLAW_REMINDER_TO,
+  // Telegram exige un chat ID numérico como destinatario, no el número de
+  // teléfono que usa WhatsApp (confirmado 05-ago-2026, ver openclawCron.ts) —
+  // por eso es una variable separada, opcional (sin ella, canal "telegram"
+  // simplemente no se puede usar).
+  openclawReminderToTelegram: process.env.OPENCLAW_REMINDER_TO_TELEGRAM,
 };
