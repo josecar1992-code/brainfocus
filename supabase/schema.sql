@@ -69,6 +69,12 @@ create table if not exists public.tasks (
   due_date timestamptz,
   completed_at timestamptz,
   created_by text not null default 'user' check (created_by in ('user','agent')), -- 'agent' = lo creó Quicks
+  -- Orden manual (drag & drop) dentro de cada categoría — float en vez de
+  -- entero para poder insertar entre dos tareas (promedio de sus sort_order)
+  -- sin tener que renumerar toda la lista en cada movimiento. Default =
+  -- epoch de creación, así que tareas nuevas caen al final y el orden
+  -- inicial (antes de mover nada) coincide con el de creación.
+  sort_order double precision default extract(epoch from now()),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

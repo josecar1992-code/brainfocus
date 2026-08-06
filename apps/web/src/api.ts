@@ -11,6 +11,7 @@ export interface Task {
   created_at: string;
   routine_id: string | null;
   created_by: "user" | "agent";
+  sort_order: number | null;
 }
 
 export interface NewTask {
@@ -287,6 +288,10 @@ export const api = {
         ...(input.due_date !== undefined ? { due_date: input.due_date } : {}),
       }),
     }),
+  // Solo toca sort_order — separado de updateTask para no arrastrar el resto
+  // del formulario de edición en cada drag & drop.
+  reorderTask: (id: string, sort_order: number) =>
+    request<Task>(`/tasks/${id}`, { method: "PATCH", body: JSON.stringify({ sort_order }) }),
 
   listLists: () => request<List[]>("/lists"),
   createList: (input: { name: string; color?: string }) =>

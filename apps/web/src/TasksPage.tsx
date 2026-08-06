@@ -4,7 +4,7 @@ import { api, canRemindTwoHoursBefore, type List, type NewTask, type Subtask, ty
 import { CategorySelect } from "./CategorySelect";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { CornerBrackets } from "./CornerBrackets";
-import { IconTrash } from "./icons";
+import { IconGripVertical, IconTrash } from "./icons";
 import { QuickBadge } from "./QuickBadge";
 import { RoutineBadge } from "./RoutineBadge";
 import { OPTION_STYLE, PRIORITIES, SELECT_CLASS } from "./selectStyles";
@@ -13,8 +13,6 @@ import { TimePicker } from "./TimePicker";
 import { useCompleteTask } from "./useCompleteTask";
 
 const CR_OFFSET = "-06:00"; // Costa Rica, sin horario de verano — offset fijo
-
-const PRIORITY_ORDER: Record<Task["priority"], number> = { high: 0, normal: 1, low: 2 };
 
 function formatCreatedDate(iso: string) {
   return new Date(iso).toLocaleDateString("es-CR", { day: "2-digit", month: "short", year: "numeric" });
@@ -748,10 +746,30 @@ function CategoryTasksView({
   const [prioridadFilter, setPrioridadFilter] = useState<Task["priority"] | "">("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("pendientes");
   const [showForm, setShowForm] = useState(false);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dragOrderIds, setDragOrderIds] = useState<string[] | null>(null);
   const queryClient = useQueryClient();
   const { data: lists } = useQuery({ queryKey: ["lists"], queryFn: api.listLists });
   const { data: allSubtasks } = useQuery({ queryKey: ["subtasks"], queryFn: () => api.listSubtasks() });
   const completeTask = useCompleteTask();
+
+  // Reordenar arrastra solo cambia sort_order de la tarea soltada — optimista
+  // para que el drop se sienta instantáneo, igual que el toggle de subtareas.
+  const reorderTask = useMutation({
+    mutationFn: ({ id, sort_order }: { id: string; sort_order: number }) => api.reorderTask(id, sort_order),
+    onMutate: async ({ id, sort_order }) => {
+      await queryClient.cancelQueries({ queryKey: ["tasks"] });
+      const previous = queryClient.getQueriesData<Task[]>({ queryKey: ["tasks"] });
+      queryClient.setQueriesData<Task[]>({ queryKey: ["tasks"] }, (old) =>
+        old?.map((t) => (t.id === id ? { ...t, sort_order } : t)),
+      );
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      context?.previous.forEach(([key, data]) => queryClient.setQueryData(key, data));
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["tasks"] }),
+  });
 
   const subtasksByTask = new Map<string, Subtask[]>();
   for (const s of allSubtasks ?? []) {
@@ -773,7 +791,63 @@ function CategoryTasksView({
     .filter((t) => (categoryId === SIN_CATEGORIA ? !t.list_id : t.list_id === categoryId))
     .filter((t) => !prioridadFilter || t.priority === prioridadFilter)
     .filter((t) => (statusFilter === "hechas" ? t.status === "done" : t.status !== "done"))
-    .sort((a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority]);
+    // Orden manual (drag & drop) en vez de por prioridad — sort_order es un
+    // float que se reparte al arrastrar (ver reorderTask), así que el orden
+    // que arma el usuario se respeta tal cual.
+    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+  const visibleTasksById = new Map(visibleTasks.map((t) => [t.id, t]));
+  const displayTasks = dragOrderIds
+    ? dragOrderIds.map((id) => visibleTasksById.get(id)).filter((t): t is Task => !!t)
+    : visibleTasks;
+
+  function handleDragPointerDown(e: React.PointerEvent<HTMLElement>, taskId: string) {
+    e.stopPropagation();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setDraggingId(taskId);
+    setDragOrderIds(visibleTasks.map((t) => t.id));
+  }
+
+  function handleDragPointerMove(e: React.PointerEvent<HTMLElement>) {
+    if (!draggingId) return;
+    e.preventDefault();
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    const row = el?.closest<HTMLElement>("[data-task-row]");
+    const overId = row?.dataset.taskRow;
+    if (!overId || overId === draggingId) return;
+    setDragOrderIds((prev) => {
+      if (!prev) return prev;
+      const from = prev.indexOf(draggingId);
+      const to = prev.indexOf(overId);
+      if (from === -1 || to === -1 || from === to) return prev;
+      const next = [...prev];
+      next.splice(from, 1);
+      next.splice(to, 0, draggingId);
+      return next;
+    });
+  }
+
+  function handleDragPointerUp(e: React.PointerEvent<HTMLElement>) {
+    e.currentTarget.releasePointerCapture(e.pointerId);
+    const ids = dragOrderIds;
+    const dragged = draggingId;
+    setDraggingId(null);
+    setDragOrderIds(null);
+    if (!ids || !dragged) return;
+    const originalIdx = visibleTasks.findIndex((t) => t.id === dragged);
+    const newIdx = ids.indexOf(dragged);
+    if (newIdx === -1 || newIdx === originalIdx) return;
+    const prevOrder = newIdx > 0 ? (visibleTasksById.get(ids[newIdx - 1])?.sort_order ?? null) : null;
+    const nextOrder = newIdx < ids.length - 1 ? (visibleTasksById.get(ids[newIdx + 1])?.sort_order ?? null) : null;
+    const newSortOrder =
+      prevOrder != null && nextOrder != null
+        ? (prevOrder + nextOrder) / 2
+        : prevOrder != null
+          ? prevOrder + 1
+          : nextOrder != null
+            ? nextOrder - 1
+            : Date.now() / 1000;
+    reorderTask.mutate({ id: dragged, sort_order: newSortOrder });
+  }
 
   return (
     <div className="space-y-5">
@@ -824,14 +898,28 @@ function CategoryTasksView({
 
         {visibleTasks.length > 0 && (
           <ul>
-            {visibleTasks.map((task: Task) => {
+            {displayTasks.map((task: Task) => {
               const progress = subtaskProgress(subtasksByTask.get(task.id) ?? []);
               return (
               <li
                 key={task.id}
-                className="flex items-center gap-3 px-5 py-3 border-t border-white/8 first:border-t-0 hover:bg-white/5 transition-colors group cursor-pointer"
+                data-task-row={task.id}
+                className={`flex items-center gap-3 px-5 py-3 border-t border-white/8 first:border-t-0 hover:bg-white/5 transition-colors group cursor-pointer ${
+                  draggingId === task.id ? "opacity-40" : ""
+                }`}
                 onClick={() => setSelectedTask(task)}
               >
+                <span
+                  onClick={(e) => e.stopPropagation()}
+                  onPointerDown={(e) => handleDragPointerDown(e, task.id)}
+                  onPointerMove={handleDragPointerMove}
+                  onPointerUp={handleDragPointerUp}
+                  onPointerCancel={handleDragPointerUp}
+                  className="text-white/20 hover:text-white/50 cursor-grab active:cursor-grabbing flex-shrink-0 touch-none select-none"
+                  aria-label="Arrastrar para reordenar"
+                >
+                  <IconGripVertical className="w-4 h-4" strokeWidth={1.75} />
+                </span>
                 <input
                   type="checkbox"
                   checked={task.status === "done"}

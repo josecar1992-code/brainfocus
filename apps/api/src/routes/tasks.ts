@@ -10,6 +10,7 @@ const createSchema = z.object({
   status: z.enum(["pending", "in_progress", "done"]).optional(),
   priority: z.enum(["low", "normal", "high"]).optional(),
   due_date: z.string().datetime({ offset: true }).optional().nullable(),
+  sort_order: z.number().optional(),
 });
 
 const updateSchema = createSchema.partial().extend({
