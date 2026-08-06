@@ -156,6 +156,7 @@ Documentado aquí para que quede como referencia, pero lo ejecuta y verifica la 
      en su propia variable `OPENCLAW_REMINDER_TO_TELEGRAM` (separada de `OPENCLAW_REMINDER_TO`, que
      sigue siendo el teléfono para WhatsApp). Probado de punta a punta con un cron job de prueba
      disparado a mano vía `POST /tools/invoke`: entrega confirmada en logs
-     (`[telegram] outbound send ok accountId=default chatId=... messageId=... operation=sendMessage`).
+     (`[telegram] outbound send ok accountId=default chatId=... messageId=... operation=sendMessage`)
+     y confirmada por el usuario, que recibió el mensaje de prueba en Telegram.
      Revertir el canal default a `"whatsapp"` (código y `alter table reminders alter column channel
      set default 'whatsapp'` en Supabase) cuando se levante el bloqueo.
