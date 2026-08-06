@@ -71,6 +71,28 @@ interface Routine {
 
 const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
 
+// Ancla explícita de "ahora" en Costa Rica para las tools que reciben fechas
+// (crear_tarea, crear_recordatorio, crear_evento, crear_rutina) — sin esto,
+// el agente tenía que inferir la fecha/hora actual solo de su propio
+// contexto de conversación, y confundía "hoy"/"mañana"/el offset con
+// bastante frecuencia (confirmado por el usuario: corregía un recordatorio
+// mal puesto y el siguiente volvía a fallar). Este servidor MCP se levanta
+// de cero por invocación (`docker compose run --rm`, ver DEPLOY.md), así que
+// evaluar esto al cargar el módulo ya da la hora real de cada llamada, no
+// una constante vieja de un proceso de larga duración.
+function horaActualCR(): string {
+  return new Date().toLocaleString("es-CR", {
+    timeZone: "America/Costa_Rica",
+    weekday: "long",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+const AHORA_CR = `Ahora mismo en Costa Rica es: ${horaActualCR()} (offset -06:00).`;
+
 // El mensaje que llega por WhatsApp es literalmente reminders.title (ver
 // openclawCron.ts en la API) — sin esto, el aviso solo decía "Recordatorio:
 // <título>", sin ninguna hora, y quien lo recibía asumía que la hora de
@@ -106,7 +128,7 @@ const tools = {
   },
 
   crear_tarea: {
-    description: "Crea una tarea nueva.",
+    description: `Crea una tarea nueva. ${AHORA_CR}`,
     inputSchema: {
       type: "object",
       properties: {
@@ -151,7 +173,8 @@ const tools = {
       "Guarda un recordatorio en Focusbrain. La API programa sola el aviso real de " +
       "WhatsApp/Telegram (cron de disparo único en OpenClaw) — no hace falta crear " +
       "ningún cron aparte con la herramienta `cron`. Si la tarea/evento relacionado " +
-      "se completa o se borra antes de la hora, el recordatorio y su aviso se cancelan solos.",
+      "se completa o se borra antes de la hora, el recordatorio y su aviso se cancelan solos. " +
+      `${AHORA_CR} Calculá "recordar_en" a partir de esta hora, no de tu propia estimación.`,
     inputSchema: {
       type: "object",
       properties: {
@@ -181,7 +204,8 @@ const tools = {
     description:
       "Crea un evento en la Agenda de Focusbrain (ej. una cita, una llamada, algo con hora fija). " +
       "Por defecto además crea un recordatorio para 2 horas antes del evento — la API lo programa " +
-      "sola en OpenClaw, no hace falta crear ningún cron aparte con la herramienta `cron`.",
+      "sola en OpenClaw, no hace falta crear ningún cron aparte con la herramienta `cron`. " +
+      `${AHORA_CR} Calculá "inicio" a partir de esta hora, no de tu propia estimación.`,
     inputSchema: {
       type: "object",
       properties: {
@@ -394,7 +418,7 @@ const tools = {
       "semanas — ej. 'sacar la basura los martes y viernes' o 'cada domingo de por medio'). " +
       "Genera automáticamente la tarea y el evento de la próxima ocurrencia; al marcarse esa tarea " +
       "como hecha, la siguiente se crea sola — nunca hay que crear las ocurrencias a mano. Necesita " +
-      "`categoria_id` — usar `listar_categorias` primero si no se conoce.",
+      `\`categoria_id\` — usar \`listar_categorias\` primero si no se conoce. ${AHORA_CR}`,
     inputSchema: {
       type: "object",
       properties: {

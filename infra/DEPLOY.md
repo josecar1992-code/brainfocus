@@ -80,6 +80,14 @@ especulación:
 
 - Tareas/recordatorios/notas: `listar_tareas`, `crear_tarea`, `completar_tarea`,
   `crear_recordatorio`, `crear_evento`, `crear_nota`, `buscar_notas`.
+- Ancla de fecha/hora (06-ago-2026): las descripciones de `crear_tarea`, `crear_recordatorio`,
+  `crear_evento` y `crear_rutina` incluyen la hora actual real de Costa Rica (`AHORA_CR` en
+  `apps/mcp/src/index.ts`, calculada al cargar el módulo) — el agente venía calculando "hoy"/"mañana"
+  solo de su propio contexto de conversación y se equivocaba de fecha o de offset con frecuencia
+  (confirmado por el usuario: corregía un recordatorio mal puesto por Telegram y el siguiente volvía a
+  fallar). Como el servidor MCP se levanta de cero por invocación (`docker compose run --rm`, ver
+  paso 5 más abajo), la hora calculada al cargar el módulo es la hora real de cada llamada, no una
+  constante vieja de un proceso de larga duración.
 - Vehículos: `listar_vehiculos`, `crear_vehiculo`, `listar_mantenimientos`, `crear_mantenimiento`.
 - Rutinas: `listar_categorias`, `listar_rutinas`, `crear_rutina`.
 - Documentos: `guardar_documento`, `buscar_documentos`, `enviar_documento`. Ninguna hace OCR,
