@@ -84,11 +84,14 @@ export async function scheduleReminderCron(reminder: ReminderForCron): Promise<s
           `palabras, pero la hora del evento que aparece ahí tiene que quedar sí o sí en el mensaje ` +
           `final, textual, sin cambiarla ni omitirla.`,
       },
-      // env.openclawReminderTo es un número de teléfono ("+506..."), formato
-      // válido para WhatsApp — Telegram exige un chat ID numérico, así que
-      // "telegram" como default aquí rompía la entrega en silencio (el cron
-      // corría pero OpenClaw rechazaba el destinatario).
-      delivery: { mode: "announce", channel: reminder.channel ?? "whatsapp", to: env.openclawReminderTo },
+      // Default temporal a Telegram (05-ago-2026): WhatsApp tiene un
+      // "reachout timelock" activo en la cuenta hasta el 13-ago-2026
+      // (RESTRICT_ALL_COMPANIONS, disparado por Meta tras relogueo de la
+      // sesión), que bloquea en silencio toda entrega directa por ese canal.
+      // env.openclawReminderTo ("+506...") funciona igual para Telegram en
+      // este VPS (los 4 bots de Telegram ya están conectados). Revertir a
+      // "whatsapp" como default cuando se levante el bloqueo.
+      delivery: { mode: "announce", channel: reminder.channel ?? "telegram", to: env.openclawReminderTo },
     },
   });
 
