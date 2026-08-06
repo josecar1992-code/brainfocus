@@ -145,3 +145,17 @@ Documentado aquí para que quede como referencia, pero lo ejecuta y verifica la 
      `docker-compose.yml`). Probado de punta a punta: crear evento con recordatorio → cron real
      creado en OpenClaw → borrar evento → cron cancelado (`openclaw cron get <id>` responde
      `cron job not found`, que es el resultado esperado tras cancelar).
+   - **Canal de entrega temporal a Telegram (05-ago-2026)**: WhatsApp tiene un "reachout timelock"
+     de Meta activo en la cuenta hasta el 13-ago-2026 (`RESTRICT_ALL_COMPANIONS`, disparado tras
+     relogueo de la sesión) que bloquea en silencio toda entrega directa por ese canal — confirmado
+     en `journalctl -u openclaw.service` (`OutboundDeliveryError: WhatsApp reachout timelock is
+     active`). Mientras dure, `scheduleReminderCron` (`apps/api/src/services/openclawCron.ts`) usa
+     `"telegram"` como canal default en vez de `"whatsapp"`. A diferencia de WhatsApp, Telegram
+     **no acepta un número de teléfono como destinatario** (falla con `Telegram recipient must be
+     a numeric chat ID`) — necesita el chat ID numérico real de la conversación con el bot, guardado
+     en su propia variable `OPENCLAW_REMINDER_TO_TELEGRAM` (separada de `OPENCLAW_REMINDER_TO`, que
+     sigue siendo el teléfono para WhatsApp). Probado de punta a punta con un cron job de prueba
+     disparado a mano vía `POST /tools/invoke`: entrega confirmada en logs
+     (`[telegram] outbound send ok accountId=default chatId=... messageId=... operation=sendMessage`).
+     Revertir el canal default a `"whatsapp"` (código y `alter table reminders alter column channel
+     set default 'whatsapp'` en Supabase) cuando se levante el bloqueo.
