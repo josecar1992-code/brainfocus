@@ -18,6 +18,7 @@ export const eventsRouter = createResourceRouter({
   createSchema,
   updateSchema: createSchema.partial(),
   orderBy: { column: "starts_at", ascending: true },
+  trackCreatedBy: true,
   hooks: {
     // El FK reminders.event_id tiene "on delete cascade" en la BD, así que hay
     // que cancelar el cron en OpenClaw ANTES de borrar el evento (beforeDelete

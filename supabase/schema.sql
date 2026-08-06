@@ -68,6 +68,7 @@ create table if not exists public.tasks (
   priority text not null default 'normal', -- low | normal | high
   due_date timestamptz,
   completed_at timestamptz,
+  created_by text not null default 'user' check (created_by in ('user','agent')), -- 'agent' = lo creó Quicks
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -102,6 +103,7 @@ create table if not exists public.reminders (
   -- después (action `remove`); el displayName no alcanza para eso. Null =
   -- OpenClaw no está configurado en este entorno, o ya se canceló.
   cron_job_id text,
+  created_by text not null default 'user' check (created_by in ('user','agent')), -- 'agent' = lo creó Quicks
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -118,6 +120,7 @@ create table if not exists public.events (
   starts_at timestamptz not null,
   ends_at timestamptz,
   all_day boolean not null default false,
+  created_by text not null default 'user' check (created_by in ('user','agent')), -- 'agent' = lo creó Quicks
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -159,6 +162,7 @@ create table if not exists public.notes (
   title text,
   content text,
   tags text[] default '{}',
+  created_by text not null default 'user' check (created_by in ('user','agent')), -- 'agent' = lo creó Quicks
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

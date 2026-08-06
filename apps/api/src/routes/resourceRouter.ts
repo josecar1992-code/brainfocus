@@ -26,6 +26,10 @@ interface ResourceConfig {
     afterUpdate?: (userId: string, before: any, after: any) => Promise<void>;
     beforeDelete?: (userId: string, row: any) => Promise<void>;
   };
+  // Si la tabla tiene columna `created_by` (text: "user" | "agent"), la llena
+  // sola según quién autenticó la request — así la app puede mostrar un
+  // badge de "creado por Quicks" sin que cada agente tenga que mandarlo.
+  trackCreatedBy?: boolean;
 }
 
 async function runHook(name: string, fn: (() => Promise<void>) | undefined) {
@@ -40,7 +44,7 @@ async function runHook(name: string, fn: (() => Promise<void>) | undefined) {
 /** CRUD genérico con scoping por user_id y auditoría de escrituras de agentes. */
 export function createResourceRouter(config: ResourceConfig): Router {
   const router = Router();
-  const { table, resourceName, createSchema, updateSchema, hooks } = config;
+  const { table, resourceName, createSchema, updateSchema, hooks, trackCreatedBy } = config;
   const orderBy = config.orderBy ?? { column: "created_at", ascending: false };
 
   const MAX_LIMIT = 200;
@@ -100,7 +104,11 @@ export function createResourceRouter(config: ResourceConfig): Router {
 
       const { data, error } = await supabaseAdmin
         .from(table)
-        .insert({ ...parsed.data, user_id: req.auth!.userId })
+        .insert({
+          ...parsed.data,
+          user_id: req.auth!.userId,
+          ...(trackCreatedBy ? { created_by: req.auth!.type === "agent" ? "agent" : "user" } : {}),
+        })
         .select()
         .single();
       if (error) throw error;

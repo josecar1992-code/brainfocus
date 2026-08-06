@@ -5,6 +5,7 @@ import { CategorySelect } from "./CategorySelect";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { CornerBrackets } from "./CornerBrackets";
 import { IconBell, IconBellOff, IconCheckCircle } from "./icons";
+import { QuickBadge } from "./QuickBadge";
 import { RoutineBadge } from "./RoutineBadge";
 import { OPTION_STYLE, PRIORITIES, SELECT_CLASS } from "./selectStyles";
 import { StatusFilterTabs, type StatusFilter } from "./StatusFilterTabs";
@@ -355,9 +356,10 @@ function EventDetail({
             <h2 className={`text-lg font-medium mb-1 text-white ${task?.status === "done" ? "line-through text-white/40" : ""}`}>
               {event.title}
             </h2>
-            {task?.routine_id && (
-              <div className="mb-1">
-                <RoutineBadge />
+            {(task?.routine_id || event.created_by === "agent") && (
+              <div className="mb-1 flex items-center gap-1.5">
+                {task?.routine_id && <RoutineBadge />}
+                {event.created_by === "agent" && <QuickBadge />}
               </div>
             )}
             <p className="text-sm text-electric-cyan">
@@ -506,6 +508,7 @@ export function AgendaPage() {
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [dateFilter, setDateFilter] = useState<DateFilter>("hoy");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("pendientes");
+  const [reminderStatusFilter, setReminderStatusFilter] = useState<StatusFilter>("pendientes");
   const now = new Date();
   const [rangeStart, setRangeStart] = useState(toDateInputValue(startOfWeek(now)));
   const [rangeEnd, setRangeEnd] = useState(
@@ -545,6 +548,17 @@ export function AgendaPage() {
       ? new Date(startOfDay(new Date(`${rangeEnd}T00:00:00`)).getTime() + 24 * 60 * 60 * 1000)
       : new Date(rangeFrom.getTime() + 24 * 60 * 60 * 1000);
   }
+
+  // Un recordatorio suelto (sin evento) no tiene un "hecho" que marcar como
+  // las tareas — se considera vigente/pendiente mientras su hora todavía no
+  // llega, y hecho en cuanto ya pasó (con o sin envío exitoso: lo que importa
+  // acá es si sigue por venir, no si OpenClaw logró entregarlo).
+  const visibleLooseReminders = looseReminders
+    .filter((r) => {
+      const done = new Date(r.remind_at).getTime() <= now.getTime();
+      return reminderStatusFilter === "hechas" ? done : !done;
+    })
+    .sort((a, b) => new Date(a.remind_at).getTime() - new Date(b.remind_at).getTime());
 
   const events = (allEvents ?? [])
     .filter((e) => {
@@ -636,6 +650,7 @@ export function AgendaPage() {
                             {event.title}
                           </span>
                           {task?.routine_id && <RoutineBadge />}
+                          {event.created_by === "agent" && <QuickBadge iconOnly />}
                         </div>
                       </td>
                       <td className="px-3 py-3">
@@ -680,6 +695,7 @@ export function AgendaPage() {
                         {event.title}
                       </p>
                       {task?.routine_id && <RoutineBadge iconOnly />}
+                      {event.created_by === "agent" && <QuickBadge iconOnly />}
                       {reminder && <ReminderBadge reminder={reminder} iconOnly />}
                     </button>
                   </li>
@@ -692,41 +708,61 @@ export function AgendaPage() {
 
       {looseReminders.length > 0 && (
         <div className="bg-night-blue/40 backdrop-blur-md rounded-2xl border border-electric-cyan/10 shadow-[0_0_40px_-24px_rgba(0,210,255,0.35)] overflow-hidden">
-          <p className="text-xs font-semibold uppercase tracking-wide text-white/40 px-5 pt-5 pb-2">
-            Recordatorios sin evento
-          </p>
-          <table className="w-full text-sm hidden md:table">
-            <thead>
-              <tr className="text-white/40 text-left">
-                <th className="px-5 py-2 font-normal">Cuándo</th>
-                <th className="px-3 py-2 font-normal">Título</th>
-                <th className="px-3 py-2 font-normal">Estado</th>
-              </tr>
-            </thead>
-            <tbody>
-              {looseReminders.map((reminder) => (
-                <tr key={reminder.id} className="border-t border-white/8 hover:bg-white/5 transition-colors">
-                  <td className="px-5 py-3 whitespace-nowrap">{formatDateTime(reminder.remind_at)}</td>
-                  <td className="px-3 py-3 text-white/90">{reminder.title}</td>
-                  <td className="px-3 py-3">
-                    <ReminderBadge reminder={reminder} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="flex flex-wrap items-center justify-between gap-2 px-5 pt-5 pb-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-white/40">Recordatorios sin evento</p>
+            <StatusFilterTabs value={reminderStatusFilter} onChange={setReminderStatusFilter} />
+          </div>
 
-          <ul className="md:hidden divide-y divide-white/8">
-            {looseReminders.map((reminder) => (
-              <li key={reminder.id} className="flex items-center gap-3 px-4 py-3">
-                <div className="flex flex-col min-w-0 flex-1">
-                  <span className="text-[11px] text-white/40">{formatDateTime(reminder.remind_at)}</span>
-                  <span className="text-sm text-white/90 truncate">{reminder.title}</span>
-                </div>
-                <ReminderBadge reminder={reminder} />
-              </li>
-            ))}
-          </ul>
+          {visibleLooseReminders.length === 0 && (
+            <p className="text-white/40 text-sm px-5 pb-5">
+              {reminderStatusFilter === "hechas" ? "Ningún recordatorio ha pasado todavía." : "No hay recordatorios pendientes."}
+            </p>
+          )}
+
+          {visibleLooseReminders.length > 0 && (
+            <>
+              <table className="w-full text-sm hidden md:table">
+                <thead>
+                  <tr className="text-white/40 text-left">
+                    <th className="px-5 py-2 font-normal">Cuándo</th>
+                    <th className="px-3 py-2 font-normal">Título</th>
+                    <th className="px-3 py-2 font-normal">Estado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visibleLooseReminders.map((reminder) => (
+                    <tr key={reminder.id} className="border-t border-white/8 hover:bg-white/5 transition-colors">
+                      <td className="px-5 py-3 whitespace-nowrap">{formatDateTime(reminder.remind_at)}</td>
+                      <td className="px-3 py-3 text-white/90">
+                        <div className="flex items-center gap-2">
+                          <span>{reminder.title}</span>
+                          {reminder.created_by === "agent" && <QuickBadge iconOnly />}
+                        </div>
+                      </td>
+                      <td className="px-3 py-3">
+                        <ReminderBadge reminder={reminder} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              <ul className="md:hidden divide-y divide-white/8">
+                {visibleLooseReminders.map((reminder) => (
+                  <li key={reminder.id} className="flex items-center gap-3 px-4 py-3">
+                    <div className="flex flex-col min-w-0 flex-1">
+                      <span className="text-[11px] text-white/40">{formatDateTime(reminder.remind_at)}</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm text-white/90 truncate">{reminder.title}</span>
+                        {reminder.created_by === "agent" && <QuickBadge iconOnly />}
+                      </div>
+                    </div>
+                    <ReminderBadge reminder={reminder} />
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
         </div>
       )}
 

@@ -5,6 +5,7 @@ import { CategorySelect } from "./CategorySelect";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { CornerBrackets } from "./CornerBrackets";
 import { IconTrash } from "./icons";
+import { QuickBadge } from "./QuickBadge";
 import { RoutineBadge } from "./RoutineBadge";
 import { OPTION_STYLE, PRIORITIES, SELECT_CLASS } from "./selectStyles";
 import { StatusFilterTabs, type StatusFilter } from "./StatusFilterTabs";
@@ -577,6 +578,7 @@ function TaskDetail({ task, lists, onClose }: { task: Task; lists: List[]; onClo
               )}
               <PriorityBadge priority={task.priority} />
               {task.routine_id && <RoutineBadge />}
+              {task.created_by === "agent" && <QuickBadge />}
               {isOverdue(task) && <OverdueBadge />}
               <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-white/5 text-white/50">
                 {task.status === "done" ? "Completada" : task.status === "in_progress" ? "En curso" : "Pendiente"}
@@ -844,6 +846,7 @@ function CategoryTasksView({
                     </span>
                     <PriorityBadge priority={task.priority} />
                     {task.routine_id && <RoutineBadge />}
+                    {task.created_by === "agent" && <QuickBadge iconOnly />}
                     {isOverdue(task) && <OverdueBadge />}
                     {progress && (
                       <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0 bg-white/5 text-white/50">

@@ -10,6 +10,7 @@ export interface Task {
   due_date: string | null;
   created_at: string;
   routine_id: string | null;
+  created_by: "user" | "agent";
 }
 
 export interface NewTask {
@@ -50,6 +51,7 @@ export interface Event {
   ends_at: string | null;
   all_day: boolean;
   task_id: string | null;
+  created_by: "user" | "agent";
 }
 
 export interface NewEvent {
@@ -71,6 +73,7 @@ export interface Reminder {
   channel: "telegram" | "whatsapp" | "email" | null;
   sent_at: string | null;
   cron_job_id: string | null;
+  created_by: "user" | "agent";
 }
 
 export interface Note {
@@ -78,6 +81,7 @@ export interface Note {
   title: string | null;
   content: string | null;
   created_at: string;
+  created_by: "user" | "agent";
 }
 
 export interface Vehicle {

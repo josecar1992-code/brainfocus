@@ -163,3 +163,16 @@ export function IconUpload(props: SVGProps<SVGSVGElement>) {
     </Icon>
   );
 }
+
+export function IconRobot(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <path d="M12 3v3" />
+      <rect x="5" y="6" width="14" height="13" rx="3" />
+      <circle cx="9.5" cy="12" r="1.25" fill="currentColor" stroke="none" />
+      <circle cx="14.5" cy="12" r="1.25" fill="currentColor" stroke="none" />
+      <path d="M9 16h6" />
+      <path d="M3 11v3M21 11v3" />
+    </Icon>
+  );
+}

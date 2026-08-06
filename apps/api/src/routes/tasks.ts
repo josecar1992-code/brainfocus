@@ -22,6 +22,7 @@ export const tasksRouter = createResourceRouter({
   createSchema,
   updateSchema,
   orderBy: { column: "due_date", ascending: true },
+  trackCreatedBy: true,
   hooks: {
     async afterUpdate(userId, before, after) {
       if (after.status === "done" && before.status !== "done") {

@@ -13,4 +13,5 @@ export const notesRouter = createResourceRouter({
   createSchema,
   updateSchema: createSchema.partial(),
   searchFields: ["title", "content"],
+  trackCreatedBy: true,
 });

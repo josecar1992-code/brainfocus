@@ -30,6 +30,7 @@ export const remindersRouter = createResourceRouter({
     // que solo toca sent_at u otro campo no debería fallar por esto.
     .refine((data) => !data.remind_at || notInPast(data as { remind_at: string }), notInPastMessage),
   orderBy: { column: "remind_at", ascending: true },
+  trackCreatedBy: true,
   hooks: {
     // Se crea el registro tal cual (venga de la app o del MCP de Quicks) y acá
     // mismo se programa el disparo real — ya no depende de que Quicks recuerde

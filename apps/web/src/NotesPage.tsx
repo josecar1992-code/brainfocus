@@ -3,6 +3,7 @@ import { useState } from "react";
 import { api, type Note } from "./api";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { IconX } from "./icons";
+import { QuickBadge } from "./QuickBadge";
 
 function formatDateTime(iso: string) {
   return new Date(iso).toLocaleDateString("es-CR", {
@@ -100,7 +101,10 @@ export function NotesPage() {
               <li key={note.id} className="px-5 py-4 border-t border-white/8 first:border-t-0 hover:bg-white/5 transition-colors group">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    {note.title && <p className="text-sm font-semibold text-white/90">{note.title}</p>}
+                    <div className="flex items-center gap-2">
+                      {note.title && <p className="text-sm font-semibold text-white/90">{note.title}</p>}
+                      {note.created_by === "agent" && <QuickBadge iconOnly />}
+                    </div>
                     <p className="text-sm text-white/60 whitespace-pre-wrap mt-0.5">{note.content}</p>
                     <p className="text-[11px] text-white/30 mt-1.5">{formatDateTime(note.created_at)}</p>
                   </div>
