@@ -26,20 +26,28 @@ OpenClaw habla el protocolo MCP (JSON-RPC sobre stdio o Streamable HTTP), no RES
 bloquea hosts internos como `localhost`. Por eso `apps/mcp` es un proceso stdio aparte que arranca
 OpenClaw y que traduce tool calls a llamadas HTTP contra `apps/api`.
 
-Expone un set chico y de grano grueso a propósito (`listar_tareas`, `crear_tarea`, `completar_tarea`,
-`crear_recordatorio`, `crear_evento`, `crear_nota`, `buscar_notas`, `listar_vehiculos`,
-`crear_vehiculo`, `listar_mantenimientos`, `crear_mantenimiento`, `listar_categorias`,
-`listar_rutinas`, `crear_rutina`) — cada tool registrado se inyecta en el prompt del agente en cada
-turno, así que crece con uso real, no por especulación. `crear_evento` agenda un evento real (no
-solo un recordatorio suelto) y puede crear hasta dos recordatorios independientes y activables por
-separado: uno 2 horas antes (`crear_recordatorio`, default true) y otro justo a la hora del evento
+Expone un set chico y de grano grueso a propósito (`hora_actual`, `listar_tareas`, `crear_tarea`,
+`completar_tarea`, `crear_recordatorio`, `crear_evento`, `crear_nota`, `buscar_notas`,
+`listar_vehiculos`, `crear_vehiculo`, `listar_mantenimientos`, `crear_mantenimiento`,
+`listar_categorias`, `listar_rutinas`, `crear_rutina`, `guardar_documento`, `buscar_documentos`,
+`enviar_documento`) — cada tool registrado se inyecta en el prompt del agente en cada turno, así que
+crece con uso real, no por especulación. `crear_evento` agenda un evento real (no solo un
+recordatorio suelto) y puede crear hasta dos recordatorios independientes y activables por separado:
+uno 2 horas antes (`crear_recordatorio`, default true) y otro justo a la hora del evento
 (`recordatorio_hora_evento`, default false) — cualquiera que caiga en el pasado (ej. un evento a
 menos de 2h) se omite en silencio en vez de fallar la creación del evento.
 `buscar_notas` deja que Quicks busque por palabra en título/contenido o traiga las últimas notas
 guardadas, usando el `?q=` genérico agregado a `resourceRouter`. `crear_rutina` crea una tarea
 repetitiva (diaria, ciertos días de la semana, o cada N semanas) — ver sección "Módulo Rutinas" más
-abajo para el detalle de cómo funciona. Detalles de registro, allowlists y aislamiento entre agentes
-en [infra/DEPLOY.md](infra/DEPLOY.md).
+abajo para el detalle de cómo funciona. `hora_actual` (solo lectura, sin argumentos) devuelve la
+fecha/hora real de Costa Rica — pensada para que el agente la use al razonar sobre cualquier fecha,
+no solo cuando ya va a llamar una tool de escritura; esas 4 tools (`crear_tarea`, `crear_recordatorio`,
+`crear_evento`, `crear_mantenimiento`) además incluyen la hora actual directo en su propia descripción
+y le piden explícitamente construir la fecha a partir de ahí, nunca de memoria — el propio `listar_tareas`
+y `crear_tarea` devuelven un `due_date_costa_rica` ya convertido a hora local (junto al `due_date`
+original en UTC, sin reemplazarlo) para que tampoco haga falta convertir a mano al leer. Documentos
+(`guardar_documento`, `buscar_documentos`, `enviar_documento`) ver "Módulo Documentos" más abajo.
+Detalles de registro, allowlists y aislamiento entre agentes en [infra/DEPLOY.md](infra/DEPLOY.md).
 
 Los recordatorios (creados desde la app o por Quicks) programan automáticamente un aviso real de
 WhatsApp/Telegram como cron job de disparo único en OpenClaw (`apps/api/src/services/openclawCron.ts`)
@@ -143,7 +151,7 @@ Ver [infra/DEPLOY.md](infra/DEPLOY.md) para la guía paso a paso.
 | Recordatorios duales en eventos | Dos checkboxes independientes al crear/editar un evento (Agenda, Tareas, `crear_evento` del MCP): "2 horas antes" (default on) y "a la hora del evento" (default on) — el de 2h se oculta solo si el evento queda a menos de 2h de distancia, para no ofrecer una opción que la API va a rechazar por caer en el pasado |
 | Selector de hora (`TimePicker.tsx`) | Reloj analógico propio (arrastrar/tocar hora y minuto, AM/PM) en los 5 lugares donde se elige una hora (Agenda, Tareas, Rutinas), en vez del `<input type="time">` nativo — mismo look en móvil y escritorio, y sin el bug del botón "Establecer" saliéndose de pantalla en algunos Android |
 | Módulo Notas | Nombre + contenido desde la app, editable inline (ícono de lápiz, aparece al hover) con `PATCH /notes/:id`; Quicks puede escribir (`crear_nota`) y leer/buscar (`buscar_notas`), pero no editar (sin tool `editar_nota` todavía) |
-| Recordatorios ↔ cron de OpenClaw | Automático de punta a punta y verificado en producción (crear, reprogramar si cambia la fecha, cancelar al completar/borrar tarea o evento). Canal default `whatsapp` (antes `telegram` por error: el destinatario configurado es un número de teléfono, no un chat ID de Telegram, lo que dejaba los avisos atascados en un reintento silencioso) — corregido en código, en la columna de la BD y en los cron jobs ya creados, verificado con un aviso real |
+| Recordatorios ↔ cron de OpenClaw | Automático de punta a punta y verificado en producción (crear, reprogramar si cambia la fecha, cancelar al completar/borrar tarea o evento). Canal default **temporal `telegram`** (06-ago-2026 → mientras dure el "reachout timelock" que Meta le puso a la cuenta de WhatsApp, hasta 13-ago-2026) — usa un chat ID numérico dedicado (`OPENCLAW_REMINDER_TO_TELEGRAM`, distinto del teléfono `OPENCLAW_REMINDER_TO` que usa WhatsApp, ya que Telegram no acepta teléfonos como destinatario). Revertir a `whatsapp` (código + `alter table reminders alter column channel set default 'whatsapp'`) cuando se levante el bloqueo — **y de paso revisar todos los cron jobs pendientes con el canal viejo**, ver la regla fija en [infra/DEPLOY.md](infra/DEPLOY.md) |
 | Diseño visual | Rediseñado con la estética del portal de clientes de QuickWash (sidebar, header, cards, badges), respetando la paleta de marca de Focusbrain |
 | Logo | Logo oficial recortado (sin el fondo gris del canvas original) en sidebar, login, favicon e íconos PWA |
 | Sidebar | Orden: Agenda, Tareas, Rutinas, Notas y memorias (renombrado, antes "Notas"), Documentos, Vehículos, Configuración — Agenda es el módulo por defecto al iniciar. En móvil, el drawer se abre desde la izquierda, junto al botón de hamburguesa |
