@@ -66,11 +66,18 @@ async function invoke(tool: string, action: string, args: Record<string, unknown
 export async function scheduleReminderCron(reminder: ReminderForCron): Promise<string | null> {
   if (!isConfigured()) return null;
 
-  // Default temporal a Telegram (05-ago-2026): WhatsApp tiene un "reachout
-  // timelock" activo en la cuenta hasta el 13-ago-2026
-  // (RESTRICT_ALL_COMPANIONS, disparado por Meta tras relogueo de la
-  // sesión), que bloquea en silencio toda entrega directa por ese canal.
-  // Revertir a "whatsapp" cuando se levante el bloqueo.
+  // Default sigue en "telegram" (07-ago-2026): se intentó revertir a
+  // WhatsApp tras migrar la integración de OpenClaw a Kapso, pero un cron de
+  // prueba en vivo NO llegó al usuario pese a que `openclaw channels status`
+  // muestra el canal "connected" — el health-monitor del conector
+  // (`[kapso-whatsapp:default] health-monitor: restarting (reason: stopped)`,
+  // cada ~10 min) y el modo `dm:allowlist` sugieren que el número de destino
+  // no está aprobado o el proceso de salud del conector no corre. Es un
+  // problema de configuración de OpenClaw/Kapso, no de este código — no
+  // reintentar el default "whatsapp" hasta confirmarlo con un test en vivo
+  // (ver infra/DEPLOY.md). El gateway, tras esa migración, además renombró
+  // el identificador de canal a "kapso-whatsapp" (ya no acepta "whatsapp" a
+  // secas) — dejamos el mapeo abajo listo para cuando se retome.
   const channel = reminder.channel ?? "telegram";
   // env.openclawReminderTo es un número de teléfono ("+506..."), formato
   // válido para WhatsApp — Telegram exige un chat ID numérico (probado
@@ -79,6 +86,13 @@ export async function scheduleReminderCron(reminder: ReminderForCron): Promise<s
   // (openclawReminderToTelegram).
   const to = channel === "telegram" ? env.openclawReminderToTelegram : env.openclawReminderTo;
   if (!to) throw new Error(`No hay destinatario configurado para el canal "${channel}"`);
+  // El gateway de OpenClaw, tras migrar WhatsApp a Kapso (07-ago-2026), sólo
+  // acepta "kapso-whatsapp" | "telegram" como delivery.channel (confirmado en
+  // vivo: cron.add con "whatsapp" responde 400 "delivery.channel must be one
+  // of: kapso-whatsapp, telegram"). Adentro de Focusbrain seguimos guardando
+  // "whatsapp" (valor simple, estable de cara al usuario/UI); este mapeo es
+  // la única capa que conoce el nombre real que espera el gateway.
+  const gatewayChannel = channel === "whatsapp" ? "kapso-whatsapp" : channel;
 
   const result = await invoke("cron", "add", {
     job: {
@@ -98,7 +112,7 @@ export async function scheduleReminderCron(reminder: ReminderForCron): Promise<s
           `la hora del evento que aparece ahí tiene que quedar sí o sí en el mensaje final, textual, ` +
           `sin cambiarla ni omitirla.`,
       },
-      delivery: { mode: "announce", channel, to },
+      delivery: { mode: "announce", channel: gatewayChannel, to },
     },
   });
 

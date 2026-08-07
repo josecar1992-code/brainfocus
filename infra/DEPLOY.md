@@ -172,21 +172,37 @@ Documentado aquí para que quede como referencia, pero lo ejecuta y verifica la 
      `docker-compose.yml`). Probado de punta a punta: crear evento con recordatorio → cron real
      creado en OpenClaw → borrar evento → cron cancelado (`openclaw cron get <id>` responde
      `cron job not found`, que es el resultado esperado tras cancelar).
-   - **Canal de entrega temporal a Telegram (05-ago-2026)**: WhatsApp tiene un "reachout timelock"
-     de Meta activo en la cuenta hasta el 13-ago-2026 (`RESTRICT_ALL_COMPANIONS`, disparado tras
-     relogueo de la sesión) que bloquea en silencio toda entrega directa por ese canal — confirmado
-     en `journalctl -u openclaw.service` (`OutboundDeliveryError: WhatsApp reachout timelock is
-     active`). Mientras dure, `scheduleReminderCron` (`apps/api/src/services/openclawCron.ts`) usa
-     `"telegram"` como canal default en vez de `"whatsapp"`. A diferencia de WhatsApp, Telegram
-     **no acepta un número de teléfono como destinatario** (falla con `Telegram recipient must be
-     a numeric chat ID`) — necesita el chat ID numérico real de la conversación con el bot, guardado
-     en su propia variable `OPENCLAW_REMINDER_TO_TELEGRAM` (separada de `OPENCLAW_REMINDER_TO`, que
-     sigue siendo el teléfono para WhatsApp). Probado de punta a punta con un cron job de prueba
-     disparado a mano vía `POST /tools/invoke`: entrega confirmada en logs
-     (`[telegram] outbound send ok accountId=default chatId=... messageId=... operation=sendMessage`)
-     y confirmada por el usuario, que recibió el mensaje de prueba en Telegram.
-     Revertir el canal default a `"whatsapp"` (código y `alter table reminders alter column channel
-     set default 'whatsapp'` en Supabase) cuando se levante el bloqueo.
+   - **Canal de entrega — historial WhatsApp → Telegram → WhatsApp (vía Kapso)**:
+     - *05-ago-2026*: WhatsApp tuvo un "reachout timelock" de Meta activo en la cuenta hasta el
+       13-ago-2026 (`RESTRICT_ALL_COMPANIONS`, disparado tras relogueo de la sesión de Baileys) que
+       bloqueaba en silencio toda entrega directa por ese canal — confirmado en
+       `journalctl -u openclaw.service` (`OutboundDeliveryError: WhatsApp reachout timelock is
+       active`). Mientras duró, `scheduleReminderCron` (`apps/api/src/services/openclawCron.ts`) usó
+       `"telegram"` como canal default en vez de `"whatsapp"`. A diferencia de WhatsApp, Telegram
+       **no acepta un número de teléfono como destinatario** (falla con `Telegram recipient must be
+       a numeric chat ID`) — necesita el chat ID numérico real de la conversación con el bot, guardado
+       en su propia variable `OPENCLAW_REMINDER_TO_TELEGRAM` (separada de `OPENCLAW_REMINDER_TO`, el
+       teléfono para WhatsApp).
+     - *07-ago-2026*: se migró la integración de WhatsApp en OpenClaw de Baileys (sesión web no
+       oficial, la causa raíz de las desconexiones) a **Kapso** (API oficial de Meta). Se intentó
+       revertir el canal default a `"whatsapp"` — el gateway de OpenClaw, tras la migración,
+       **renombró el identificador de canal**: `delivery.channel` ya no acepta `"whatsapp"`, solo
+       `"kapso-whatsapp"` o `"telegram"` (confirmado en vivo: `cron.add` con `"whatsapp"` responde
+       400 `delivery.channel must be one of: kapso-whatsapp, telegram`). Se agregó el mapeo en
+       `scheduleReminderCron` (`"whatsapp"` interno → `"kapso-whatsapp"` real, para no propagar el
+       detalle del gateway al resto de la app) y se migraron los 8 recordatorios pendientes de
+       `telegram` a `kapso-whatsapp` siguiendo la regla de abajo.
+       **Pero el test en vivo (cron disparado a mano) no llegó al usuario por WhatsApp** — pese a
+       que `openclaw channels status` muestra el canal `enabled, configured, linked, connected`, el
+       output también muestra `health:not-running` y `dm:allowlist`, y los logs tienen un patrón
+       recurrente `[kapso-whatsapp:default] health-monitor: restarting (reason: stopped)` cada
+       ~10 min. Diagnóstico: probablemente el número de destino no está en la allowlist de DMs del
+       canal Kapso, o el proceso de salud del conector no corre — es configuración de OpenClaw/Kapso,
+       no de este repo. **Se revirtió todo de nuevo a `telegram`** (código, DB default, y los 8
+       recordatorios migrados de vuelta) hasta poder confirmar con un test en vivo que la entrega por
+       WhatsApp/Kapso realmente funciona. El mapeo `"whatsapp"` → `"kapso-whatsapp"` en
+       `scheduleReminderCron` quedó igual en el código, listo para cuando se retome — **no cambiar el
+       default a `"whatsapp"` sin repetir el test de entrega en vivo primero**.
    - **⚠️ Regla fija al tocar el canal default (código o DB)**: cambiar `scheduleReminderCron` o el
      `default` de `reminders.channel` solo afecta recordatorios **nuevos** — nunca reprograma los que
      ya tienen un cron creado en OpenClaw con el canal viejo. Pasó real el 06-ago-2026: tras el
@@ -204,6 +220,7 @@ Documentado aquí para que quede como referencia, pero lo ejecuta y verifica la 
         mismo payload que arma `scheduleReminderCron` (ver `openclawCron.ts`).
      3. `update reminders set channel = '<nuevo>', cron_job_id = '<nuevo job id>' where id = '<id>';`
         — si no se actualiza `cron_job_id`, un borrado posterior de esa tarea/evento no va a poder
-        cancelar el cron real (queda huérfano en OpenClaw).
+        cancelar el cron real (queda huérfano en OpenClaw). Aplicada de nuevo el 07-ago-2026 al
+        revertir Telegram → WhatsApp/Kapso: 8 recordatorios pendientes migrados uno por uno.
      4. Verificar con `openclaw cron get <nuevo job id>` que quedó `enabled: true` y con el
         `delivery` esperado.

@@ -102,7 +102,7 @@ create table if not exists public.reminders (
   task_id uuid references public.tasks(id) on delete cascade,
   title text not null,
   remind_at timestamptz not null,
-  channel text default 'telegram', -- telegram | whatsapp | email (temporal: WhatsApp bloqueado hasta 13-ago-2026, ver openclawCron.ts)
+  channel text default 'telegram', -- telegram | whatsapp | email (whatsapp mapeado a "kapso-whatsapp" en el gateway de OpenClaw; sigue en telegram por default, ver openclawCron.ts)
   sent_at timestamptz,
   -- jobId real que devuelve OpenClaw al crear el cron (tool `cron`, action
   -- `add` sobre POST /tools/invoke) — hace falta para poder cancelarlo
