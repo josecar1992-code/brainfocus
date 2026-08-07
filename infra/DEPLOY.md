@@ -168,3 +168,23 @@ Documentado aquí para que quede como referencia, pero lo ejecuta y verifica la 
      y confirmada por el usuario, que recibió el mensaje de prueba en Telegram.
      Revertir el canal default a `"whatsapp"` (código y `alter table reminders alter column channel
      set default 'whatsapp'` en Supabase) cuando se levante el bloqueo.
+   - **⚠️ Regla fija al tocar el canal default (código o DB)**: cambiar `scheduleReminderCron` o el
+     `default` de `reminders.channel` solo afecta recordatorios **nuevos** — nunca reprograma los que
+     ya tienen un cron creado en OpenClaw con el canal viejo. Pasó real el 06-ago-2026: tras el
+     primer cambio a Telegram, un recordatorio de rutina creado un día antes (`channel = "whatsapp"`
+     ya guardado) se disparó a tiempo pero falló en silencio porque, además, la sesión de WhatsApp
+     Web se había vuelto a caer — nadie se enteró hasta que el aviso no llegó. Por eso, **cada vez
+     que se cambie el canal default (o se corrija un bug de entrega como el de arriba), hay que
+     revisar TODOS los cron jobs pendientes, no solo desplegar el fix**:
+     1. `select id, title, channel, cron_job_id, remind_at from reminders where sent_at is null and
+        remind_at > now() order by remind_at;` (Supabase MCP `execute_sql`) — cualquier fila con el
+        canal viejo (o roto) es candidata a migrar.
+     2. Para cada una: `POST /tools/invoke` con `{"tool":"cron","args":{"action":"remove","jobId":
+        "<cron_job_id viejo>"}}`, después `action":"add"` con el mismo `displayName`
+        (`brainfocus:reminder:<id>`), mismo `schedule.at` y el `delivery.channel`/`to` correctos —
+        mismo payload que arma `scheduleReminderCron` (ver `openclawCron.ts`).
+     3. `update reminders set channel = '<nuevo>', cron_job_id = '<nuevo job id>' where id = '<id>';`
+        — si no se actualiza `cron_job_id`, un borrado posterior de esa tarea/evento no va a poder
+        cancelar el cron real (queda huérfano en OpenClaw).
+     4. Verificar con `openclaw cron get <nuevo job id>` que quedó `enabled: true` y con el
+        `delivery` esperado.
