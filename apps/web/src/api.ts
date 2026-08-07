@@ -353,6 +353,8 @@ export const api = {
   listNotes: () => request<Note[]>("/notes"),
   createNote: (input: { title?: string; content: string }) =>
     request<Note>("/notes", { method: "POST", body: JSON.stringify(input) }),
+  updateNote: (id: string, input: { title?: string; content: string }) =>
+    request<Note>(`/notes/${id}`, { method: "PATCH", body: JSON.stringify(input) }),
   deleteNote: (id: string) => request<void>(`/notes/${id}`, { method: "DELETE" }),
 
   listVehicles: () => request<Vehicle[]>("/vehicles"),
