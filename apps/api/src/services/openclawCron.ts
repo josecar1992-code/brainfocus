@@ -66,19 +66,17 @@ async function invoke(tool: string, action: string, args: Record<string, unknown
 export async function scheduleReminderCron(reminder: ReminderForCron): Promise<string | null> {
   if (!isConfigured()) return null;
 
-  // Default sigue en "telegram" (07-ago-2026): se intentó revertir a
-  // WhatsApp tras migrar la integración de OpenClaw a Kapso, pero un cron de
-  // prueba en vivo NO llegó al usuario pese a que `openclaw channels status`
-  // muestra el canal "connected" — el health-monitor del conector
-  // (`[kapso-whatsapp:default] health-monitor: restarting (reason: stopped)`,
-  // cada ~10 min) y el modo `dm:allowlist` sugieren que el número de destino
-  // no está aprobado o el proceso de salud del conector no corre. Es un
-  // problema de configuración de OpenClaw/Kapso, no de este código — no
-  // reintentar el default "whatsapp" hasta confirmarlo con un test en vivo
-  // (ver infra/DEPLOY.md). El gateway, tras esa migración, además renombró
-  // el identificador de canal a "kapso-whatsapp" (ya no acepta "whatsapp" a
-  // secas) — dejamos el mapeo abajo listo para cuando se retome.
-  const channel = reminder.channel ?? "telegram";
+  // Default "whatsapp" (07-ago-2026, confirmado con test de entrega en vivo):
+  // tras migrar la integración de OpenClaw a Kapso (API oficial de Meta), un
+  // primer intento de revertir a WhatsApp pareció fallar en vivo — pero la
+  // causa real era que el cron de prueba usaba el string viejo "whatsapp" en
+  // vez de "kapso-whatsapp" (el gateway lo rechaza con 400 antes de intentar
+  // entregar nada; no es un problema de conexión/salud del canal, ese ruido
+  // de health-monitor cada ~10min es normal en Kapso porque no mantiene
+  // conexión persistente como Baileys — recibe por webhook). Con el string
+  // correcto, un segundo cron de prueba sí llegó, confirmado por el usuario.
+  // Ver infra/DEPLOY.md para el historial completo.
+  const channel = reminder.channel ?? "whatsapp";
   // env.openclawReminderTo es un número de teléfono ("+506..."), formato
   // válido para WhatsApp — Telegram exige un chat ID numérico (probado
   // 05-ago-2026: "+506..." como `to` de Telegram falla con "recipient must

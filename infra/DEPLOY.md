@@ -184,25 +184,33 @@ Documentado aquí para que quede como referencia, pero lo ejecuta y verifica la 
        en su propia variable `OPENCLAW_REMINDER_TO_TELEGRAM` (separada de `OPENCLAW_REMINDER_TO`, el
        teléfono para WhatsApp).
      - *07-ago-2026*: se migró la integración de WhatsApp en OpenClaw de Baileys (sesión web no
-       oficial, la causa raíz de las desconexiones) a **Kapso** (API oficial de Meta). Se intentó
-       revertir el canal default a `"whatsapp"` — el gateway de OpenClaw, tras la migración,
-       **renombró el identificador de canal**: `delivery.channel` ya no acepta `"whatsapp"`, solo
-       `"kapso-whatsapp"` o `"telegram"` (confirmado en vivo: `cron.add` con `"whatsapp"` responde
-       400 `delivery.channel must be one of: kapso-whatsapp, telegram`). Se agregó el mapeo en
-       `scheduleReminderCron` (`"whatsapp"` interno → `"kapso-whatsapp"` real, para no propagar el
-       detalle del gateway al resto de la app) y se migraron los 8 recordatorios pendientes de
-       `telegram` a `kapso-whatsapp` siguiendo la regla de abajo.
-       **Pero el test en vivo (cron disparado a mano) no llegó al usuario por WhatsApp** — pese a
-       que `openclaw channels status` muestra el canal `enabled, configured, linked, connected`, el
-       output también muestra `health:not-running` y `dm:allowlist`, y los logs tienen un patrón
-       recurrente `[kapso-whatsapp:default] health-monitor: restarting (reason: stopped)` cada
-       ~10 min. Diagnóstico: probablemente el número de destino no está en la allowlist de DMs del
-       canal Kapso, o el proceso de salud del conector no corre — es configuración de OpenClaw/Kapso,
-       no de este repo. **Se revirtió todo de nuevo a `telegram`** (código, DB default, y los 8
-       recordatorios migrados de vuelta) hasta poder confirmar con un test en vivo que la entrega por
-       WhatsApp/Kapso realmente funciona. El mapeo `"whatsapp"` → `"kapso-whatsapp"` en
-       `scheduleReminderCron` quedó igual en el código, listo para cuando se retome — **no cambiar el
-       default a `"whatsapp"` sin repetir el test de entrega en vivo primero**.
+       oficial, la causa raíz de las desconexiones) a **Kapso** (API oficial de Meta). El gateway,
+       tras la migración, **renombró el identificador de canal**: `delivery.channel` ya no acepta
+       `"whatsapp"`, solo `"kapso-whatsapp"` o `"telegram"` (confirmado en vivo: `cron.add` con
+       `"whatsapp"` responde 400 `delivery.channel must be one of: kapso-whatsapp, telegram`). Se
+       agregó el mapeo en `scheduleReminderCron` (`"whatsapp"` interno → `"kapso-whatsapp"` real,
+       para no propagar el detalle del gateway al resto de la app).
+       **Primer intento fallido**: un cron de prueba disparado a mano con `"kapso-whatsapp"` no
+       llegó al usuario. Se sospechó de la configuración de Kapso (`openclaw channels status`
+       mostraba `health:not-running` y `dm:allowlist`, y logs recurrentes
+       `[kapso-whatsapp:default] health-monitor: restarting (reason: stopped)` cada ~10 min) y se
+       revirtió todo a `telegram` de nuevo (código, DB default, los 8 recordatorios pendientes).
+       **Diagnóstico correcto (vía la sesión de Telegram con Quicks/OpenClaw)**: `health:not-running`
+       y los restarts cada ~10 min son ruido normal — Kapso recibe por webhook (Meta empuja los
+       mensajes), no mantiene una conexión persistente como Baileys, así que el monitor de salud
+       genérico de OpenClaw lo marca "stopped" sin que eso afecte nada real. El primer fallo real fue
+       otra cosa: **el 500 que le devolvió `crear_recordatorio` a Quicks entre las 13:38–13:42** salió
+       porque, en ese momento, el default de `reminders.channel` en la DB ya estaba en `"whatsapp"`
+       pero el código con el mapeo `whatsapp → kapso-whatsapp` todavía no estaba desplegado — el
+       código viejo mandaba `"whatsapp"` tal cual al gateway, que lo rechaza con 400 antes de
+       intentar nada (no es un problema de conexión). Confirmado con un **segundo test en vivo**, ya
+       con el mapeo desplegado y el string `"kapso-whatsapp"` correcto: **el usuario confirmó
+       recibirlo**. Se re-migraron los 8 recordatorios pendientes a `whatsapp`/`kapso-whatsapp` y el
+       default volvió a `"whatsapp"` en código y DB.
+       **Lección**: cuando se cambia el `default` de `reminders.channel` en la DB y el código que lo
+       consume en el mismo cambio, aplicar primero el deploy del código y solo después la migración
+       de DB (o viceversa, pero nunca dejarlos desincronizados) — el orden importa porque
+       `scheduleReminderCron` no sabe qué versión de la DB está viendo.
    - **⚠️ Regla fija al tocar el canal default (código o DB)**: cambiar `scheduleReminderCron` o el
      `default` de `reminders.channel` solo afecta recordatorios **nuevos** — nunca reprograma los que
      ya tienen un cron creado en OpenClaw con el canal viejo. Pasó real el 06-ago-2026: tras el
