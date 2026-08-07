@@ -96,6 +96,11 @@ especulación:
   ese turno). `hora_actual` es una tool de solo lectura, sin argumentos, que devuelve la fecha/hora
   real de Costa Rica — pensada para que el agente la llame antes de razonar sobre cualquier fecha,
   no solo antes de escribir.
+- Descripciones de `fecha_limite`/`recordar_en`/`inicio`/`fecha` (06-ago-2026, mismo día): decían
+  genérico "para Costa Rica usar -06:00", dejando que el agente recuerde el offset de memoria en vez
+  de anclarlo a algo real — mismo tipo de instrucción que venía induciendo los errores de fecha.
+  Ahora las 4 (`crear_tarea`, `crear_recordatorio`, `crear_evento`, `crear_mantenimiento`) apuntan
+  explícitamente a construir la fecha a partir de lo que devuelve `hora_actual`, no de memoria.
 - `due_date_costa_rica` (06-ago-2026, mismo día): `listar_tareas` y `crear_tarea` ya devuelven,
   además del `due_date` original en UTC (sin tocar — el resto de la API/la app web siguen usando
   UTC como siempre), un campo `due_date_costa_rica` con la fecha/hora ya convertida a hora local

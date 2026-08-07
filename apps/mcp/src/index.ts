@@ -178,7 +178,9 @@ const tools = {
         notas: { type: "string" },
         fecha_limite: {
           type: "string",
-          description: "ISO 8601 con offset de zona horaria; para Costa Rica usar -06:00. Opcional.",
+          description:
+            "ISO 8601 con offset -06:00 (Costa Rica). Construir a partir de la hora real que " +
+            "devuelve `hora_actual`, no de memoria/estimación. Opcional.",
         },
       },
       required: ["titulo"],
@@ -226,7 +228,8 @@ const tools = {
         recordar_en: {
           type: "string",
           description:
-            "ISO 8601 con offset de zona horaria; para Costa Rica usar -06:00. Cuándo debería sonar.",
+            "ISO 8601 con offset -06:00 (Costa Rica). Construir a partir de la hora real que " +
+            "devuelve `hora_actual`, no de memoria/estimación. Cuándo debería sonar.",
         },
         tarea_id: { type: "string", description: "id de la tarea relacionada, opcional" },
       },
@@ -257,7 +260,9 @@ const tools = {
         descripcion: { type: "string" },
         inicio: {
           type: "string",
-          description: "ISO 8601 con offset de zona horaria; para Costa Rica usar -06:00. Cuándo empieza.",
+          description:
+            "ISO 8601 con offset -06:00 (Costa Rica). Construir a partir de la hora real que " +
+            "devuelve `hora_actual`, no de memoria/estimación. Cuándo empieza.",
         },
         crear_recordatorio: {
           type: "boolean",
@@ -402,7 +407,12 @@ const tools = {
       type: "object",
       properties: {
         vehiculo_id: { type: "string" },
-        fecha: { type: "string", description: "ISO 8601 con offset; para Costa Rica usar -06:00." },
+        fecha: {
+          type: "string",
+          description:
+            "ISO 8601 con offset -06:00 (Costa Rica). Construir a partir de la hora real que " +
+            "devuelve `hora_actual`, no de memoria/estimación.",
+        },
         descripcion: { type: "string", description: "ej. 'Cambio de aceite'" },
         kilometraje: { type: "number" },
       },
