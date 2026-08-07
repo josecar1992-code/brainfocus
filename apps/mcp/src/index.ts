@@ -111,6 +111,28 @@ function formatReminderTitle(titulo: string, inicio: string, descripcion?: strin
 // del agente en cada turno, así que más tools = más tokens gastados siempre.
 // Agregar nutrition/exercise/lists/events cuando haya uso real, no por especulación.
 const tools = {
+  // Sin esto, la única forma que tenía el agente de anclar "qué día es hoy"
+  // era la hora inyectada en la descripción de crear_tarea/recordatorio/
+  // evento/rutina — que solo se ve cuando ya va a ESCRIBIR algo. Si el
+  // usuario solo pregunta por una fecha o pide reagendar sin llamar a esas
+  // tools, no tenía ningún ancla real y terminaba adivinando (confirmado
+  // 06-ago-2026: el usuario reportó una fecha mal calculada en Agenda y el
+  // agente "le echó la culpa al cron" — no había ningún tool que fallara,
+  // simplemente no tenía cómo saber la hora real en ese turno).
+  hora_actual: {
+    description:
+      "Devuelve la fecha y hora actuales reales en Costa Rica. Usar SIEMPRE antes de razonar sobre " +
+      '"hoy", "mañana", "en X días/horas", o antes de confirmarle una fecha al usuario — nunca ' +
+      "asumir ni calcular la fecha de memoria del contexto de la conversación.",
+    inputSchema: { type: "object", properties: {} },
+    argsSchema: z.object({}),
+    handler: () => ({
+      ahora_costa_rica: horaActualCR(),
+      offset: "-06:00",
+      iso: new Date().toISOString(),
+    }),
+  },
+
   listar_tareas: {
     description: "Lista las tareas del usuario, opcionalmente filtradas por estado. Trae máximo 50.",
     inputSchema: {

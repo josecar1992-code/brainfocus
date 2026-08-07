@@ -88,6 +88,14 @@ especulación:
   fallar). Como el servidor MCP se levanta de cero por invocación (`docker compose run --rm`, ver
   paso 5 más abajo), la hora calculada al cargar el módulo es la hora real de cada llamada, no una
   constante vieja de un proceso de larga duración.
+- Tool `hora_actual` (06-ago-2026, mismo día): ese ancla solo aparece cuando el agente ya está por
+  invocar una de las 4 tools de arriba — si el usuario solo pregunta por una fecha, o pide reagendar
+  algo, sin llegar a llamarlas, seguía sin tener ninguna referencia real de "hoy" (confirmado: el
+  usuario reportó otra fecha mal calculada en Agenda ese mismo día y el agente le echó la culpa "al
+  cron", cuando en realidad ningún tool había fallado — simplemente no tenía cómo saber la hora en
+  ese turno). `hora_actual` es una tool de solo lectura, sin argumentos, que devuelve la fecha/hora
+  real de Costa Rica — pensada para que el agente la llame antes de razonar sobre cualquier fecha,
+  no solo antes de escribir.
 - Vehículos: `listar_vehiculos`, `crear_vehiculo`, `listar_mantenimientos`, `crear_mantenimiento`.
 - Rutinas: `listar_categorias`, `listar_rutinas`, `crear_rutina`.
 - Documentos: `guardar_documento`, `buscar_documentos`, `enviar_documento`. Ninguna hace OCR,
