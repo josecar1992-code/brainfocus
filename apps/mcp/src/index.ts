@@ -93,6 +93,22 @@ function horaActualCR(): string {
 }
 const AHORA_CR = `Ahora mismo en Costa Rica es: ${horaActualCR()} (offset -06:00).`;
 
+// "YYYY-MM-DD HH:MM" en hora de Costa Rica — para que el agente nunca tenga
+// que convertir un timestamp UTC de memoria (la fuente real de los errores
+// de fecha reportados por el usuario). Se agrega COMO CAMPO ADICIONAL junto
+// al original en UTC, nunca lo reemplaza — así el agente tiene los dos y no
+// hace falta tocar el resto de la API (que sigue devolviendo UTC siempre).
+function isoACostaRica(iso: string): string {
+  const d = new Date(iso);
+  const fecha = d.toLocaleDateString("en-CA", { timeZone: "America/Costa_Rica" });
+  const hora = d.toLocaleTimeString("en-GB", {
+    timeZone: "America/Costa_Rica",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  return `${fecha} ${hora}`;
+}
+
 // El mensaje que llega por WhatsApp es literalmente reminders.title (ver
 // openclawCron.ts en la API) — sin esto, el aviso solo decía "Recordatorio:
 // <título>", sin ninguna hora, y quien lo recibía asumía que la hora de
@@ -134,7 +150,10 @@ const tools = {
   },
 
   listar_tareas: {
-    description: "Lista las tareas del usuario, opcionalmente filtradas por estado. Trae máximo 50.",
+    description:
+      "Lista las tareas del usuario, opcionalmente filtradas por estado. Trae máximo 50. " +
+      "due_date_costa_rica ya viene calculado en hora local (YYYY-MM-DD HH:MM) — usar ese campo " +
+      "para hablarle al usuario de fechas, no convertir due_date (UTC) a mano.",
     inputSchema: {
       type: "object",
       properties: {
@@ -142,10 +161,11 @@ const tools = {
       },
     },
     argsSchema: z.object({ estado: z.enum(["pending", "in_progress", "done"]).optional() }),
-    handler: (args: { estado?: string }) => {
+    handler: async (args: { estado?: string }) => {
       const params = new URLSearchParams({ limit: "50", fields: "id,title,status,due_date" });
       if (args.estado) params.set("status", args.estado);
-      return apiRequest<Task[]>(`/tasks?${params.toString()}`);
+      const tareas = await apiRequest<Task[]>(`/tasks?${params.toString()}`);
+      return tareas.map((t) => ({ ...t, due_date_costa_rica: t.due_date ? isoACostaRica(t.due_date) : null }));
     },
   },
 
@@ -168,11 +188,13 @@ const tools = {
       notas: z.string().optional(),
       fecha_limite: z.string().datetime({ offset: true }).optional(),
     }),
-    handler: (args: { titulo: string; notas?: string; fecha_limite?: string }) =>
-      apiRequest<Task>("/tasks", {
+    handler: async (args: { titulo: string; notas?: string; fecha_limite?: string }) => {
+      const tarea = await apiRequest<Task>("/tasks", {
         method: "POST",
         body: JSON.stringify({ title: args.titulo, notes: args.notas, due_date: args.fecha_limite }),
-      }),
+      });
+      return { ...tarea, due_date_costa_rica: tarea.due_date ? isoACostaRica(tarea.due_date) : null };
+    },
   },
 
   completar_tarea: {

@@ -96,6 +96,12 @@ especulación:
   ese turno). `hora_actual` es una tool de solo lectura, sin argumentos, que devuelve la fecha/hora
   real de Costa Rica — pensada para que el agente la llame antes de razonar sobre cualquier fecha,
   no solo antes de escribir.
+- `due_date_costa_rica` (06-ago-2026, mismo día): `listar_tareas` y `crear_tarea` ya devuelven,
+  además del `due_date` original en UTC (sin tocar — el resto de la API/la app web siguen usando
+  UTC como siempre), un campo `due_date_costa_rica` con la fecha/hora ya convertida a hora local
+  (`YYYY-MM-DD HH:MM`, `isoACostaRica()` en `apps/mcp/src/index.ts`) — así el agente no tiene que
+  hacer la conversión de zona horaria de memoria para hablarle de una fecha al usuario, solo para
+  fechas que él mismo calcula al crear/editar (para eso sigue estando `hora_actual` + `AHORA_CR`).
 - Vehículos: `listar_vehiculos`, `crear_vehiculo`, `listar_mantenimientos`, `crear_mantenimiento`.
 - Rutinas: `listar_categorias`, `listar_rutinas`, `crear_rutina`.
 - Documentos: `guardar_documento`, `buscar_documentos`, `enviar_documento`. Ninguna hace OCR,
