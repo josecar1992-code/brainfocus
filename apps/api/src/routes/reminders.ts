@@ -32,6 +32,27 @@ export const remindersRouter = createResourceRouter({
   orderBy: { column: "remind_at", ascending: true },
   trackCreatedBy: true,
   hooks: {
+    // Guarda anti-duplicado: si el agente llama crear_recordatorio dos veces
+    // con el mismo título y la misma hora en una ventana corta, la segunda
+    // se rechaza (409) en vez de crear un segundo aviso real. Pasó en
+    // producción el 08-ago-2026 ("Tomar la proteína" x2, 11s de diferencia
+    // — dos llamadas reales del modelo dentro del mismo turno, no un retry
+    // de red, así que no alcanza con deduplicar por request-id). Ventana de
+    // 2 minutos: suficiente para el caso real (11s) con margen, sin bloquear
+    // a alguien que de verdad quiere dos recordatorios iguales más separados.
+    async beforeCreate(userId, input) {
+      const { data, error } = await supabaseAdmin
+        .from("reminders")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("title", input.title)
+        .eq("remind_at", input.remind_at)
+        .gte("created_at", new Date(Date.now() - 2 * 60 * 1000).toISOString())
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      if (data) return "Ya existe un recordatorio igual (mismo título y hora) creado hace menos de 2 minutos.";
+    },
     // Se crea el registro tal cual (venga de la app o del MCP de Quicks) y acá
     // mismo se programa el disparo real — ya no depende de que Quicks recuerde
     // crear el cron en el chat. Si falla programar el aviso, se borra la fila

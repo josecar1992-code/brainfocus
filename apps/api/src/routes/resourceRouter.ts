@@ -22,6 +22,13 @@ interface ResourceConfig {
   // caller: si falla programar el aviso real, quien creó el recordatorio
   // debe enterarse en vez de quedarse con un recordatorio silenciosamente roto.
   hooks?: {
+    // A diferencia de los demás hooks, beforeCreate SÍ puede bloquear la
+    // creación — devolver un string es el mensaje de error (400) que corta
+    // el POST antes de insertar nada. Pensado para guardas anti-duplicado
+    // (ver reminders.ts): el agente a veces llama la misma tool dos veces en
+    // el mismo turno (confirmado 08-ago-2026, "Tomar la proteína" x2 con 11s
+    // de diferencia — dos POST /reminders reales, no un retry de red).
+    beforeCreate?: (userId: string, input: any) => Promise<string | void>;
     afterCreate?: (userId: string, row: any) => Promise<void>;
     afterUpdate?: (userId: string, before: any, after: any) => Promise<void>;
     beforeDelete?: (userId: string, row: any) => Promise<void>;
@@ -101,6 +108,11 @@ export function createResourceRouter(config: ResourceConfig): Router {
     try {
       const parsed = createSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+      if (hooks?.beforeCreate) {
+        const blockMessage = await hooks.beforeCreate(req.auth!.userId, parsed.data);
+        if (blockMessage) return res.status(409).json({ error: blockMessage });
+      }
 
       const { data, error } = await supabaseAdmin
         .from(table)
