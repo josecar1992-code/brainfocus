@@ -16,4 +16,5 @@ export const routineCompletionsRouter = createResourceRouter({
   createSchema,
   updateSchema: createSchema.partial(),
   orderBy: { column: "completed_at", ascending: false },
+  readOnly: true,
 });

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { createResourceRouter } from "./resourceRouter.js";
+import { supabaseAdmin } from "../supabaseClient.js";
 import { cancelPendingRemindersFor } from "../services/reminderCascade.js";
 import { advanceRoutine } from "../services/routines.js";
 
@@ -41,6 +42,21 @@ export const tasksRouter = createResourceRouter({
     },
     async beforeDelete(userId, row) {
       await cancelPendingRemindersFor(userId, "task_id", row.id);
+
+      // events.task_id es "on delete set null" (no cascade) — sin esto, borrar
+      // la tarea deja el evento vivo en Agenda pero huérfano: sin tarea que
+      // marcar como hecha, sin prioridad/categoría. Se borra también el
+      // evento (y sus propios recordatorios) para no dejar ese fantasma.
+      const { data: linkedEvents, error } = await supabaseAdmin
+        .from("events")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("task_id", row.id);
+      if (error) throw error;
+      for (const event of linkedEvents ?? []) {
+        await cancelPendingRemindersFor(userId, "event_id", event.id);
+        await supabaseAdmin.from("events").delete().eq("user_id", userId).eq("id", event.id);
+      }
     },
   },
 });

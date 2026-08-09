@@ -24,11 +24,14 @@ const app = express();
 
 app.use(helmet());
 app.use(morgan("combined"));
-app.use(
-  cors({
-    origin: env.corsOrigins.length > 0 ? env.corsOrigins : true,
-  }),
-);
+// Fail-closed: sin CORS_ORIGINS configurado, ningún origen del navegador puede
+// llamar a la API (antes reflejaba cualquier Origin, un default inseguro fácil
+// de dejar pasar por olvido de configuración). Requests sin API key/JWT igual
+// no pasan de authenticate(), pero esto cierra la superficie de browser CORS.
+if (env.corsOrigins.length === 0) {
+  console.warn("[cors] CORS_ORIGINS no está configurado — se rechaza CORS de cualquier origen de navegador");
+}
+app.use(cors({ origin: env.corsOrigins }));
 app.use(express.json());
 
 app.get("/health", (_req, res) => res.json({ ok: true }));

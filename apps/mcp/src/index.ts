@@ -289,9 +289,22 @@ const tools = {
       crear_recordatorio?: boolean;
       recordatorio_hora_evento?: boolean;
     }) => {
+      // Todo evento tiene obligatoriamente una tarea asociada (mismo invariante que
+      // la web en createEvent, api.ts) — sin esto el evento quedaba huérfano: no
+      // aparecía en Tareas, sin prioridad/categoría, y no podía avanzar una rutina.
+      const task = await apiRequest<{ id: string }>("/tasks", {
+        method: "POST",
+        body: JSON.stringify({ title: args.titulo, notes: args.descripcion, due_date: args.inicio }),
+      });
+
       const event = await apiRequest<Event>("/events", {
         method: "POST",
-        body: JSON.stringify({ title: args.titulo, description: args.descripcion, starts_at: args.inicio }),
+        body: JSON.stringify({
+          title: args.titulo,
+          description: args.descripcion,
+          starts_at: args.inicio,
+          task_id: task.id,
+        }),
       });
 
       // Si el evento empieza en menos de 2h (o ya pasó), "avisar 2h antes" cae

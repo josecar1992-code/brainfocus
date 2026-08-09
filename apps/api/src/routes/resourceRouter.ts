@@ -37,6 +37,12 @@ interface ResourceConfig {
   // sola según quién autenticó la request — así la app puede mostrar un
   // badge de "creado por Quicks" sin que cada agente tenga que mandarlo.
   trackCreatedBy?: boolean;
+  // Solo registra GET (lista + detalle) — sin POST/PATCH/DELETE. Pensado para
+  // tablas que un proceso interno escribe directo con supabaseAdmin (ej.
+  // routine_completions, que llena advanceRoutine()) y que no deberían
+  // aceptar escritura de un agente con scope de solo lectura, ni por bug ni
+  // porque alguien le dé el scope :write sin querer.
+  readOnly?: boolean;
 }
 
 async function runHook(name: string, fn: (() => Promise<void>) | undefined) {
@@ -62,7 +68,14 @@ export function createResourceRouter(config: ResourceConfig): Router {
     try {
       const limitParam = Number(req.query.limit);
       const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, MAX_LIMIT) : DEFAULT_LIMIT;
-      const fields = typeof req.query.fields === "string" ? req.query.fields : "*";
+
+      // Solo lista de columnas simples separadas por coma (ej. "id,title"). Sin
+      // esto, supabase-js interpreta acá sintaxis de embeds/joins
+      // ("*,otra_tabla(*)") y el .eq("user_id", ...) de abajo solo filtra la
+      // tabla raíz — un fields armado con un embed podría exponer filas de
+      // otra tabla sin pasar por el scoping de usuario.
+      const rawFields = typeof req.query.fields === "string" ? req.query.fields : "*";
+      const fields = /^[a-zA-Z0-9_,\s*]+$/.test(rawFields) ? rawFields : "*";
 
       let query = supabaseAdmin.from(table).select(fields).eq("user_id", req.auth!.userId);
 
@@ -104,6 +117,7 @@ export function createResourceRouter(config: ResourceConfig): Router {
     }
   });
 
+  if (!config.readOnly) {
   router.post("/", requireScope(`${resourceName}:write`), async (req, res, next) => {
     try {
       const parsed = createSchema.safeParse(req.body);
@@ -193,6 +207,7 @@ export function createResourceRouter(config: ResourceConfig): Router {
       next(err);
     }
   });
+  }
 
   return router;
 }
