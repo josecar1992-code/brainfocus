@@ -5,28 +5,22 @@ No implementado todavía — este documento es la lista de trabajo, no un change
 
 ## 1. Bugs / correcciones
 
-- **[ALTO] Borrar una tarea deja el evento asociado huérfano.** `apps/api/src/routes/tasks.ts` (`beforeDelete`)
-  solo cancela recordatorios pendientes, no toca `events`. Como `events.task_id` es `on delete set null`
-  (`supabase/schema.sql`), el evento sobrevive sin tarea: no se puede marcar "hecho" ni tiene
-  prioridad/categoría. Falta manejar el evento asociado al borrar la tarea.
-- **[ALTO] `crear_evento` del MCP rompe el invariante "todo evento tiene tarea".** La web
-  (`apps/web/src/api.ts`) siempre crea tarea+evento juntos; `apps/mcp/src/index.ts` (`crear_evento`) solo
-  crea el evento. Eventos creados por Quicks no aparecen en Tareas, no tienen prioridad/categoría, y no
-  pueden avanzar rutinas (`advanceRoutine` depende de `routine_id` en `tasks`).
-- **[ALTO] `fields=` en `GET /:resource` acepta sintaxis de embed de Supabase sin validar.**
-  `apps/api/src/routes/resourceRouter.ts` pasa `req.query.fields` directo a `.select()`. Como
-  `.eq("user_id", ...)` solo filtra la tabla raíz, un `fields` con embed a otra tabla podría filtrar datos
-  fuera del scope del usuario. Necesita whitelist/regex de columnas simples.
-- **[MEDIO] CORS abierto a cualquier origen si falta `CORS_ORIGINS`.** `apps/api/src/index.ts` — debería
-  fallar cerrado, no abierto, cuando la env var no está seteada.
-- **[MEDIO] `errorHandler` filtra `err.message` crudo de Postgres al cliente.**
-  `apps/api/src/middleware/errorHandler.ts` — fuga de detalles internos hacia agentes con API key.
+- ~~**[ALTO] Borrar una tarea deja el evento asociado huérfano.**~~ ✅ Resuelto — `tasks.ts` `beforeDelete`
+  ahora borra también el/los eventos ligados y cancela sus recordatorios.
+- ~~**[ALTO] `crear_evento` del MCP rompe el invariante "todo evento tiene tarea".**~~ ✅ Resuelto —
+  `crear_evento` crea primero la tarea, igual que la web.
+- ~~**[ALTO] `fields=` en `GET /:resource` acepta sintaxis de embed de Supabase sin validar.**~~ ✅ Resuelto
+  — se valida a una lista simple de columnas (regex), si no cumple se ignora y usa `*`.
+- ~~**[MEDIO] CORS abierto a cualquier origen si falta `CORS_ORIGINS`.**~~ ✅ Resuelto — ahora falla cerrado
+  (sin origins configurados, ningún origen de navegador pasa) y loguea advertencia.
+- ~~**[MEDIO] `errorHandler` filtra `err.message` crudo de Postgres al cliente.**~~ ✅ Resuelto — errores con
+  `code` (PostgrestError) devuelven "Error interno" genérico; los `Error` de aplicación (mensajes pensados
+  para el caller) se dejan pasar igual.
 - **[MEDIO] Anti-duplicado de recordatorios es frágil ante variaciones de texto.**
   `apps/api/src/routes/reminders.ts` compara título exacto; una reformulación mínima del LLM se cuela como
-  duplicado real.
-- **[BAJO] `routine_completions` expone escritura completa** (`apps/api/src/routes/routineCompletions.ts`)
-  aunque nada debería escribir ahí salvo `advanceRoutine` internamente — reducir a solo-lectura desde
-  fuera.
+  duplicado real. _(pendiente)_
+- ~~**[BAJO] `routine_completions` expone escritura completa.**~~ ✅ Resuelto — nuevo flag `readOnly` en
+  `createResourceRouter`, aplicado a `routine_completions` (solo GET).
 
 ## 2. Mejoras a funciones existentes
 
