@@ -8,6 +8,7 @@ import { Login } from "./Login";
 import { NeuronBackground } from "./NeuronBackground";
 import { MODULES, Sidebar, type ModuleKey } from "./Sidebar";
 import { NotesPage } from "./NotesPage";
+import { ProjectsPage } from "./ProjectsPage";
 import { RoutinesPage } from "./RoutinesPage";
 import { SettingsPage } from "./SettingsPage";
 import { supabase } from "./supabaseClient";
@@ -100,6 +101,7 @@ export function App() {
             {activeModule === "tareas" && <TasksPage />}
             {activeModule === "agenda" && <AgendaPage />}
             {activeModule === "rutinas" && <RoutinesPage />}
+            {activeModule === "proyectos" && <ProjectsPage />}
             {activeModule === "notas" && <NotesPage />}
             {activeModule === "documentos" && <DocumentsPage />}
             {activeModule === "vehiculos" && <VehiclesPage />}

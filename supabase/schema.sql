@@ -56,12 +56,29 @@ create table if not exists public.lists (
 );
 
 -- ============================================================
+-- Proyectos — agrupan tareas/eventos/notas/documentos (cross-recurso, a
+-- diferencia de lists que solo aplica a tareas). Progreso agregado se
+-- calcula en el cliente a partir de las tareas ligadas, igual que subtasks.
+-- ============================================================
+create table if not exists public.projects (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  name text not null,
+  description text,
+  status text not null default 'active', -- active | archived
+  created_by text not null default 'user' check (created_by in ('user','agent')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- ============================================================
 -- Tareas
 -- ============================================================
 create table if not exists public.tasks (
   id uuid primary key default uuid_generate_v4(),
   user_id uuid not null references auth.users(id) on delete cascade,
   list_id uuid references public.lists(id) on delete set null,
+  project_id uuid references public.projects(id) on delete set null,
   title text not null,
   notes text,
   status text not null default 'pending', -- pending | in_progress | done
@@ -120,6 +137,7 @@ create table if not exists public.reminders (
 create table if not exists public.events (
   id uuid primary key default uuid_generate_v4(),
   user_id uuid not null references auth.users(id) on delete cascade,
+  project_id uuid references public.projects(id) on delete set null,
   title text not null,
   description text,
   location text,
@@ -152,6 +170,7 @@ create index if not exists idx_events_task on public.events(task_id);
 create table if not exists public.documents (
   id uuid primary key default uuid_generate_v4(),
   user_id uuid not null references auth.users(id) on delete cascade,
+  project_id uuid references public.projects(id) on delete set null,
   name text not null, -- nombre único por el que se busca/recupera, no el filename original
   storage_path text not null, -- ruta opaca dentro del bucket, ej. "<user_id>/<uuid>"
   mime_type text,
@@ -165,6 +184,7 @@ create table if not exists public.documents (
 create table if not exists public.notes (
   id uuid primary key default uuid_generate_v4(),
   user_id uuid not null references auth.users(id) on delete cascade,
+  project_id uuid references public.projects(id) on delete set null,
   title text,
   content text,
   tags text[] default '{}',
@@ -277,6 +297,11 @@ alter table public.tasks
 -- ============================================================
 -- Índices
 -- ============================================================
+create index if not exists idx_projects_user on public.projects(user_id);
+create index if not exists idx_tasks_project on public.tasks(project_id);
+create index if not exists idx_events_project on public.events(project_id);
+create index if not exists idx_notes_project on public.notes(project_id);
+create index if not exists idx_documents_project on public.documents(project_id);
 create index if not exists idx_tasks_user on public.tasks(user_id);
 create index if not exists idx_tasks_due on public.tasks(user_id, due_date);
 create index if not exists idx_subtasks_task on public.subtasks(task_id);
@@ -303,6 +328,7 @@ alter table public.profiles enable row level security;
 alter table public.api_keys enable row level security;
 alter table public.agent_actions enable row level security;
 alter table public.lists enable row level security;
+alter table public.projects enable row level security;
 alter table public.tasks enable row level security;
 alter table public.subtasks enable row level security;
 alter table public.reminders enable row level security;
@@ -324,7 +350,7 @@ declare
   t text;
 begin
   for t in select unnest(array[
-    'api_keys','agent_actions','lists','tasks','subtasks',
+    'api_keys','agent_actions','lists','projects','tasks','subtasks',
     'reminders','events','notes','documents','nutrition_logs','exercise_logs',
     'vehicles','vehicle_maintenance','routines','routine_completions'
   ])

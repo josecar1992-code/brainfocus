@@ -48,6 +48,14 @@ interface Category {
   color: string | null;
 }
 
+interface Project {
+  id: string;
+  name: string;
+  description: string | null;
+  status: "active" | "archived";
+  created_at: string;
+}
+
 interface Document {
   id: string;
   name: string;
@@ -182,6 +190,10 @@ const tools = {
             "ISO 8601 con offset -06:00 (Costa Rica). Construir a partir de la hora real que " +
             "devuelve `hora_actual`, no de memoria/estimación. Opcional.",
         },
+        proyecto_id: {
+          type: "string",
+          description: "id del proyecto al que pertenece, opcional — usar `listar_proyectos` si no se conoce.",
+        },
       },
       required: ["titulo"],
     },
@@ -189,11 +201,17 @@ const tools = {
       titulo: z.string().min(1),
       notas: z.string().optional(),
       fecha_limite: z.string().datetime({ offset: true }).optional(),
+      proyecto_id: z.string().uuid().optional(),
     }),
-    handler: async (args: { titulo: string; notas?: string; fecha_limite?: string }) => {
+    handler: async (args: { titulo: string; notas?: string; fecha_limite?: string; proyecto_id?: string }) => {
       const tarea = await apiRequest<Task>("/tasks", {
         method: "POST",
-        body: JSON.stringify({ title: args.titulo, notes: args.notas, due_date: args.fecha_limite }),
+        body: JSON.stringify({
+          title: args.titulo,
+          notes: args.notas,
+          due_date: args.fecha_limite,
+          project_id: args.proyecto_id,
+        }),
       });
       return { ...tarea, due_date_costa_rica: tarea.due_date ? isoACostaRica(tarea.due_date) : null };
     },
@@ -272,6 +290,10 @@ const tools = {
           type: "boolean",
           description: "Si además avisar justo a la hora del evento (independiente del de 2h antes). Default false.",
         },
+        proyecto_id: {
+          type: "string",
+          description: "id del proyecto al que pertenece, opcional — usar `listar_proyectos` si no se conoce.",
+        },
       },
       required: ["titulo", "inicio"],
     },
@@ -281,6 +303,7 @@ const tools = {
       inicio: z.string().datetime({ offset: true }),
       crear_recordatorio: z.boolean().optional(),
       recordatorio_hora_evento: z.boolean().optional(),
+      proyecto_id: z.string().uuid().optional(),
     }),
     handler: async (args: {
       titulo: string;
@@ -288,13 +311,19 @@ const tools = {
       inicio: string;
       crear_recordatorio?: boolean;
       recordatorio_hora_evento?: boolean;
+      proyecto_id?: string;
     }) => {
       // Todo evento tiene obligatoriamente una tarea asociada (mismo invariante que
       // la web en createEvent, api.ts) — sin esto el evento quedaba huérfano: no
       // aparecía en Tareas, sin prioridad/categoría, y no podía avanzar una rutina.
       const task = await apiRequest<{ id: string }>("/tasks", {
         method: "POST",
-        body: JSON.stringify({ title: args.titulo, notes: args.descripcion, due_date: args.inicio }),
+        body: JSON.stringify({
+          title: args.titulo,
+          notes: args.descripcion,
+          due_date: args.inicio,
+          project_id: args.proyecto_id,
+        }),
       });
 
       const event = await apiRequest<Event>("/events", {
@@ -304,6 +333,7 @@ const tools = {
           description: args.descripcion,
           starts_at: args.inicio,
           task_id: task.id,
+          project_id: args.proyecto_id,
         }),
       });
 
@@ -346,14 +376,22 @@ const tools = {
       properties: {
         titulo: { type: "string" },
         contenido: { type: "string" },
+        proyecto_id: {
+          type: "string",
+          description: "id del proyecto al que pertenece, opcional — usar `listar_proyectos` si no se conoce.",
+        },
       },
       required: ["contenido"],
     },
-    argsSchema: z.object({ titulo: z.string().optional(), contenido: z.string().min(1) }),
-    handler: (args: { titulo?: string; contenido: string }) =>
+    argsSchema: z.object({
+      titulo: z.string().optional(),
+      contenido: z.string().min(1),
+      proyecto_id: z.string().uuid().optional(),
+    }),
+    handler: (args: { titulo?: string; contenido: string; proyecto_id?: string }) =>
       apiRequest("/notes", {
         method: "POST",
-        body: JSON.stringify({ title: args.titulo, content: args.contenido }),
+        body: JSON.stringify({ title: args.titulo, content: args.contenido, project_id: args.proyecto_id }),
       }),
   },
 
@@ -468,6 +506,37 @@ const tools = {
     inputSchema: { type: "object", properties: {} },
     argsSchema: z.object({}),
     handler: () => apiRequest<Category[]>("/lists?limit=100"),
+  },
+
+  listar_proyectos: {
+    description:
+      "Lista los proyectos del usuario (id, nombre, descripción, estado) — usar esto primero para " +
+      "obtener el `proyecto_id` antes de crear una tarea/evento/nota dentro de un proyecto. Un " +
+      "proyecto agrupa tareas, eventos y notas relacionadas (distinto de una categoría: cruza varios " +
+      "tipos de recurso, no solo tareas).",
+    inputSchema: { type: "object", properties: {} },
+    argsSchema: z.object({}),
+    handler: () => apiRequest<Project[]>("/projects?limit=100"),
+  },
+
+  crear_proyecto: {
+    description:
+      "Crea un proyecto nuevo, para agrupar tareas/eventos/notas relacionadas (ej. 'Mudanza', " +
+      "'Renovar pasaporte'). Después usá `proyecto_id` al crear tareas/eventos/notas para ligarlos.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        nombre: { type: "string" },
+        descripcion: { type: "string" },
+      },
+      required: ["nombre"],
+    },
+    argsSchema: z.object({ nombre: z.string().min(1), descripcion: z.string().optional() }),
+    handler: (args: { nombre: string; descripcion?: string }) =>
+      apiRequest<Project>("/projects", {
+        method: "POST",
+        body: JSON.stringify({ name: args.nombre, description: args.descripcion }),
+      }),
   },
 
   listar_rutinas: {

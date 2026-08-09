@@ -5,6 +5,7 @@ export interface Task {
   title: string;
   notes: string | null;
   list_id: string | null;
+  project_id: string | null;
   status: "pending" | "in_progress" | "done";
   priority: "low" | "normal" | "high";
   due_date: string | null;
@@ -18,6 +19,7 @@ export interface NewTask {
   title: string;
   notes?: string;
   list_id?: string;
+  project_id?: string;
   priority?: "low" | "normal" | "high";
   crearEvento?: boolean;
   fecha?: string; // YYYY-MM-DD, solo si crearEvento
@@ -41,6 +43,20 @@ export interface List {
   id: string;
   name: string;
   color: string | null;
+}
+
+export interface Project {
+  id: string;
+  name: string;
+  description: string | null;
+  status: "active" | "archived";
+  created_by: "user" | "agent";
+  created_at: string;
+}
+
+export interface NewProject {
+  name: string;
+  description?: string;
 }
 
 export interface Event {
@@ -302,6 +318,12 @@ export const api = {
     request<List>("/lists", { method: "POST", body: JSON.stringify(input) }),
   deleteList: (id: string) => request<void>(`/lists/${id}`, { method: "DELETE" }),
 
+  listProjects: () => request<Project[]>("/projects?limit=200"),
+  createProject: (input: NewProject) => request<Project>("/projects", { method: "POST", body: JSON.stringify(input) }),
+  updateProject: (id: string, input: Partial<NewProject> & { status?: "active" | "archived" }) =>
+    request<Project>(`/projects/${id}`, { method: "PATCH", body: JSON.stringify(input) }),
+  deleteProject: (id: string) => request<void>(`/projects/${id}`, { method: "DELETE" }),
+
   async createTask(input: NewTask): Promise<Task> {
     const starts_at =
       input.crearEvento && input.fecha && input.hora ? `${input.fecha}T${input.hora}:00${CR_OFFSET}` : undefined;
@@ -317,6 +339,7 @@ export const api = {
         title: input.title,
         notes: input.notes || undefined,
         list_id: input.list_id || undefined,
+        project_id: input.project_id || undefined,
         priority: input.priority,
         due_date: starts_at ?? dueDateSinEvento,
       }),

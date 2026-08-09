@@ -28,6 +28,14 @@ export function IconCheckSquare(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+export function IconFolder(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+    </Icon>
+  );
+}
+
 export function IconCalendar(props: SVGProps<SVGSVGElement>) {
   return (
     <Icon {...props}>

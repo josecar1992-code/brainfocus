@@ -5,6 +5,7 @@ import {
   IconCar,
   IconCheckSquare,
   IconFile,
+  IconFolder,
   IconLogOut,
   IconNote,
   IconRepeat,
@@ -17,6 +18,7 @@ export type ModuleKey =
   | "tareas"
   | "agenda"
   | "rutinas"
+  | "proyectos"
   | "notas"
   | "documentos"
   | "vehiculos"
@@ -25,6 +27,7 @@ export type ModuleKey =
 export const MODULES: { key: ModuleKey; label: string; icon: ComponentType<SVGProps<SVGSVGElement>> }[] = [
   { key: "agenda", label: "Agenda", icon: IconCalendar },
   { key: "tareas", label: "Tareas", icon: IconCheckSquare },
+  { key: "proyectos", label: "Proyectos", icon: IconFolder },
   { key: "rutinas", label: "Rutinas", icon: IconRepeat },
   { key: "notas", label: "Notas y memorias", icon: IconNote },
   { key: "documentos", label: "Documentos", icon: IconFile },
