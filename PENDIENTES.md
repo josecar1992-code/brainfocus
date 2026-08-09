@@ -25,17 +25,27 @@ No implementado todavía — este documento es la lista de trabajo, no un change
 ## 2. Mejoras a funciones existentes
 
 - **[MEDIO]** Editar una rutina no reprograma la ocurrencia pendiente actual
-  (`apps/web/src/RoutinesPage.tsx`) — falta opción "aplicar también a hoy".
-- **[MEDIO]** Fallo de `scheduleReminderCron` se maneja distinto en `reminders.ts` (falla dura, borra la
-  fila) vs `apps/api/src/services/routines.ts` (se traga el error y solo loguea) — deja recordatorios de
-  rutina sin aviso real, invisibles en la UI.
-- **[MEDIO]** `GET /:resource` no soporta filtros por rango de fecha ni orden custom — Agenda trae hasta
-  200 filas y filtra en cliente, no escala.
-- **[BAJO]** `documents.ts` no valida tipo de archivo, solo tamaño (25MB).
-- **[BAJO]** Sin paginación real (cursor) en ningún endpoint — límite fijo de 200.
-- **[BAJO]** `AHORA_CR` en `apps/mcp/src/index.ts` se calcula una sola vez al cargar el módulo — si el
-  proceso MCP vive más de una invocación, las descripciones de tools quedan con hora vieja mientras
-  `hora_actual` sí es dinámica. Vale confirmar el ciclo de vida real en producción.
+  (`apps/web/src/RoutinesPage.tsx`) — falta opción "aplicar también a hoy". _(pendiente — es un cambio de
+  UX/flujo que merece su propio diseño, no un fix mecánico)_
+- ~~**[MEDIO] Fallo de `scheduleReminderCron` se maneja distinto en `reminders.ts` vs `routines.ts`.**~~ ✅
+  Resuelto — `routines.ts` ahora borra el recordatorio si falla programar el cron (antes quedaba una fila
+  fantasma con `cron_job_id` null, visible en la UI pero que nunca iba a sonar). La tarea/evento de la
+  ocurrencia sí se conservan aunque falle el aviso — eso sigue siendo intencional.
+- ~~**[MEDIO] `GET /:resource` no soporta filtros por rango de fecha.**~~ ✅ Resuelto parcialmente —
+  `resourceRouter.ts` ahora soporta `<columna>_gte`/`<columna>_lte` como query params. Además se encontró
+  un bug real de mayor impacto en el camino: `listEvents`/`listTasks`/`listReminders` (`apps/web/src/api.ts`)
+  no pasaban `limit`, así que usaban el default de 50 con orden **ascendente** — traían las 50 filas más
+  **viejas**, no las próximas. Con más de 50 eventos/tareas históricos (las rutinas generan uno por
+  ocurrencia) Agenda dejaba de mostrar lo pendiente real. Se subió a `limit=200` (el máximo) como fix
+  inmediato; migrar Agenda a usar el nuevo filtro de rango server-side en vez de traer todo y filtrar en
+  cliente queda como mejora futura (ver ítem de paginación abajo).
+- **[BAJO]** ~~`documents.ts` no valida tipo de archivo, solo tamaño (25MB).~~ ✅ Resuelto — whitelist de
+  mimetypes (PDF + imágenes comunes) vía `fileFilter` de multer, responde 400 si no matchea.
+- **[BAJO]** Sin paginación real (cursor) en ningún endpoint — límite fijo de 200. _(pendiente)_
+- ~~**[BAJO] `AHORA_CR` en `apps/mcp/src/index.ts` se calcula una sola vez al cargar el módulo.**~~
+  Descartado tras investigar — no es un bug: `docker-compose.yml` confirma que OpenClaw invoca el MCP con
+  `docker compose run --rm` por cada tool call, un proceso nuevo cada vez, así que calcularlo una vez al
+  cargar el módulo es correcto en este diseño.
 
 ## 3. Funciones nuevas sugeridas
 

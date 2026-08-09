@@ -79,11 +79,21 @@ export function createResourceRouter(config: ResourceConfig): Router {
 
       let query = supabaseAdmin.from(table).select(fields).eq("user_id", req.auth!.userId);
 
-      // Filtro de igualdad simple por cualquier columna vía query string, ej. ?status=pending.
+      // Filtro de igualdad simple por cualquier columna vía query string, ej.
+      // ?status=pending, más rango con sufijo _gte/_lte, ej.
+      // ?starts_at_gte=2026-01-01&starts_at_lte=2026-02-01 — sin esto, vistas
+      // como Agenda tenían que traer hasta MAX_LIMIT filas (ordenadas por la
+      // columna default, no acotadas por fecha) y filtrar en el cliente.
       // Confiado porque solo llega hasta acá el dueño (JWT) o un agente con scope de lectura.
       for (const [key, value] of Object.entries(req.query)) {
         if (RESERVED_QUERY_PARAMS.has(key) || typeof value !== "string") continue;
-        query = query.eq(key, value);
+        if (key.endsWith("_gte")) {
+          query = query.gte(key.slice(0, -"_gte".length), value);
+        } else if (key.endsWith("_lte")) {
+          query = query.lte(key.slice(0, -"_lte".length), value);
+        } else {
+          query = query.eq(key, value);
+        }
       }
 
       if (config.searchFields?.length && typeof req.query.q === "string" && req.query.q.trim()) {

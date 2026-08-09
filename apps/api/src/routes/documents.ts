@@ -13,7 +13,27 @@ const SIGNED_URL_TTL_SECONDS = 300; // 5 min
 
 // 25MB alcanza de sobra para PDFs/imágenes de WhatsApp (que ya limita a 100MB
 // documentos / 16MB imágenes, pero en la práctica son mucho más chicos).
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
+// El bucket es privado (siempre vía URL firmada), así que el riesgo de un
+// tipo raro es bajo, pero igual restringimos a lo que el feature promete
+// (PDFs/imágenes) en vez de aceptar cualquier mimetype que declare el cliente.
+const ALLOWED_MIME_TYPES = new Set([
+  "application/pdf",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/heic",
+  "image/heif",
+]);
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 25 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (!ALLOWED_MIME_TYPES.has(file.mimetype)) {
+      return cb(new Error(`Tipo de archivo no permitido: ${file.mimetype}`));
+    }
+    cb(null, true);
+  },
+});
 
 export const documentsRouter = Router();
 
@@ -70,7 +90,14 @@ const uploadMetaSchema = z.object({ name: z.string().min(1) });
 documentsRouter.post(
   "/upload",
   requireScope("documents:write"),
-  upload.single("file"),
+  (req, res, next) => {
+    // multer llama a next(err) directo desde fileFilter/límite de tamaño —
+    // sin este wrapper cae al errorHandler genérico como 500.
+    upload.single("file")(req, res, (err) => {
+      if (err) return res.status(400).json({ error: err.message });
+      next();
+    });
+  },
   async (req, res, next) => {
     try {
       if (!req.file) return res.status(400).json({ error: "Falta el archivo (campo 'file')" });

@@ -261,7 +261,11 @@ async function createEventReminders(input: {
 
 export const api = {
   checkAccess: () => request<Task[]>("/tasks?limit=1"),
-  listTasks: () => request<Task[]>("/tasks"),
+  // limit=200 (el máximo del backend): sin esto, el default de 50 + orden
+  // ascendente por due_date traía las 50 tareas más viejas, no las próximas
+  // — con más de 50 tareas históricas (rutinas generan una por ocurrencia)
+  // Agenda/Tareas dejaban de mostrar las pendientes reales.
+  listTasks: () => request<Task[]>("/tasks?limit=200"),
   toggleTask: (task: Task) =>
     request<Task>(`/tasks/${task.id}`, {
       method: "PATCH",
@@ -343,12 +347,16 @@ export const api = {
     return task;
   },
 
-  listEvents: () => request<Event[]>("/events"),
+  // Mismo motivo que listTasks: limit=200 en vez del default de 50, que con
+  // orden ascendente por starts_at traía los eventos más viejos en vez de los
+  // próximos.
+  listEvents: () => request<Event[]>("/events?limit=200"),
   updateEvent: (id: string, input: { title: string; description?: string; starts_at: string }) =>
     request<Event>(`/events/${id}`, { method: "PATCH", body: JSON.stringify(input) }),
   deleteEvent: (id: string) => request<void>(`/events/${id}`, { method: "DELETE" }),
 
-  listReminders: () => request<Reminder[]>("/reminders"),
+  // Mismo motivo que listTasks/listEvents: limit=200 en vez del default de 50.
+  listReminders: () => request<Reminder[]>("/reminders?limit=200"),
 
   listNotes: () => request<Note[]>("/notes"),
   createNote: (input: { title?: string; content: string }) =>

@@ -72,9 +72,11 @@ async function createOccurrence(routine: RoutineRow, occurrenceDate: string): Pr
       .single();
     if (reminderError) throw reminderError;
 
-    // Best-effort, igual que en reminders.ts: si OpenClaw falla, la tarea y el
-    // evento reales ya quedaron creados — no tiene sentido revertir todo por
-    // un aviso que no se pudo programar.
+    // La tarea y el evento reales sí deben quedar creados aunque falle el
+    // aviso — no tiene sentido revertir la ocurrencia completa por esto. Pero
+    // el recordatorio SÍ se borra si falla programarlo (igual que en
+    // reminders.ts): antes quedaba una fila fantasma con cron_job_id null que
+    // se veía como un recordatorio real en la UI pero nunca iba a sonar.
     try {
       const jobId = await scheduleReminderCron(reminder);
       if (jobId) {
@@ -82,7 +84,8 @@ async function createOccurrence(routine: RoutineRow, occurrenceDate: string): Pr
         if (error) console.error(`[routines] cron creado (${jobId}) pero no se pudo guardar:`, error.message);
       }
     } catch (err) {
-      console.error(`[routines] no se pudo programar el aviso de "${routine.title}":`, err);
+      console.error(`[routines] no se pudo programar el aviso de "${routine.title}", se borra el recordatorio fantasma:`, err);
+      await supabaseAdmin.from("reminders").delete().eq("id", reminder.id);
     }
   }
 
