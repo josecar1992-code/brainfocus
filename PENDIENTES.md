@@ -49,10 +49,13 @@ No implementado todavía — este documento es la lista de trabajo, no un change
 
 ## 3. Funciones nuevas sugeridas
 
-- **Módulo de proyectos** — agrupar tareas/eventos/notas/documentos bajo un proyecto con su propio
-  progreso agregado (similar a `lists`, pero cross-recurso: hoy `lists` solo aplica a tareas). Encaja bien
-  con el patrón ya usado en subtareas/`subtaskProgress` para mostrar % de avance, y con `created_by` para
-  diferenciar iniciativa de usuario vs agente.
+- ~~**Módulo de proyectos**~~ ✅ Implementado — tabla `projects` (name, description, status
+  active/archived, created_by) + `project_id` nullable en tasks/events/notes/documents. API
+  (`projectsRouter`), MCP (`crear_proyecto`, `listar_proyectos`, `proyecto_id` opcional en
+  crear_tarea/crear_evento/crear_nota) y web (`ProjectsPage.tsx`, progreso agregado en verde a partir de
+  las tareas ligadas). **Pendiente de una siguiente pasada**: selector de proyecto en los formularios de
+  tarea/evento/nota de la web (hoy solo se asigna desde el MCP o manualmente vía API) y wireing en
+  `documents.ts` (la columna existe, la ruta de upload todavía no la usa).
 - Recordatorios recurrentes independientes de rutinas ("cada 2 horas", sin crear una rutina completa).
 - Indicador en la UI cuando un recordatorio quedó "sin aviso real" por fallo silencioso del cron.
 - Vista "Hoy" consolidada (tareas vencen hoy + eventos hoy + próxima ocurrencia de rutina) — el dato ya
