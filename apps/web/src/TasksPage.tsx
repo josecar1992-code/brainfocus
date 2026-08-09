@@ -594,7 +594,7 @@ function TaskDetail({ task, lists, onClose }: { task: Task; lists: List[]; onClo
               <div className="flex items-center justify-between gap-2 mb-2">
                 <p className="text-xs font-semibold uppercase tracking-wide text-white/40">Subtareas</p>
                 {progress && (
-                  <p className="text-[11px] text-white/40">
+                  <p className="text-[11px] text-green-400">
                     {progress.done}/{progress.total} · {progress.percent}%
                   </p>
                 )}
@@ -602,7 +602,7 @@ function TaskDetail({ task, lists, onClose }: { task: Task; lists: List[]; onClo
               {progress && (
                 <div className="h-1.5 rounded-full bg-white/8 overflow-hidden mb-2">
                   <div
-                    className="h-full bg-electric-cyan transition-all"
+                    className="h-full bg-green-400 transition-all"
                     style={{ width: `${progress.percent}%` }}
                   />
                 </div>
@@ -958,7 +958,7 @@ function CategoryTasksView({
                     {task.created_by === "agent" && <QuickBadge iconOnly />}
                     {isOverdue(task) && <OverdueBadge />}
                     {progress && (
-                      <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0 bg-white/5 text-white/50">
+                      <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0 bg-green-500/10 text-green-400">
                         {progress.done}/{progress.total} · {progress.percent}%
                       </span>
                     )}
