@@ -169,7 +169,9 @@ Ver [infra/DEPLOY.md](infra/DEPLOY.md) para la guía paso a paso.
 | Rediseño visual | Toda la app (no solo login) con la estética "red neuronal": glass cards, botones con gradiente, `NeuronBackground` de fondo (desactivado en móvil y con `prefers-reduced-motion` por rendimiento) |
 | Módulo Documentos | PDFs/imágenes en un bucket privado de Supabase Storage (`documentos`), acceso solo vía URL firmada de 5 min; Quicks guarda por nombre (`guardar_documento`, sube los bytes del `MediaPath` tal cual, sin OCR ni descripción), lista/filtra (`buscar_documentos`) y recupera (`enviar_documento`, búsqueda por coincidencia parcial case-insensitive — si hay más de un match devuelve la lista de nombres en vez de adivinar, para que el agente le pregunte al usuario cuál quiere) — verificado de punta a punta con un PDF real por WhatsApp y Telegram |
 
-Sin pendientes de infraestructura por ahora — lo que sigue es UX/producto sobre `apps/web`.
+Sin pendientes de infraestructura por ahora — lo que sigue es UX/producto sobre `apps/web`. Ver
+[PENDIENTES.md](PENDIENTES.md) para el barrido de bugs, mejoras y funciones nuevas propuestas
+(08-ago-2026).
 
 ### Auth — notas de configuración (Supabase Dashboard, no vía MCP)
 
