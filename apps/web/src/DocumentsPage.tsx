@@ -3,6 +3,7 @@ import { useRef, useState } from "react";
 import { api, type Document } from "./api";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { IconDownload, IconFile, IconUpload, IconX } from "./icons";
+import { ProjectSelect } from "./ProjectSelect";
 
 function formatDateTime(iso: string) {
   return new Date(iso).toLocaleDateString("es-CR", {
@@ -25,6 +26,7 @@ export function DocumentsPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [name, setName] = useState("");
+  const [projectId, setProjectId] = useState("");
   const [search, setSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [docToDelete, setDocToDelete] = useState<Document | null>(null);
@@ -33,13 +35,15 @@ export function DocumentsPage() {
     queryKey: ["documents", search],
     queryFn: () => api.listDocuments(search || undefined),
   });
+  const { data: projects } = useQuery({ queryKey: ["projects"], queryFn: api.listProjects });
 
   const upload = useMutation({
-    mutationFn: () => api.uploadDocument(name.trim(), pendingFile as File),
+    mutationFn: () => api.uploadDocument(name.trim(), pendingFile as File, projectId || undefined),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["documents"] });
       setPendingFile(null);
       setName("");
+      setProjectId("");
       if (fileInputRef.current) fileInputRef.current.value = "";
     },
     onError: (err) => setError(err instanceof Error ? err.message : "No se pudo subir el documento"),
@@ -124,6 +128,9 @@ export function DocumentsPage() {
             placeholder="Nombre para buscarlo después (ej. 'contrato alquiler')"
             className="border border-deep-blue/40 bg-black/20 rounded-lg px-3 py-2 placeholder:text-white/30 focus:outline-none focus:border-electric-cyan/70 transition"
           />
+          {projects && projects.length > 0 && (
+            <ProjectSelect projects={projects} value={projectId} onChange={setProjectId} />
+          )}
           {error && <p className="text-sm text-red-400">{error}</p>}
           <button
             type="submit"

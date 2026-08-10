@@ -44,7 +44,7 @@ documentsRouter.get("/", requireScope("documents:read"), async (req, res, next) 
 
     let query = supabaseAdmin
       .from("documents")
-      .select("id, name, mime_type, size, created_at")
+      .select("id, name, mime_type, size, project_id, created_at")
       .eq("user_id", req.auth!.userId);
 
     // Búsqueda exacta por nombre — es como Quicks encuentra un documento
@@ -85,7 +85,10 @@ documentsRouter.get("/:id/download-url", requireScope("documents:read"), async (
   }
 });
 
-const uploadMetaSchema = z.object({ name: z.string().min(1) });
+const uploadMetaSchema = z.object({
+  name: z.string().min(1),
+  project_id: z.string().uuid().optional().or(z.literal("")),
+});
 
 documentsRouter.post(
   "/upload",
@@ -105,6 +108,7 @@ documentsRouter.post(
       const parsed = uploadMetaSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
       const { name } = parsed.data;
+      const projectId = parsed.data.project_id || null;
 
       // "Guardalo con este nombre" reemplaza si ya existe — nunca duplica
       // (nombre único por usuario, ver idx_documents_user_name).
@@ -126,6 +130,7 @@ documentsRouter.post(
       const row = {
         user_id: req.auth!.userId,
         name,
+        project_id: projectId,
         storage_path: storagePath,
         mime_type: req.file.mimetype,
         size: req.file.size,
@@ -134,11 +139,15 @@ documentsRouter.post(
       const { data, error } = existing
         ? await supabaseAdmin
             .from("documents")
-            .update({ mime_type: row.mime_type, size: row.size })
+            .update({ mime_type: row.mime_type, size: row.size, project_id: row.project_id })
             .eq("id", existing.id)
-            .select("id, name, mime_type, size, created_at")
+            .select("id, name, mime_type, size, project_id, created_at")
             .single()
-        : await supabaseAdmin.from("documents").insert(row).select("id, name, mime_type, size, created_at").single();
+        : await supabaseAdmin
+            .from("documents")
+            .insert(row)
+            .select("id, name, mime_type, size, project_id, created_at")
+            .single();
       if (error) throw error;
 
       await logAgentAction(req.auth!, "documents.upload", "documents", data.id, { name, mime_type: row.mime_type });

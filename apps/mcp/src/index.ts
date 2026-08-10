@@ -634,6 +634,10 @@ const tools = {
         nombre: { type: "string", description: "Nombre único por el que se va a buscar después." },
         media_path: { type: "string", description: "Ruta local del archivo (MediaPath del mensaje entrante)." },
         media_type: { type: "string", description: "MIME type del archivo (MediaType del mensaje entrante)." },
+        proyecto_id: {
+          type: "string",
+          description: "id del proyecto al que pertenece, opcional — usar `listar_proyectos` si no se conoce.",
+        },
       },
       required: ["nombre", "media_path"],
     },
@@ -641,11 +645,13 @@ const tools = {
       nombre: z.string().min(1),
       media_path: z.string().min(1),
       media_type: z.string().optional(),
+      proyecto_id: z.string().uuid().optional(),
     }),
-    handler: async (args: { nombre: string; media_path: string; media_type?: string }) => {
+    handler: async (args: { nombre: string; media_path: string; media_type?: string; proyecto_id?: string }) => {
       const bytes = await readFile(args.media_path);
       const form = new FormData();
       form.set("name", args.nombre);
+      if (args.proyecto_id) form.set("project_id", args.proyecto_id);
       form.set(
         "file",
         new Blob([bytes], { type: args.media_type || "application/octet-stream" }),

@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { api, canRemindTwoHoursBefore, type Event, type List, type Reminder, type Task } from "./api";
+import { api, canRemindTwoHoursBefore, type Event, type List, type Project, type Reminder, type Task } from "./api";
 import { CategorySelect } from "./CategorySelect";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { CornerBrackets } from "./CornerBrackets";
 import { IconBell, IconBellOff, IconCheckCircle } from "./icons";
+import { ProjectSelect } from "./ProjectSelect";
 import { QuickBadge } from "./QuickBadge";
 import { RoutineBadge } from "./RoutineBadge";
 import { OPTION_STYLE, PRIORITIES, SELECT_CLASS } from "./selectStyles";
@@ -82,11 +83,12 @@ function ReminderBadge({ reminder, iconOnly }: { reminder: Reminder; iconOnly?: 
   );
 }
 
-function NewEventForm({ lists, onClose }: { lists: List[]; onClose: () => void }) {
+function NewEventForm({ lists, projects, onClose }: { lists: List[]; projects: Project[]; onClose: () => void }) {
   const queryClient = useQueryClient();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [listId, setListId] = useState("");
+  const [projectId, setProjectId] = useState("");
   const [priority, setPriority] = useState<Task["priority"]>("normal");
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
@@ -123,6 +125,7 @@ function NewEventForm({ lists, onClose }: { lists: List[]; onClose: () => void }
       description: description.trim() || undefined,
       starts_at,
       list_id: listId,
+      project_id: projectId || undefined,
       priority,
       crearRecordatorio: puedeAvisar2h && crearRecordatorio,
       crearRecordatorioHoraEvento,
@@ -175,6 +178,13 @@ function NewEventForm({ lists, onClose }: { lists: List[]; onClose: () => void }
             </select>
           </div>
         </div>
+
+        {projects.length > 0 && (
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-white/50">Proyecto (opcional)</label>
+            <ProjectSelect projects={projects} value={projectId} onChange={setProjectId} />
+          </div>
+        )}
 
         <div className="flex gap-2">
           <div className="flex flex-col gap-1 flex-1">
@@ -518,6 +528,7 @@ export function AgendaPage() {
   const { data: reminders } = useQuery({ queryKey: ["reminders"], queryFn: api.listReminders });
   const { data: tasks } = useQuery({ queryKey: ["tasks"], queryFn: api.listTasks });
   const { data: lists } = useQuery({ queryKey: ["lists"], queryFn: api.listLists });
+  const { data: projects } = useQuery({ queryKey: ["projects"], queryFn: api.listProjects });
   const completeTask = useCompleteTask();
 
   const tasksById = new Map((tasks ?? []).map((t) => [t.id, t]));
@@ -766,7 +777,9 @@ export function AgendaPage() {
         </div>
       )}
 
-      {showForm && <NewEventForm lists={lists ?? []} onClose={() => setShowForm(false)} />}
+      {showForm && (
+        <NewEventForm lists={lists ?? []} projects={projects ?? []} onClose={() => setShowForm(false)} />
+      )}
       {selectedEvent && (
         <EventDetail
           event={selectedEvent}

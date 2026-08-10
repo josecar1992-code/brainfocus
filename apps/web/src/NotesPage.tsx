@@ -3,6 +3,7 @@ import { useState } from "react";
 import { api, type Note } from "./api";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { IconPencil, IconX } from "./icons";
+import { ProjectSelect } from "./ProjectSelect";
 import { QuickBadge } from "./QuickBadge";
 
 function formatDateTime(iso: string) {
@@ -19,14 +20,17 @@ export function NotesPage() {
   const queryClient = useQueryClient();
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+  const [projectId, setProjectId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [noteToDelete, setNoteToDelete] = useState<Note | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editContent, setEditContent] = useState("");
+  const [editProjectId, setEditProjectId] = useState("");
   const [editError, setEditError] = useState<string | null>(null);
 
   const { data: notes, isLoading } = useQuery({ queryKey: ["notes"], queryFn: api.listNotes });
+  const { data: projects } = useQuery({ queryKey: ["projects"], queryFn: api.listProjects });
 
   const createNote = useMutation({
     mutationFn: api.createNote,
@@ -34,13 +38,14 @@ export function NotesPage() {
       queryClient.invalidateQueries({ queryKey: ["notes"] });
       setTitle("");
       setContent("");
+      setProjectId("");
     },
     onError: (err) => setError(err instanceof Error ? err.message : "No se pudo guardar la nota"),
   });
 
   const updateNote = useMutation({
-    mutationFn: (input: { id: string; title?: string; content: string }) =>
-      api.updateNote(input.id, { title: input.title, content: input.content }),
+    mutationFn: (input: { id: string; title?: string; content: string; project_id?: string | null }) =>
+      api.updateNote(input.id, { title: input.title, content: input.content, project_id: input.project_id }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["notes"] });
       setEditingId(null);
@@ -60,6 +65,7 @@ export function NotesPage() {
     setEditingId(note.id);
     setEditTitle(note.title ?? "");
     setEditContent(note.content ?? "");
+    setEditProjectId(note.project_id ?? "");
     setEditError(null);
   }
 
@@ -70,7 +76,12 @@ export function NotesPage() {
       setEditError("Escribí algo en el contenido.");
       return;
     }
-    updateNote.mutate({ id: noteId, title: editTitle.trim() || undefined, content: editContent.trim() });
+    updateNote.mutate({
+      id: noteId,
+      title: editTitle.trim() || undefined,
+      content: editContent.trim(),
+      project_id: editProjectId || null,
+    });
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -80,7 +91,7 @@ export function NotesPage() {
       setError("Escribí algo en el contenido.");
       return;
     }
-    createNote.mutate({ title: title.trim() || undefined, content: content.trim() });
+    createNote.mutate({ title: title.trim() || undefined, content: content.trim(), project_id: projectId || undefined });
   }
 
   return (
@@ -106,6 +117,9 @@ export function NotesPage() {
             rows={3}
             className="border border-deep-blue/40 bg-black/20 rounded-lg px-3 py-2 placeholder:text-white/30 focus:outline-none focus:border-electric-cyan/70 resize-none transition"
           />
+          {projects && projects.length > 0 && (
+            <ProjectSelect projects={projects} value={projectId} onChange={setProjectId} />
+          )}
           {error && <p className="text-sm text-red-400">{error}</p>}
           <button
             type="submit"
@@ -145,6 +159,9 @@ export function NotesPage() {
                       autoFocus
                       className="border border-deep-blue/40 bg-black/20 rounded-lg px-3 py-2 text-sm placeholder:text-white/30 focus:outline-none focus:border-electric-cyan/70 resize-none transition"
                     />
+                    {projects && projects.length > 0 && (
+                      <ProjectSelect projects={projects} value={editProjectId} onChange={setEditProjectId} />
+                    )}
                     {editError && <p className="text-sm text-red-400">{editError}</p>}
                     <div className="flex gap-2 self-end">
                       <button

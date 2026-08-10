@@ -68,6 +68,7 @@ export interface Event {
   ends_at: string | null;
   all_day: boolean;
   task_id: string | null;
+  project_id: string | null;
   created_by: "user" | "agent";
 }
 
@@ -76,6 +77,7 @@ export interface NewEvent {
   description?: string;
   starts_at: string;
   list_id: string;
+  project_id?: string;
   priority?: Task["priority"];
   crearRecordatorio: boolean; // avisa 2h antes
   crearRecordatorioHoraEvento: boolean; // avisa justo a la hora del evento
@@ -97,6 +99,7 @@ export interface Note {
   id: string;
   title: string | null;
   content: string | null;
+  project_id: string | null;
   created_at: string;
   created_by: "user" | "agent";
 }
@@ -172,6 +175,7 @@ export interface Document {
   name: string;
   mime_type: string | null;
   size: number | null;
+  project_id: string | null;
   created_at: string;
 }
 
@@ -384,9 +388,9 @@ export const api = {
   listReminders: () => request<Reminder[]>("/reminders?limit=200"),
 
   listNotes: () => request<Note[]>("/notes"),
-  createNote: (input: { title?: string; content: string }) =>
+  createNote: (input: { title?: string; content: string; project_id?: string }) =>
     request<Note>("/notes", { method: "POST", body: JSON.stringify(input) }),
-  updateNote: (id: string, input: { title?: string; content: string }) =>
+  updateNote: (id: string, input: { title?: string; content: string; project_id?: string | null }) =>
     request<Note>(`/notes/${id}`, { method: "PATCH", body: JSON.stringify(input) }),
   deleteNote: (id: string) => request<void>(`/notes/${id}`, { method: "DELETE" }),
 
@@ -419,6 +423,7 @@ export const api = {
         title: input.title,
         notes: input.description || undefined,
         list_id: input.list_id,
+        project_id: input.project_id || undefined,
         priority: input.priority,
         due_date: input.starts_at,
       }),
@@ -431,6 +436,7 @@ export const api = {
         description: input.description,
         starts_at: input.starts_at,
         task_id: task.id,
+        project_id: input.project_id || undefined,
       }),
     });
 
@@ -487,9 +493,10 @@ export const api = {
   // Subida binaria: no puede pasar por request() porque esa fuerza
   // Content-Type: application/json siempre — acá el navegador arma el
   // multipart/form-data con su propio boundary.
-  async uploadDocument(name: string, file: File): Promise<Document> {
+  async uploadDocument(name: string, file: File, projectId?: string): Promise<Document> {
     const form = new FormData();
     form.set("name", name);
+    if (projectId) form.set("project_id", projectId);
     form.set("file", file);
     const res = await fetch(`${apiUrl}/documents/upload`, {
       method: "POST",
