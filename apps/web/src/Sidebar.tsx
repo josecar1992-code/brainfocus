@@ -10,11 +10,13 @@ import {
   IconNote,
   IconRepeat,
   IconSettings,
+  IconSun,
   IconX,
 } from "./icons";
 import { supabase } from "./supabaseClient";
 
 export type ModuleKey =
+  | "hoy"
   | "tareas"
   | "agenda"
   | "rutinas"
@@ -25,6 +27,7 @@ export type ModuleKey =
   | "configuracion";
 
 export const MODULES: { key: ModuleKey; label: string; icon: ComponentType<SVGProps<SVGSVGElement>> }[] = [
+  { key: "hoy", label: "Hoy", icon: IconSun },
   { key: "agenda", label: "Agenda", icon: IconCalendar },
   { key: "tareas", label: "Tareas", icon: IconCheckSquare },
   { key: "proyectos", label: "Proyectos", icon: IconFolder },

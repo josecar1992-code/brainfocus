@@ -4,9 +4,9 @@ import { api, canRemindTwoHoursBefore, type Event, type List, type Project, type
 import { CategorySelect } from "./CategorySelect";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { CornerBrackets } from "./CornerBrackets";
-import { IconBell, IconBellOff, IconCheckCircle } from "./icons";
 import { ProjectSelect } from "./ProjectSelect";
 import { QuickBadge } from "./QuickBadge";
+import { ReminderBadge } from "./ReminderBadge";
 import { RoutineBadge } from "./RoutineBadge";
 import { OPTION_STYLE, PRIORITIES, SELECT_CLASS } from "./selectStyles";
 import { StatusFilterTabs, type StatusFilter } from "./StatusFilterTabs";
@@ -25,62 +25,6 @@ function formatTime(iso: string) {
 
 function formatDateTime(iso: string) {
   return `${formatDate(iso)} ${formatTime(iso)}`;
-}
-
-/** Pill de estado del recordatorio: pendiente, ya enviado, o guardado pero sin cron. */
-function ReminderBadge({ reminder, iconOnly }: { reminder: Reminder; iconOnly?: boolean }) {
-  if (reminder.sent_at) {
-    const title = `Recordatorio ya enviado (${formatDateTime(reminder.sent_at)})`;
-    if (iconOnly)
-      return (
-        <span title={title} className="flex-shrink-0">
-          <IconCheckCircle className="w-3.5 h-3.5 text-green-400" strokeWidth={2} />
-        </span>
-      );
-    return (
-      <span
-        title={title}
-        className="inline-flex items-center gap-1 text-[11px] font-semibold text-green-400 bg-green-400/10 px-2 py-0.5 rounded-full"
-      >
-        <IconCheckCircle className="w-3 h-3" strokeWidth={2} />
-        Enviado
-      </span>
-    );
-  }
-  if (reminder.cron_job_id) {
-    const title = `Recordatorio programado para ${formatDateTime(reminder.remind_at)}`;
-    if (iconOnly)
-      return (
-        <span title={title} className="flex-shrink-0">
-          <IconBell className="w-3.5 h-3.5 text-electric-cyan" strokeWidth={2} />
-        </span>
-      );
-    return (
-      <span
-        title={title}
-        className="inline-flex items-center gap-1 text-[11px] font-semibold text-electric-cyan bg-electric-cyan/10 px-2 py-0.5 rounded-full"
-      >
-        <IconBell className="w-3 h-3" strokeWidth={2} />
-        Programado
-      </span>
-    );
-  }
-  const title = `Recordatorio guardado para ${formatDateTime(reminder.remind_at)}, pero sin aviso automático (OpenClaw no configurado o falló)`;
-  if (iconOnly)
-    return (
-      <span title={title} className="flex-shrink-0">
-        <IconBellOff className="w-3.5 h-3.5 text-white/40" strokeWidth={2} />
-      </span>
-    );
-  return (
-    <span
-      title={title}
-      className="inline-flex items-center gap-1 text-[11px] font-semibold text-white/40 bg-white/5 px-2 py-0.5 rounded-full"
-    >
-      <IconBellOff className="w-3 h-3" strokeWidth={2} />
-      Sin aviso
-    </span>
-  );
 }
 
 function NewEventForm({ lists, projects, onClose }: { lists: List[]; projects: Project[]; onClose: () => void }) {

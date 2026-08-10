@@ -10,6 +10,7 @@ import { MODULES, Sidebar, type ModuleKey } from "./Sidebar";
 import { NotesPage } from "./NotesPage";
 import { ProjectsPage } from "./ProjectsPage";
 import { RoutinesPage } from "./RoutinesPage";
+import { TodayPage } from "./TodayPage";
 import { SettingsPage } from "./SettingsPage";
 import { supabase } from "./supabaseClient";
 import { TasksPage } from "./TasksPage";
@@ -98,6 +99,7 @@ export function App() {
         <Header active={activeModule} email={session.user.email} />
         <main className="flex-1 md:overflow-auto px-4 py-6 md:px-8 md:py-8">
           <div className="max-w-3xl mx-auto w-full">
+            {activeModule === "hoy" && <TodayPage />}
             {activeModule === "tareas" && <TasksPage />}
             {activeModule === "agenda" && <AgendaPage />}
             {activeModule === "rutinas" && <RoutinesPage />}

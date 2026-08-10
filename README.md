@@ -107,6 +107,7 @@ cd apps/api
 cp .env.example .env   # completa con tus credenciales de Supabase
 npm install
 npm run dev
+npm test                # vitest -- hoy solo cubre routineSchedule.ts (calculo puro de fechas de rutinas)
 ```
 
 ### 3. Web

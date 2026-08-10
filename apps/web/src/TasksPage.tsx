@@ -4,9 +4,11 @@ import { api, canRemindTwoHoursBefore, type List, type NewTask, type Project, ty
 import { CategorySelect } from "./CategorySelect";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { CornerBrackets } from "./CornerBrackets";
-import { IconGripVertical, IconTrash } from "./icons";
+import { IconBellOff, IconGripVertical, IconTrash } from "./icons";
+import { PriorityBadge } from "./PriorityBadge";
 import { ProjectSelect } from "./ProjectSelect";
 import { QuickBadge } from "./QuickBadge";
+import { ReminderBadge } from "./ReminderBadge";
 import { RoutineBadge } from "./RoutineBadge";
 import { OPTION_STYLE, PRIORITIES, SELECT_CLASS } from "./selectStyles";
 import { StatusFilterTabs, type StatusFilter } from "./StatusFilterTabs";
@@ -68,15 +70,6 @@ function StatCard({ valor, etiqueta }: { valor: number; etiqueta: string }) {
       <p className="text-2xl font-bold text-white leading-none">{valor}</p>
       <p className="text-[11px] text-white/40 mt-1.5 leading-tight">{etiqueta}</p>
     </div>
-  );
-}
-
-function PriorityBadge({ priority }: { priority: Task["priority"] }) {
-  const p = PRIORITIES.find((x) => x.value === priority) ?? PRIORITIES[1];
-  return (
-    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0 ${p.className}`}>
-      {p.label}
-    </span>
   );
 }
 
@@ -332,6 +325,14 @@ function TaskDetail({
 
   const { data: events } = useQuery({ queryKey: ["events"], queryFn: api.listEvents });
   const existingEvent = events?.find((e) => e.task_id === task.id);
+
+  // Recordatorio propio de la tarea (por su due_date) o el del evento ligado
+  // — cualquiera de los dos que exista y no haya sonado ya, para mostrar acá
+  // el mismo indicador "sin aviso real" que ya existe en Agenda (ReminderBadge).
+  const { data: reminders } = useQuery({ queryKey: ["reminders"], queryFn: api.listReminders });
+  const taskReminder = reminders?.find(
+    (r) => !r.sent_at && (r.task_id === task.id || (existingEvent && r.event_id === existingEvent.id)),
+  );
 
   const { data: subtasks } = useQuery({
     queryKey: ["subtasks", task.id],
@@ -609,6 +610,7 @@ function TaskDetail({
               {task.routine_id && <RoutineBadge />}
               {task.created_by === "agent" && <QuickBadge />}
               {isOverdue(task) && <OverdueBadge />}
+              {taskReminder && <ReminderBadge reminder={taskReminder} />}
               <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-white/5 text-white/50">
                 {task.status === "done" ? "Completada" : task.status === "in_progress" ? "En curso" : "Pendiente"}
               </span>
@@ -784,7 +786,15 @@ function CategoryTasksView({
   const { data: lists } = useQuery({ queryKey: ["lists"], queryFn: api.listLists });
   const { data: projects } = useQuery({ queryKey: ["projects"], queryFn: api.listProjects });
   const { data: allSubtasks } = useQuery({ queryKey: ["subtasks"], queryFn: () => api.listSubtasks() });
+  const { data: reminders } = useQuery({ queryKey: ["reminders"], queryFn: api.listReminders });
   const completeTask = useCompleteTask();
+
+  // Solo el caso "sin aviso real" (cron falló o no se programó) — los demás
+  // estados (programado/enviado) no aportan tanto en la vista compacta como
+  // para justificar el ruido visual de un badge por tarea.
+  const tasksWithoutRealReminder = new Set(
+    (reminders ?? []).filter((r) => !r.sent_at && !r.cron_job_id && r.task_id).map((r) => r.task_id as string),
+  );
 
   // Reordenar arrastra solo cambia sort_order de la tarea soltada — optimista
   // para que el drop se sienta instantáneo, igual que el toggle de subtareas.
@@ -989,6 +999,11 @@ function CategoryTasksView({
                     {task.routine_id && <RoutineBadge />}
                     {task.created_by === "agent" && <QuickBadge iconOnly />}
                     {isOverdue(task) && <OverdueBadge />}
+                    {tasksWithoutRealReminder.has(task.id) && (
+                      <span title="Tiene un recordatorio guardado sin aviso automático" className="flex-shrink-0">
+                        <IconBellOff className="w-3.5 h-3.5 text-white/40" strokeWidth={1.75} />
+                      </span>
+                    )}
                     {progress && (
                       <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0 bg-green-500/10 text-green-400">
                         {progress.done}/{progress.total} · {progress.percent}%
