@@ -87,8 +87,15 @@ No implementado todavía — este documento es la lista de trabajo, no un change
 
 ## 4. Deuda técnica / limpieza
 
-- **[MEDIO]** Lógica de fecha/hora CR duplicada casi idéntica entre `apps/web/src/api.ts` y
-  `apps/mcp/src/index.ts` — ya empezó a divergir; candidato a paquete compartido en el monorepo.
+- ~~**[MEDIO] Lógica de fecha/hora CR duplicada entre `apps/web/src/api.ts` y `apps/mcp/src/index.ts`.**~~ ✅
+  Resuelto — `packages/shared-time` nuevo (paquete local sin dependencias runtime, `file:` dependency,
+  npm crea un symlink real): `CR_OFFSET`, `TWO_HOURS_MS`, `formatReminderTitle`, `isFutureReminder`,
+  `horaActualCR`, `isoACostaRica`, `canRemindTwoHoursBefore`. Bonus: `apps/api/src/services/routines.ts`
+  también tenía su propio `CR_OFFSET`, ahora usa el compartido. Requirió cambiar el build context de Docker
+  de `./apps/<app>` a la raíz del repo en los tres Dockerfile + `docker-compose.yml` (para que
+  `packages/shared-time` sea visible al construir cada imagen) — probado con `docker compose build` (sin
+  `up -d`) antes de promoverlo, y el contenedor `mcp` verificado en vivo con una llamada `tools/list` real
+  tras el deploy.
 - ~~**[BAJO] `trackCreatedBy` inconsistente.**~~ ✅ Resuelto — `created_by` agregado a vehicles,
   vehicle_maintenance, lists, subtasks, nutrition_logs, exercise_logs (migración + `trackCreatedBy: true`
   en sus routers). Badge visible en `VehiclesPage.tsx` (representativo — lists/subtasks no tienen UI de
