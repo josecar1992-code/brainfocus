@@ -5,6 +5,17 @@ No implementado todavía — este documento es la lista de trabajo, no un change
 
 ## 1. Bugs / correcciones
 
+- ~~**[ALTO] WhatsApp falla en silencio si el usuario no interactúa con Quicks en 24h.**~~ ✅ Resuelto
+  (10-ago-2026, pedido explícito del usuario) — Kapso/WhatsApp exige reabrir la conversación con una
+  plantilla si pasaron más de 24h desde la última interacción del usuario; sin eso, el envío se pierde
+  sin error visible en la app. `apps/api/src/services/openclawCron.ts`: todo `cron.add` de
+  recordatorios (`scheduleReminderCron`, `scheduleRecurringCron`, `scheduleOnceCron`) ahora (1) le
+  agrega al `payload.message` la instrucción explícita de reintentar por Telegram
+  (`channel: "telegram", to: "7843485332"`) si falla WhatsApp, y (2) manda `failureAlert:
+  {channel: "telegram", to: "7843485332", accountId: "default"}` a nivel de job — mecanismo del
+  gateway mismo (no de Quicks), avisa por Telegram si la entrega falla del todo, sin depender de que
+  el agente razone sobre el fallo dentro del turno. Doble capa: instrucción a nivel de agente +
+  alerta a nivel de infraestructura.
 - ~~**[ALTO] Borrar una tarea deja el evento asociado huérfano.**~~ ✅ Resuelto — `tasks.ts` `beforeDelete`
   ahora borra también el/los eventos ligados y cancela sus recordatorios.
 - ~~**[ALTO] `crear_evento` del MCP rompe el invariante "todo evento tiene tarea".**~~ ✅ Resuelto —

@@ -20,6 +20,36 @@ import { env } from "../env.js";
 //   add --json` y mirando el shape real que guarda, ya que no está en la
 //   documentación que nos pasaron.
 // - un solo destinatario por job.
+// - Fallback a Telegram (10-ago-2026, pedido explícito del usuario): WhatsApp
+//   (Kapso/Meta) falla si el usuario no interactúa con Quicks dentro de una
+//   ventana de 24h — sin eso, la plantilla de reapertura de conversación no
+//   se puede mandar y el envío se pierde en silencio. Todo `cron.add` de
+//   recordatorios ahora (1) le agrega al `payload.message` la instrucción de
+//   reintentar por Telegram si falla WhatsApp, y (2) manda `failureAlert` a
+//   nivel de job para que el propio gateway avise por Telegram si el intento
+//   de entrega falla del todo — ver `buildFailureAlert`/`withTelegramFallback`.
+
+const TELEGRAM_FALLBACK_TO = "7843485332";
+
+// `failureAlert`: mecanismo del gateway (no de Quicks) — si la entrega vía
+// `delivery` falla, el gateway mismo avisa por este canal, sin depender de
+// que el agente razone sobre el fallo. `accountId: "default"` es el shape
+// confirmado por el usuario para este campo.
+function buildFailureAlert() {
+  return { channel: "telegram", to: TELEGRAM_FALLBACK_TO, accountId: "default" };
+}
+
+// Además del failureAlert del gateway, se le pide explícitamente a Quicks en
+// el propio mensaje que reintente por Telegram si el envío por WhatsApp
+// falla — doble capa, uno a nivel de infraestructura (failureAlert) y otro a
+// nivel de instrucción (por si el agente puede reaccionar al fallo dentro del
+// mismo turno).
+function withTelegramFallback(message: string): string {
+  return (
+    `${message} Si el envío por WhatsApp falla, reintentá mandando el mismo mensaje por Telegram ` +
+    `(channel: "telegram", to: "${TELEGRAM_FALLBACK_TO}").`
+  );
+}
 
 interface ReminderForCron {
   id: string;
@@ -116,12 +146,14 @@ export async function scheduleReminderCron(reminder: ReminderForCron): Promise<s
       // el mensaje final, así que se lo pedimos explícito.
       payload: {
         kind: "agentTurn",
-        message:
+        message: withTelegramFallback(
           `Avisale esto al usuario: "${reminder.title}". Podés redactarlo con tus palabras, pero ` +
-          `la hora del evento que aparece ahí tiene que quedar sí o sí en el mensaje final, textual, ` +
-          `sin cambiarla ni omitirla.`,
+            `la hora del evento que aparece ahí tiene que quedar sí o sí en el mensaje final, textual, ` +
+            `sin cambiarla ni omitirla.`,
+        ),
       },
       delivery: { mode: "announce", channel: gatewayChannel, to },
+      failureAlert: buildFailureAlert(),
     },
   });
 
@@ -150,8 +182,9 @@ export async function scheduleRecurringCron(input: RecurringCronInput): Promise<
       displayName: input.displayName,
       sessionTarget: "isolated",
       schedule: { kind: "cron", expr: input.cronExpr, tz: "America/Costa_Rica" },
-      payload: { kind: "agentTurn", message: input.message },
+      payload: { kind: "agentTurn", message: withTelegramFallback(input.message) },
       delivery: { mode: "announce", channel: gatewayChannel, to },
+      failureAlert: buildFailureAlert(),
     },
   });
 
@@ -181,8 +214,9 @@ export async function scheduleOnceCron(input: OnceCronInput): Promise<string | n
       displayName: input.displayName,
       sessionTarget: "isolated",
       schedule: { at: input.at },
-      payload: { kind: "agentTurn", message: input.message },
+      payload: { kind: "agentTurn", message: withTelegramFallback(input.message) },
       delivery: { mode: "announce", channel: gatewayChannel, to },
+      failureAlert: buildFailureAlert(),
     },
   });
 
