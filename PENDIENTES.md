@@ -113,3 +113,18 @@ No implementado todavía — este documento es la lista de trabajo, no un change
   semanas). El resto de la app (rutas, servicios, web) sigue sin tests.
 - ~~**[BAJO] Parseo de `limit` duplicado.**~~ ✅ Resuelto — `parseLimit()` nuevo en
   `apps/api/src/utils/pagination.ts`, usado por `resourceRouter.ts` y `documents.ts`.
+
+## 5. Infraestructura / VPS — encontrado en el barrido de documentación (09-ago-2026)
+
+- **Cambio sin commitear en `docker-compose.yml` del VPS.** El volumen del servicio `mcp` está
+  ampliado en el filesystem del VPS de `/root/.openclaw/media:/root/.openclaw/media:ro` (lo que
+  dice el repo, acotado a la carpeta de media) a `/root/.openclaw:/root/.openclaw:ro` (todo el
+  directorio de OpenClaw, de solo lectura). No se tocó ni se commiteó porque no hay contexto de
+  por qué se amplió — preservado con `git stash`/`pop` durante los últimos `pull` para no perderlo.
+  _(pendiente: preguntarle al usuario el motivo antes de decidir si se documenta como intencional o
+  se revierte a la versión acotada)._
+- **Archivos `.bak-20260803` sueltos en el VPS**, no parte del repo (untracked): 
+  `apps/api/src/services/openclawCron.ts.bak-20260803` y `docker-compose.yml.bak-20260803` —
+  confirmado que son snapshots pre-fix del 03-ago-2026, completamente superados por el código
+  actual. Parecen residuos de debugging de otra sesión. _(pendiente: limpiarlos si el usuario
+  confirma que no hace falta conservarlos)._
