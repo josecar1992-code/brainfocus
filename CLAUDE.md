@@ -25,3 +25,18 @@ usa `Intl`/`toLocaleString`. Ya existe infraestructura para esto, usarla en vez 
 
 Antes de agregar cualquier código nuevo que arme, compare o muestre una fecha/hora, revisar que no
 esté dependiendo implícitamente de la zona horaria del entorno donde corre.
+
+## Todo cambio en la app queda documentado, sin que haga falta pedirlo
+
+Cualquier cambio real hecho en este repo (feature nueva, fix de bug, cambio de comportamiento,
+migración de datos, cambio de infraestructura/deploy) se documenta en `PENDIENTES.md` (o
+`README.md` si es algo permanente de cara a cómo funciona la app) **como parte del mismo trabajo**,
+no como un paso aparte que el usuario tiene que pedir. Esto aplica siempre, no solo cuando el
+usuario dice "documenta" o "revisa que no quede nada sin documentar".
+
+- Se documenta antes o junto con el commit, nunca "después, si da tiempo".
+- Incluye: qué cambió, por qué (el motivo real, no solo la mecánica), y en qué archivo(s) vive.
+- Si el cambio corrige algo mal hecho antes (como el bug de zona horaria de arriba), documentar
+  también la causa raíz — para que quede el aprendizaje, no solo el fix.
+- Esto no reemplaza preguntarle al usuario cuando una decisión de producto/diseño no está clara
+  (eso sigue siendo necesario) — es específicamente sobre no dejar trabajo ya hecho sin registrar.
