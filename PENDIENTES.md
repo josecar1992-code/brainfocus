@@ -88,6 +88,14 @@ No implementado todavía — este documento es la lista de trabajo, no un change
   payload directo contra `POST /tools/invoke` antes de codificarlo (mismo criterio que la investigación del
   canal WhatsApp/Kapso del 07-ago). MCP: `registrar_kilometraje`, `listar_kilometrajes`. Scopes
   `vehicle_mileage:read`/`vehicle_mileage:write` otorgados a `quicks-agent` (09-ago-2026).
+  **10-ago-2026:** a pedido del usuario, cambia de "una vez al mes" a "cada 2 días hasta que responda" —
+  el cron pasó de `0 9 1 * *` a `0 9 */2 * *` (`apps/api/src/routes/settings.ts`) y el mensaje ahora le
+  pide a Quicks que antes de preguntar revise con `listar_kilometrajes` si ya hay una lectura de ese
+  vehículo en el mes-calendario actual; si ya la hay, no vuelve a preguntar por ese vehículo. No hizo
+  falta tocar el mecanismo de cron recurrente en sí, solo el `cronExpr` y el texto del mensaje. Un usuario
+  que ya tenía el aviso activado antes de este cambio necesita apagar y prender el toggle en Configuración
+  una vez para que se reprograme con el nuevo `cronExpr` (el `toggle` cancela el job viejo y crea uno
+  nuevo).
 - Búsqueda global (Ctrl+K) — hoy `q` solo existe en notas/documentos.
 - Multiusuario/compartido — `supabase/schema.sql` ya insinúa "single-user hoy, multi-tenant mañana".
 

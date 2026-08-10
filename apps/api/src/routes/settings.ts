@@ -4,12 +4,20 @@ import { requireScope } from "../middleware/auth.js";
 import { supabaseAdmin } from "../supabaseClient.js";
 import { cancelReminderCron, scheduleRecurringCron } from "../services/openclawCron.js";
 
-// 9am el día 1 de cada mes (hora Costa Rica, explícito en scheduleRecurringCron).
-const MILEAGE_CRON_EXPR = "0 9 1 * *";
+// 9am cada 2 días (hora Costa Rica, explícito en scheduleRecurringCron). No es
+// "cada 2 días para siempre": el mensaje le pide a Quicks que solo pregunte por
+// los vehículos que todavía no tienen una lectura este mes-calendario, así que
+// en la práctica insiste cada 2 días hasta que el usuario responde, y después
+// queda en silencio el resto del mes.
+const MILEAGE_CRON_EXPR = "0 9 */2 * *";
 const MILEAGE_CRON_MESSAGE =
-  "Es el aviso mensual de kilometraje de Focusbrain: usá `listar_vehiculos` para ver los vehículos " +
-  "del usuario y preguntale el kilometraje actual de cada uno. Por cada uno que te responda, " +
-  "guardalo con `registrar_kilometraje`. Si no tiene vehículos registrados, no hace falta que digas nada.";
+  "Es el aviso de kilometraje de Focusbrain (corre cada 2 días): usá `listar_vehiculos` para ver los " +
+  "vehículos del usuario. Para cada uno, revisá con `listar_kilometrajes` si ya hay una lectura " +
+  "registrada este mes-calendario (comparando la fecha de la más reciente contra el mes actual). Si ya " +
+  "hay una lectura de este mes, no preguntes por ese vehículo — ya respondió. Si no hay ninguna lectura " +
+  "de este mes, preguntale el kilometraje actual de ese vehículo y guardalo con `registrar_kilometraje` " +
+  "en cuanto te responda. Si no tiene vehículos registrados, o todos ya tienen lectura de este mes, no " +
+  "hace falta que digas nada.";
 
 export const settingsRouter = Router();
 
