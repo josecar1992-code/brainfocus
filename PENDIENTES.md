@@ -80,10 +80,8 @@ No implementado todavía — este documento es la lista de trabajo, no un change
   la app, que son one-shot (`schedule.at`). El shape recurrente no está documentado en ningún lado; se
   confirmó en vivo el 09-ago-2026 con `openclaw cron add --cron ... --tz ... --json` y probando el mismo
   payload directo contra `POST /tools/invoke` antes de codificarlo (mismo criterio que la investigación del
-  canal WhatsApp/Kapso del 07-ago). MCP: `registrar_kilometraje`, `listar_kilometrajes`.
-  **Pendiente de acción manual**: otorgar los scopes `vehicle_mileage:read`/`vehicle_mileage:write` a la
-  API key `quicks-agent` — bloqueado por el clasificador de seguridad (igual que pasó con `projects`), ver
-  el SQL en el historial de la conversación o correrlo desde el dashboard de Supabase.
+  canal WhatsApp/Kapso del 07-ago). MCP: `registrar_kilometraje`, `listar_kilometrajes`. Scopes
+  `vehicle_mileage:read`/`vehicle_mileage:write` otorgados a `quicks-agent` (09-ago-2026).
 - Búsqueda global (Ctrl+K) — hoy `q` solo existe en notas/documentos.
 - Multiusuario/compartido — `supabase/schema.sql` ya insinúa "single-user hoy, multi-tenant mañana".
 
