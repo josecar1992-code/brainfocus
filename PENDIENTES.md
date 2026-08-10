@@ -18,15 +18,17 @@ No implementado todavía — este documento es la lista de trabajo, no un change
   para el caller) se dejan pasar igual.
 - **[MEDIO] Anti-duplicado de recordatorios es frágil ante variaciones de texto.**
   `apps/api/src/routes/reminders.ts` compara título exacto; una reformulación mínima del LLM se cuela como
-  duplicado real. _(pendiente)_
+  duplicado real. _(decisión del usuario 09-ago-2026: dejar como está — no es un problema confirmado en
+  producción todavía, a diferencia del caso real de duplicado exacto que sí pasó)_
 - ~~**[BAJO] `routine_completions` expone escritura completa.**~~ ✅ Resuelto — nuevo flag `readOnly` en
   `createResourceRouter`, aplicado a `routine_completions` (solo GET).
 
 ## 2. Mejoras a funciones existentes
 
 - **[MEDIO]** Editar una rutina no reprograma la ocurrencia pendiente actual
-  (`apps/web/src/RoutinesPage.tsx`) — falta opción "aplicar también a hoy". _(pendiente — es un cambio de
-  UX/flujo que merece su propio diseño, no un fix mecánico)_
+  (`apps/web/src/RoutinesPage.tsx`) — falta opción "aplicar también a hoy". _(decisión del usuario
+  09-ago-2026: mantener el comportamiento actual — si se quiere cambiar la ocurrencia de hoy, se edita esa
+  tarea directamente desde Tareas/Agenda, ya se puede)_
 - ~~**[MEDIO] Fallo de `scheduleReminderCron` se maneja distinto en `reminders.ts` vs `routines.ts`.**~~ ✅
   Resuelto — `routines.ts` ahora borra el recordatorio si falla programar el cron (antes quedaba una fila
   fantasma con `cron_job_id` null, visible en la UI pero que nunca iba a sonar). La tarea/evento de la
@@ -55,12 +57,17 @@ No implementado todavía — este documento es la lista de trabajo, no un change
   opcional en crear_tarea/crear_evento/crear_nota/guardar_documento) y web (`ProjectsPage.tsx` con progreso
   agregado en verde, `ProjectSelect.tsx` wireado en Tareas/Agenda/Notas/Documentos — crear y editar). Scopes
   `projects:read`/`projects:write` otorgados a `quicks-agent`.
+- ~~**Indicador en la UI cuando un recordatorio quedó "sin aviso real".**~~ ✅ Resuelto — `ReminderBadge.tsx`
+  extraído de `AgendaPage.tsx` a componente compartido; ahora también se muestra en `TaskDetail`
+  (`TasksPage.tsx`) para el recordatorio propio de la tarea o de su evento ligado, y un ícono en la vista
+  compacta de lista cuando aplica el caso "sin aviso". Antes solo era visible desde Agenda.
+- ~~**Vista "Hoy" consolidada.**~~ ✅ Resuelto — `TodayPage.tsx` nuevo, primer módulo del nav: eventos de
+  hoy + tareas que vencen hoy + ocurrencia de rutina de hoy, con el mismo checkbox de completar
+  (`useCompleteTask`) que Tareas/Agenda/Rutinas.
 - Recordatorios recurrentes independientes de rutinas ("cada 2 horas", sin crear una rutina completa).
-- Indicador en la UI cuando un recordatorio quedó "sin aviso real" por fallo silencioso del cron.
-- Vista "Hoy" consolidada (tareas vencen hoy + eventos hoy + próxima ocurrencia de rutina) — el dato ya
-  existe, falta la vista.
+- **Alertas de mantenimiento vehicular por km/fecha** — priorizada por el usuario (09-ago-2026), aún no
+  implementada: queda para la siguiente pasada.
 - Búsqueda global (Ctrl+K) — hoy `q` solo existe en notas/documentos.
-- Alertas de mantenimiento vehicular por km/fecha (ya existe historial, falta el aviso proactivo).
 - Multiusuario/compartido — `supabase/schema.sql` ya insinúa "single-user hoy, multi-tenant mañana".
 
 ## 4. Deuda técnica / limpieza
@@ -72,7 +79,9 @@ No implementado todavía — este documento es la lista de trabajo, no un change
   en sus routers). Badge visible en `VehiclesPage.tsx` (representativo — lists/subtasks no tienen UI de
   badges hoy, nutrition/exercise son solo-MCP sin página web). `routine_completions` queda afuera a
   propósito: es `readOnly`, nada externo escribe ahí.
-- **[BAJO]** Sin tests automatizados en ninguna app — `routineSchedule.ts` está escrito como función pura
-  pensada para testear, pero nada la ejerce. _(pendiente)_
+- ~~**[BAJO] Sin tests automatizados.**~~ ✅ Resuelto (parcial, por decisión del usuario 09-ago-2026: empezar
+  por `routineSchedule.ts`) — vitest instalado en `apps/api` (`npm test`), 14 tests cubriendo
+  `firstOccurrenceDate`/`nextOccurrenceDate`/`describeRecurrence` (diaria, semanal, quincenal con paridad de
+  semanas). El resto de la app (rutas, servicios, web) sigue sin tests.
 - ~~**[BAJO] Parseo de `limit` duplicado.**~~ ✅ Resuelto — `parseLimit()` nuevo en
   `apps/api/src/utils/pagination.ts`, usado por `resourceRouter.ts` y `documents.ts`.
