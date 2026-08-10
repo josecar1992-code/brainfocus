@@ -164,6 +164,29 @@ export interface NewMileageLog {
   logged_at?: string;
 }
 
+// Aviso periódico sin tarea ni historial de ocurrencias — distinto de una
+// rutina (que genera tarea+evento por ocurrencia) y de un recordatorio común
+// (que es de una sola vez).
+export interface RecurringReminder {
+  id: string;
+  title: string;
+  frequency: "every_n_hours" | "daily" | "weekly";
+  interval_hours: number | null;
+  time_of_day: string | null;
+  day_of_week: number | null;
+  channel: "whatsapp" | "telegram" | null;
+  active: boolean;
+  created_by: "user" | "agent";
+}
+
+export interface NewRecurringReminder {
+  title: string;
+  frequency: "every_n_hours" | "daily" | "weekly";
+  interval_hours?: number;
+  time_of_day?: string;
+  day_of_week?: number;
+}
+
 export interface Routine {
   id: string;
   title: string;
@@ -412,6 +435,13 @@ export const api = {
   getMileageReminder: () => request<{ enabled: boolean }>("/settings/mileage-reminder"),
   setMileageReminder: (enabled: boolean) =>
     request<{ enabled: boolean }>("/settings/mileage-reminder", { method: "POST", body: JSON.stringify({ enabled }) }),
+
+  listRecurringReminders: () => request<RecurringReminder[]>("/recurring-reminders?limit=100"),
+  createRecurringReminder: (input: NewRecurringReminder) =>
+    request<RecurringReminder>("/recurring-reminders", { method: "POST", body: JSON.stringify(input) }),
+  toggleRecurringReminder: (id: string, active: boolean) =>
+    request<RecurringReminder>(`/recurring-reminders/${id}`, { method: "PATCH", body: JSON.stringify({ active }) }),
+  deleteRecurringReminder: (id: string) => request<void>(`/recurring-reminders/${id}`, { method: "DELETE" }),
 
   listRoutines: () => request<Routine[]>("/routines"),
   createRoutine: (input: NewRoutine) => request<Routine>("/routines", { method: "POST", body: JSON.stringify(input) }),

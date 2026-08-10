@@ -26,6 +26,16 @@ interface Note {
   created_at: string;
 }
 
+interface RecurringReminder {
+  id: string;
+  title: string;
+  frequency: "every_n_hours" | "daily" | "weekly";
+  interval_hours: number | null;
+  time_of_day: string | null;
+  day_of_week: number | null;
+  active: boolean;
+}
+
 interface Vehicle {
   id: string;
   brand: string;
@@ -235,6 +245,96 @@ const tools = {
         method: "POST",
         body: JSON.stringify({ title: args.titulo, remind_at: args.recordar_en, task_id: args.tarea_id }),
       }),
+  },
+
+  crear_recordatorio_recurrente: {
+    description:
+      "Crea un aviso que se repite solo (ej. 'recordame tomar agua cada 2 horas', 'todos los días a " +
+      "las 8pm recordame tomar la pastilla', 'cada lunes a las 9am recordame sacar la basura') — a " +
+      "diferencia de `crear_recordatorio` (una sola vez) o `crear_rutina` (genera tarea+evento por " +
+      "ocurrencia), esto es solo un aviso periódico sin tarea ni historial. La API programa sola el " +
+      "cron real recurrente en OpenClaw.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        titulo: { type: "string", description: "ej. 'Tomar agua'" },
+        frecuencia: { type: "string", enum: ["cada_n_horas", "diaria", "semanal"] },
+        cada_cuantas_horas: {
+          type: "number",
+          description: "1-23. Requerido si frecuencia es 'cada_n_horas'. Dispara en marcas de reloj " +
+            "múltiplos de este número (ej. 3 = 12am, 3am, 6am...), no 'cada N horas desde ahora'.",
+        },
+        hora: { type: "string", description: "HH:MM, 24 horas. Requerido si frecuencia es 'diaria' o 'semanal'." },
+        dia_semana: {
+          type: "number",
+          description: "0=domingo .. 6=sábado. Requerido si frecuencia es 'semanal'.",
+        },
+      },
+      required: ["titulo", "frecuencia"],
+    },
+    argsSchema: z.object({
+      titulo: z.string().min(1),
+      frecuencia: z.enum(["cada_n_horas", "diaria", "semanal"]),
+      cada_cuantas_horas: z.number().int().min(1).max(23).optional(),
+      hora: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(),
+      dia_semana: z.number().int().min(0).max(6).optional(),
+    }),
+    handler: (args: {
+      titulo: string;
+      frecuencia: "cada_n_horas" | "diaria" | "semanal";
+      cada_cuantas_horas?: number;
+      hora?: string;
+      dia_semana?: number;
+    }) => {
+      const frequency = { cada_n_horas: "every_n_hours", diaria: "daily", semanal: "weekly" }[args.frecuencia];
+      return apiRequest<RecurringReminder>("/recurring-reminders", {
+        method: "POST",
+        body: JSON.stringify({
+          title: args.titulo,
+          frequency,
+          interval_hours: args.cada_cuantas_horas,
+          time_of_day: args.hora,
+          day_of_week: args.dia_semana,
+        }),
+      });
+    },
+  },
+
+  listar_recordatorios_recurrentes: {
+    description: "Lista los avisos periódicos guardados del usuario (frecuencia, hora, si están activos).",
+    inputSchema: { type: "object", properties: {} },
+    argsSchema: z.object({}),
+    handler: () => apiRequest<RecurringReminder[]>("/recurring-reminders?limit=100"),
+  },
+
+  pausar_recordatorio_recurrente: {
+    description:
+      "Activa o pausa un aviso periódico sin borrarlo (pausado, no vuelve a sonar hasta que se " +
+      "reactive). Necesita el `id` — usar `listar_recordatorios_recurrentes` primero si no se conoce.",
+    inputSchema: {
+      type: "object",
+      properties: { id: { type: "string" }, activo: { type: "boolean" } },
+      required: ["id", "activo"],
+    },
+    argsSchema: z.object({ id: z.string().uuid(), activo: z.boolean() }),
+    handler: (args: { id: string; activo: boolean }) =>
+      apiRequest<RecurringReminder>(`/recurring-reminders/${args.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ active: args.activo }),
+      }),
+  },
+
+  borrar_recordatorio_recurrente: {
+    description:
+      "Borra un aviso periódico y cancela su cron. Necesita el `id` — usar " +
+      "`listar_recordatorios_recurrentes` primero si no se conoce.",
+    inputSchema: {
+      type: "object",
+      properties: { id: { type: "string" } },
+      required: ["id"],
+    },
+    argsSchema: z.object({ id: z.string().uuid() }),
+    handler: (args: { id: string }) => apiRequest(`/recurring-reminders/${args.id}`, { method: "DELETE" }),
   },
 
   crear_evento: {

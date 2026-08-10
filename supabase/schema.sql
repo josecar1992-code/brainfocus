@@ -139,6 +139,30 @@ create table if not exists public.reminders (
 );
 
 -- ============================================================
+-- Recordatorios recurrentes — "recordame tomar agua cada 2 horas", sin
+-- necesidad de crear una rutina completa (que siempre implica
+-- tarea+evento+historial de ocurrencias). Usa el mismo mecanismo de cron
+-- RECURRENTE real de OpenClaw que el aviso mensual de kilometraje
+-- (scheduleRecurringCron, ver openclawCron.ts) — puro aviso periódico sin
+-- estado de completado, no genera filas en reminders/tasks.
+-- ============================================================
+create table if not exists public.recurring_reminders (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  title text not null,
+  frequency text not null, -- every_n_hours | daily | weekly
+  interval_hours integer, -- solo every_n_hours: cada cuántas horas (1-23)
+  time_of_day text, -- HH:MM, solo daily/weekly
+  day_of_week integer, -- 0 (domingo) .. 6 (sábado), solo weekly
+  channel text default 'whatsapp', -- telegram | whatsapp
+  active boolean not null default true,
+  cron_job_id text,
+  created_by text not null default 'user' check (created_by in ('user','agent')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- ============================================================
 -- Eventos / agenda
 -- ============================================================
 create table if not exists public.events (
@@ -346,6 +370,7 @@ create index if not exists idx_tasks_due on public.tasks(user_id, due_date);
 create index if not exists idx_subtasks_task on public.subtasks(task_id);
 create index if not exists idx_subtasks_user on public.subtasks(user_id);
 create index if not exists idx_reminders_remind_at on public.reminders(user_id, remind_at);
+create index if not exists idx_recurring_reminders_user on public.recurring_reminders(user_id);
 create index if not exists idx_reminders_event on public.reminders(event_id);
 create index if not exists idx_events_starts on public.events(user_id, starts_at);
 create index if not exists idx_notes_user on public.notes(user_id);
@@ -373,6 +398,7 @@ alter table public.projects enable row level security;
 alter table public.tasks enable row level security;
 alter table public.subtasks enable row level security;
 alter table public.reminders enable row level security;
+alter table public.recurring_reminders enable row level security;
 alter table public.events enable row level security;
 alter table public.documents enable row level security;
 alter table public.notes enable row level security;
@@ -393,7 +419,7 @@ declare
 begin
   for t in select unnest(array[
     'api_keys','agent_actions','lists','projects','tasks','subtasks',
-    'reminders','events','notes','documents','nutrition_logs','exercise_logs',
+    'reminders','recurring_reminders','events','notes','documents','nutrition_logs','exercise_logs',
     'vehicles','vehicle_maintenance','vehicle_mileage_logs','routines','routine_completions'
   ])
   loop
