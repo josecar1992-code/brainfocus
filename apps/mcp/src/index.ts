@@ -32,6 +32,8 @@ interface Vehicle {
   year: number | null;
   vehicle_type: string | null;
   plate: string | null;
+  next_maintenance_date: string | null;
+  next_maintenance_mileage: number | null;
 }
 
 interface VehicleMaintenance {
@@ -447,6 +449,40 @@ const tools = {
       apiRequest<Vehicle>("/vehicles", {
         method: "POST",
         body: JSON.stringify({ brand: args.marca, model: args.modelo, year: args.anio, vehicle_type: args.tipo, plate: args.placa }),
+      }),
+  },
+
+  fijar_proximo_mantenimiento: {
+    description:
+      "Guarda cuándo/a qué kilometraje toca el próximo mantenimiento de un vehículo (ej. 'avisame " +
+      "del cambio de aceite en 3 meses' o 'a los 55000 km'). Si le pasás fecha, la API programa sola " +
+      "un aviso real por WhatsApp/Telegram para ese día, igual que un recordatorio normal — no hace " +
+      "falta crear ningún cron aparte. El kilometraje es solo referencia visual en la app (no hay forma " +
+      "de avisar solo cuando se llega a un km sin que alguien registre el odómetro). Necesita el `id` " +
+      `del vehículo — usar \`listar_vehiculos\` primero si no se conoce. ${AHORA_CR}`,
+    inputSchema: {
+      type: "object",
+      properties: {
+        vehiculo_id: { type: "string" },
+        fecha: {
+          type: "string",
+          description:
+            "ISO 8601 con offset -06:00 (Costa Rica), fecha del próximo mantenimiento. Opcional: " +
+            "omitilo para dejar la fecha actual sin cambios, o mandá null explícito para borrarla.",
+        },
+        kilometraje: { type: "number", description: "Kilometraje objetivo del próximo mantenimiento. Opcional." },
+      },
+      required: ["vehiculo_id"],
+    },
+    argsSchema: z.object({
+      vehiculo_id: z.string().uuid(),
+      fecha: z.string().datetime({ offset: true }).optional().nullable(),
+      kilometraje: z.number().optional().nullable(),
+    }),
+    handler: (args: { vehiculo_id: string; fecha?: string | null; kilometraje?: number | null }) =>
+      apiRequest<Vehicle>(`/vehicles/${args.vehiculo_id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ next_maintenance_date: args.fecha, next_maintenance_mileage: args.kilometraje }),
       }),
   },
 

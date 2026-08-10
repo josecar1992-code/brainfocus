@@ -244,10 +244,22 @@ create table if not exists public.vehicles (
   year integer,
   vehicle_type text,
   plate text,
+  -- Alerta de mantenimiento: next_maintenance_date dispara un recordatorio
+  -- real (reminders.vehicle_id, igual que tasks/events); next_maintenance_mileage
+  -- es solo indicador en la UI (no hay lectura de odómetro en vivo, se
+  -- compara contra el mayor "mileage" registrado en vehicle_maintenance).
+  next_maintenance_date timestamptz,
+  next_maintenance_mileage numeric,
   created_by text not null default 'user' check (created_by in ('user','agent')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- reminders.vehicle_id se agrega acá (con alter) porque vehicles se declara
+-- después de reminders arriba, y la FK necesita que la tabla destino ya exista.
+alter table public.reminders
+  add column if not exists vehicle_id uuid references public.vehicles(id) on delete cascade;
+create index if not exists idx_reminders_vehicle on public.reminders(vehicle_id);
 
 create table if not exists public.vehicle_maintenance (
   id uuid primary key default uuid_generate_v4(),

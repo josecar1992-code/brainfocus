@@ -111,6 +111,8 @@ export interface Vehicle {
   year: number | null;
   vehicle_type: string | null;
   plate: string | null;
+  next_maintenance_date: string | null;
+  next_maintenance_mileage: number | null;
   created_by: "user" | "agent";
   created_at: string;
 }
@@ -121,6 +123,8 @@ export interface NewVehicle {
   year?: number;
   vehicle_type?: string;
   plate?: string;
+  next_maintenance_date?: string | null;
+  next_maintenance_mileage?: number | null;
 }
 
 export interface VehicleMaintenance {

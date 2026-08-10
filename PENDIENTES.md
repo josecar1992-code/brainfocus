@@ -65,8 +65,12 @@ No implementado todavía — este documento es la lista de trabajo, no un change
   hoy + tareas que vencen hoy + ocurrencia de rutina de hoy, con el mismo checkbox de completar
   (`useCompleteTask`) que Tareas/Agenda/Rutinas.
 - Recordatorios recurrentes independientes de rutinas ("cada 2 horas", sin crear una rutina completa).
-- **Alertas de mantenimiento vehicular por km/fecha** — priorizada por el usuario (09-ago-2026), aún no
-  implementada: queda para la siguiente pasada.
+- ~~**Alertas de mantenimiento vehicular por km/fecha.**~~ ✅ Resuelto — `vehicles.next_maintenance_date` /
+  `next_maintenance_mileage` nuevos. La fecha programa un recordatorio real (`reminders.vehicle_id`, mismo
+  mecanismo que tasks/events: se recrea si la fecha cambia, se cancela si se borra el vehículo). El
+  kilometraje es solo indicador visual (badge rojo si el mayor `mileage` del historial ya lo alcanzó) —
+  no hay forma de disparar un aviso automático sin una lectura de odómetro en vivo. MCP:
+  `fijar_proximo_mantenimiento`.
 - Búsqueda global (Ctrl+K) — hoy `q` solo existe en notas/documentos.
 - Multiusuario/compartido — `supabase/schema.sql` ya insinúa "single-user hoy, multi-tenant mañana".
 

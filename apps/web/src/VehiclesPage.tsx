@@ -12,6 +12,44 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("es-CR", { day: "2-digit", month: "short", year: "numeric" });
 }
 
+// Sin lectura de odómetro en vivo, el mejor proxy de "kilometraje actual" es
+// el mayor mileage ya registrado en el historial — por eso esto es un
+// indicador visual, no un aviso automático como el de fecha.
+function MaintenanceAlerts({ vehicle, maxLoggedMileage }: { vehicle: Vehicle; maxLoggedMileage: number | null }) {
+  const dateSoon = vehicle.next_maintenance_date && new Date(vehicle.next_maintenance_date).getTime() < Date.now();
+  const mileageDue =
+    vehicle.next_maintenance_mileage != null &&
+    maxLoggedMileage != null &&
+    maxLoggedMileage >= vehicle.next_maintenance_mileage;
+
+  if (!vehicle.next_maintenance_date && vehicle.next_maintenance_mileage == null) return null;
+
+  return (
+    <div className="flex flex-wrap gap-2 mt-2">
+      {vehicle.next_maintenance_date && (
+        <span
+          className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+            dateSoon ? "bg-red-400/15 text-red-400" : "bg-electric-cyan/10 text-electric-cyan"
+          }`}
+        >
+          {dateSoon ? "Mantenimiento vencido" : `Próximo: ${formatDate(vehicle.next_maintenance_date)}`}
+        </span>
+      )}
+      {vehicle.next_maintenance_mileage != null && (
+        <span
+          className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+            mileageDue ? "bg-red-400/15 text-red-400" : "bg-white/5 text-white/50"
+          }`}
+        >
+          {mileageDue
+            ? `Ya pasó los ${vehicle.next_maintenance_mileage.toLocaleString("es-CR")} km`
+            : `Próximo a los ${vehicle.next_maintenance_mileage.toLocaleString("es-CR")} km`}
+        </span>
+      )}
+    </div>
+  );
+}
+
 function VehicleForm({
   initial,
   onSubmit,
@@ -32,6 +70,12 @@ function VehicleForm({
   const [year, setYear] = useState(initial?.year ? String(initial.year) : "");
   const [vehicleType, setVehicleType] = useState(initial?.vehicle_type ?? "");
   const [plate, setPlate] = useState(initial?.plate ?? "");
+  const [nextDate, setNextDate] = useState(
+    initial?.next_maintenance_date ? initial.next_maintenance_date.slice(0, 10) : "",
+  );
+  const [nextMileage, setNextMileage] = useState(
+    initial?.next_maintenance_mileage != null ? String(initial.next_maintenance_mileage) : "",
+  );
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -42,6 +86,8 @@ function VehicleForm({
       year: year ? Number(year) : undefined,
       vehicle_type: vehicleType || undefined,
       plate: plate.trim() || undefined,
+      next_maintenance_date: nextDate ? `${nextDate}T12:00:00-06:00` : null,
+      next_maintenance_mileage: nextMileage ? Number(nextMileage) : null,
     });
   }
 
@@ -104,6 +150,35 @@ function VehicleForm({
           placeholder="Opcional"
           className="border border-deep-blue/40 bg-black/20 rounded-lg px-3 py-2 placeholder:text-white/30 focus:outline-none focus:border-electric-cyan/70"
         />
+      </div>
+
+      <div className="border-t border-white/8 pt-3">
+        <p className="text-xs font-semibold uppercase tracking-wide text-white/40 mb-2">
+          Próximo mantenimiento (opcional)
+        </p>
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-2">
+          <div className="flex flex-col gap-1 flex-1">
+            <label className="text-xs text-white/50">Fecha</label>
+            <input
+              type="date"
+              value={nextDate}
+              onChange={(e) => setNextDate(e.target.value)}
+              className="border border-deep-blue/40 bg-black/20 rounded-lg px-3 py-2 focus:outline-none focus:border-electric-cyan/70 [color-scheme:dark]"
+            />
+            <p className="text-[11px] text-white/30">Si la ponés, te avisamos ese día por WhatsApp/Telegram.</p>
+          </div>
+          <div className="flex flex-col gap-1 flex-1">
+            <label className="text-xs text-white/50">Kilometraje</label>
+            <input
+              type="number"
+              value={nextMileage}
+              onChange={(e) => setNextMileage(e.target.value)}
+              placeholder="ej. 55000"
+              className="border border-deep-blue/40 bg-black/20 rounded-lg px-3 py-2 placeholder:text-white/30 focus:outline-none focus:border-electric-cyan/70"
+            />
+            <p className="text-[11px] text-white/30">Solo indicador visual — no hay aviso automático por km.</p>
+          </div>
+        </div>
       </div>
 
       {error && <p className="text-sm text-red-400">{error}</p>}
@@ -282,6 +357,8 @@ function VehicleDetail({ vehicle, onClose }: { vehicle: Vehicle; onClose: () => 
                 year: vehicle.year ?? undefined,
                 vehicle_type: vehicle.vehicle_type ?? undefined,
                 plate: vehicle.plate ?? undefined,
+                next_maintenance_date: vehicle.next_maintenance_date,
+                next_maintenance_mileage: vehicle.next_maintenance_mileage,
               }}
               onSubmit={(input) => {
                 setError(null);
@@ -302,6 +379,15 @@ function VehicleDetail({ vehicle, onClose }: { vehicle: Vehicle; onClose: () => 
               <p className="text-sm text-white/50 mt-0.5">
                 {[vehicle.year, vehicle.vehicle_type, vehicle.plate].filter(Boolean).join(" · ") || "Sin más datos"}
               </p>
+              <MaintenanceAlerts
+                vehicle={vehicle}
+                maxLoggedMileage={
+                  maintenance?.reduce<number | null>(
+                    (max, m) => (m.mileage != null && (max == null || m.mileage > max) ? m.mileage : max),
+                    null,
+                  ) ?? null
+                }
+              />
             </div>
 
             {error && <p className="text-sm text-red-400">{error}</p>}
@@ -449,6 +535,11 @@ export function VehiclesPage() {
               <p className="text-xs text-white/40 mt-1">
                 {[v.year, v.vehicle_type, v.plate].filter(Boolean).join(" · ") || "Sin más datos"}
               </p>
+              {v.next_maintenance_date && new Date(v.next_maintenance_date).getTime() < Date.now() && (
+                <span className="inline-block mt-1.5 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-red-400/15 text-red-400">
+                  Mantenimiento vencido
+                </span>
+              )}
             </button>
           ))}
         </div>
