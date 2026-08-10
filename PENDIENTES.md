@@ -78,6 +78,17 @@ No implementado todavía — este documento es la lista de trabajo, no un change
   marcado, el texto se manda tal cual como orden a ejecutar (no envuelto en "avisale esto"). MCP: tools
   renombradas `crear_aviso_asistente`/`listar_avisos_asistente`/`pausar_aviso_asistente`/
   `borrar_aviso_asistente` (mismo resource/scopes, no hizo falta SQL nuevo).
+  **Bug real encontrado el mismo 10-ago-2026** (reportado por el usuario: un aviso puesto para las
+  10:51am quedó guardado y sonó a las 11:51am): `AsistentePage.tsx` armaba `scheduled_at` con `new
+  Date(valorDelInput).toISOString()`, que interpreta el `datetime-local` con la zona horaria del
+  navegador/SO, no con la de Costa Rica — un desfase de 1h si el dispositivo no está en `-06:00`.
+  Corregido usando `CR_OFFSET` explícito de `packages/shared-time` (mismo patrón que ya usan
+  Tareas/Agenda/Rutinas), tanto al guardar como al mostrar (`toLocaleString` ahora con `timeZone:
+  "America/Costa_Rica"` explícito). Se agregó [CLAUDE.md](CLAUDE.md) con la regla general de "nunca
+  construir fecha/hora confiando en la zona horaria del entorno, siempre offset/timeZone de Costa
+  Rica explícito" para no repetir esta clase de bug. También se agregó **edición** en la UI del
+  Asistente (lápiz por ítem, precarga el formulario, usa el `afterUpdate` hook que ya reprogramaba el
+  cron solo — antes solo existía crear/pausar/borrar).
 - ~~**Alertas de mantenimiento vehicular por km/fecha.**~~ ✅ Resuelto — `vehicles.next_maintenance_date` /
   `next_maintenance_mileage` nuevos. La fecha programa un recordatorio real (`reminders.vehicle_id`, mismo
   mecanismo que tasks/events: se recrea si la fecha cambia, se cancela si se borra el vehículo). El
