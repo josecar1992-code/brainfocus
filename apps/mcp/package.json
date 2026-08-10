@@ -9,6 +9,7 @@
     "dev": "tsx src/index.ts"
   },
   "dependencies": {
+    "@brainfocus/shared-time": "file:../../packages/shared-time",
     "@modelcontextprotocol/sdk": "^1.0.4",
     "zod": "^3.23.8"
   },

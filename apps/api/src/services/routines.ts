@@ -1,8 +1,7 @@
+import { CR_OFFSET } from "@brainfocus/shared-time";
 import { supabaseAdmin } from "../supabaseClient.js";
 import { scheduleReminderCron } from "./openclawCron.js";
 import { firstOccurrenceDate, nextOccurrenceDate, type RecurrenceRule } from "./routineSchedule.js";
-
-const CR_OFFSET = "-06:00"; // Costa Rica, sin horario de verano — offset fijo
 
 export interface RoutineRow {
   id: string;

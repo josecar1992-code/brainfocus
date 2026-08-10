@@ -3,10 +3,17 @@
 # `mcp` no es un servicio de larga duración: OpenClaw lo invoca bajo demanda por
 # stdio (`docker compose run --rm -T mcp`), por eso vive en el profile "tools"
 # y no se levanta con `docker compose up`.
+#
+# El contexto de build de los tres servicios es la raíz del repo (no
+# apps/<servicio>) desde el 09-ago-2026 — packages/shared-time (lógica de
+# fecha/hora Costa Rica compartida entre apps/web y apps/mcp) necesita ser
+# visible en el build de cada uno; ver los Dockerfile de cada app.
 
 services:
   api:
-    build: ./apps/api
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
     restart: unless-stopped
     env_file: ./apps/api/.env
     # OpenClaw corre nativo por systemd en el host (no en Docker), así que
@@ -24,7 +31,8 @@ services:
 
   web:
     build:
-      context: ./apps/web
+      context: .
+      dockerfile: apps/web/Dockerfile
       args:
         # Vite hornea esto en build time; docker compose los toma del .env en la
         # raíz del repo (no de apps/web/.env, que es solo para `npm run dev` local)
@@ -36,7 +44,9 @@ services:
       - "8081:80" # ver nota de ufw arriba, mismo motivo
 
   mcp:
-    build: ./apps/mcp
+    build:
+      context: .
+      dockerfile: apps/mcp/Dockerfile
     profiles: ["tools"]
     network_mode: host
     env_file: ./apps/mcp/.env

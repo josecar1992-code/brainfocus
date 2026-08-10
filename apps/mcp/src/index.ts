@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { formatReminderTitle, horaActualCR, isoACostaRica, TWO_HOURS_MS } from "@brainfocus/shared-time";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
@@ -86,8 +87,11 @@ interface Routine {
   current_occurrence_date: string | null;
 }
 
-const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
-
+// TWO_HOURS_MS, horaActualCR, isoACostaRica y formatReminderTitle vienen de
+// @brainfocus/shared-time (09-ago-2026) — eran casi idénticas a su
+// equivalente en apps/web/src/api.ts y ya habían empezado a divergir, ver
+// PENDIENTES.md sección 4.
+//
 // Ancla explícita de "ahora" en Costa Rica para las tools que reciben fechas
 // (crear_tarea, crear_recordatorio, crear_evento, crear_rutina) — sin esto,
 // el agente tenía que inferir la fecha/hora actual solo de su propio
@@ -97,48 +101,7 @@ const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
 // de cero por invocación (`docker compose run --rm`, ver DEPLOY.md), así que
 // evaluar esto al cargar el módulo ya da la hora real de cada llamada, no
 // una constante vieja de un proceso de larga duración.
-function horaActualCR(): string {
-  return new Date().toLocaleString("es-CR", {
-    timeZone: "America/Costa_Rica",
-    weekday: "long",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 const AHORA_CR = `Ahora mismo en Costa Rica es: ${horaActualCR()} (offset -06:00).`;
-
-// "YYYY-MM-DD HH:MM" en hora de Costa Rica — para que el agente nunca tenga
-// que convertir un timestamp UTC de memoria (la fuente real de los errores
-// de fecha reportados por el usuario). Se agrega COMO CAMPO ADICIONAL junto
-// al original en UTC, nunca lo reemplaza — así el agente tiene los dos y no
-// hace falta tocar el resto de la API (que sigue devolviendo UTC siempre).
-function isoACostaRica(iso: string): string {
-  const d = new Date(iso);
-  const fecha = d.toLocaleDateString("en-CA", { timeZone: "America/Costa_Rica" });
-  const hora = d.toLocaleTimeString("en-GB", {
-    timeZone: "America/Costa_Rica",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-  return `${fecha} ${hora}`;
-}
-
-// El mensaje que llega por WhatsApp es literalmente reminders.title (ver
-// openclawCron.ts en la API) — sin esto, el aviso solo decía "Recordatorio:
-// <título>", sin ninguna hora, y quien lo recibía asumía que la hora de
-// LLEGADA del aviso (2h antes por defecto) era la hora del evento.
-function formatReminderTitle(titulo: string, inicio: string, descripcion?: string) {
-  const hora = new Date(inicio).toLocaleTimeString("es-CR", {
-    hour: "numeric",
-    minute: "2-digit",
-    timeZone: "America/Costa_Rica",
-  });
-  const base = `Recordatorio: ${titulo} a las ${hora}`;
-  return descripcion ? `${base}. ${descripcion}` : base;
-}
 
 // Set chico y de grano grueso a propósito: cada tool se inyecta en el prompt
 // del agente en cada turno, así que más tools = más tokens gastados siempre.

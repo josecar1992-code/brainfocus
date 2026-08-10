@@ -1,4 +1,9 @@
+import { CR_OFFSET, formatReminderTitle, isFutureReminder, TWO_HOURS_MS } from "@brainfocus/shared-time";
 import { apiUrl, supabase } from "./supabaseClient";
+
+// Reexport: el resto de la app (AgendaPage/TasksPage/TodayPage) sigue
+// importando esto desde "./api", como antes de moverse al paquete compartido.
+export { canRemindTwoHoursBefore } from "@brainfocus/shared-time";
 
 export interface Task {
   id: string;
@@ -226,40 +231,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
-const CR_OFFSET = "-06:00"; // Costa Rica, sin horario de verano — offset fijo
-
-// El mensaje que llega por WhatsApp es literalmente reminders.title (ver
-// openclawCron.ts) — sin esto, el aviso solo decía "Recordatorio: <título>",
-// sin ninguna hora, y quien lo recibía asumía que la hora de LLEGADA del aviso
-// (2h antes por defecto) era la hora del evento. Acá se arma el texto
-// completo: título, hora real del evento (America/Costa_Rica) y descripción.
-function formatReminderTitle(title: string, startsAt: string, description?: string) {
-  const hora = new Date(startsAt).toLocaleTimeString("es-CR", {
-    hour: "numeric",
-    minute: "2-digit",
-    timeZone: "America/Costa_Rica",
-  });
-  const base = `Recordatorio: ${title} a las ${hora}`;
-  return description ? `${base}. ${description}` : base;
-}
-
-// Si el evento empieza en menos de 2h (o ya pasó), "avisar 2h antes" cae en el
-// pasado — la API lo rechaza (400) porque OpenClaw no puede programar un cron
-// para una hora que ya pasó. Mejor omitir el recordatorio automático en ese
-// caso que hacer fallar la creación de la tarea/evento entero por esto.
-function isFutureReminder(remindAt: string) {
-  return new Date(remindAt).getTime() > Date.now();
-}
-
-// Para que el formulario oculte/desmarque solo el check de "avisar 2h antes"
-// cuando el evento queda a menos de 2h — evita que el usuario lo deje
-// prendido sin darse cuenta y se tope con el 400 de "recordatorio en el pasado".
-export function canRemindTwoHoursBefore(fecha: string, hora: string): boolean {
-  if (!fecha || !hora) return false;
-  const startsAt = new Date(`${fecha}T${hora}:00${CR_OFFSET}`).getTime();
-  return startsAt - TWO_HOURS_MS > Date.now();
-}
+// TWO_HOURS_MS, CR_OFFSET, formatReminderTitle, isFutureReminder y
+// canRemindTwoHoursBefore vienen de @brainfocus/shared-time (09-ago-2026) —
+// eran casi idénticas a su equivalente en apps/mcp/src/index.ts y ya habían
+// empezado a divergir, ver PENDIENTES.md sección 4.
 
 // Compartido entre createTask/createEvent/addEventToTask: arma los 0-2
 // recordatorios de un evento (2h antes y/o justo a la hora), cada uno
