@@ -67,9 +67,12 @@ No implementado todavía — este documento es la lista de trabajo, no un change
 
 - **[MEDIO]** Lógica de fecha/hora CR duplicada casi idéntica entre `apps/web/src/api.ts` y
   `apps/mcp/src/index.ts` — ya empezó a divergir; candidato a paquete compartido en el monorepo.
-- **[BAJO]** `trackCreatedBy` inconsistente: vehículos, ejercicio, nutrición, listas, subtareas,
-  `routine_completions` no lo usan — sin badge "creado por Quicks" ahí aunque el agente sí puede escribir.
+- ~~**[BAJO] `trackCreatedBy` inconsistente.**~~ ✅ Resuelto — `created_by` agregado a vehicles,
+  vehicle_maintenance, lists, subtasks, nutrition_logs, exercise_logs (migración + `trackCreatedBy: true`
+  en sus routers). Badge visible en `VehiclesPage.tsx` (representativo — lists/subtasks no tienen UI de
+  badges hoy, nutrition/exercise son solo-MCP sin página web). `routine_completions` queda afuera a
+  propósito: es `readOnly`, nada externo escribe ahí.
 - **[BAJO]** Sin tests automatizados en ninguna app — `routineSchedule.ts` está escrito como función pura
-  pensada para testear, pero nada la ejerce.
-- **[BAJO]** Parseo de `limit` duplicado en `resourceRouter.ts` y `documents.ts` — centralizar en un
-  helper.
+  pensada para testear, pero nada la ejerce. _(pendiente)_
+- ~~**[BAJO] Parseo de `limit` duplicado.**~~ ✅ Resuelto — `parseLimit()` nuevo en
+  `apps/api/src/utils/pagination.ts`, usado por `resourceRouter.ts` y `documents.ts`.
