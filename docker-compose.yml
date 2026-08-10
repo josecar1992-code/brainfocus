@@ -53,7 +53,19 @@ services:
     # guardar_documento lee el archivo por su MediaPath (ruta absoluta que
     # OpenClaw ya dejó en disco, en el host — OpenClaw corre nativo, no en
     # Docker). Este contenedor necesita ver esa misma ruta para poder leerla
-    # con fs.readFile. Confirmado en el VPS: directorio real de media de
-    # OpenClaw es /root/.openclaw/media.
+    # con fs.readFile.
+    #
+    # Mount ampliado a /root/.openclaw completo (05-ago-2026, antes acotado a
+    # /root/.openclaw/media): un adjunto real (WhatsApp/Telegram) no vive solo
+    # en /root/.openclaw/media/inbound/ — OpenClaw además deja una copia
+    # "staged" dentro del workspace del agente, en
+    # /root/.openclaw/workspace/media/inbound/openclaw-staged-<uuid>/<nombre>,
+    # y es esa ruta la que se expone como MediaPath cuando llega un archivo
+    # real. El mount original no cubría /root/.openclaw/workspace/media, así
+    # que con un PDF real (no un archivo de prueba puesto a mano) el
+    # contenedor daba ENOENT aunque el archivo sí existía en el host. Se
+    # amplió a la raíz completa (solo lectura) en vez de listar rutas
+    # puntuales, para no tener que perseguir cada ruta nueva si el patrón de
+    # staging de OpenClaw cambia.
     volumes:
-      - /root/.openclaw/media:/root/.openclaw/media:ro
+      - /root/.openclaw:/root/.openclaw:ro
