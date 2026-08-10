@@ -12,6 +12,11 @@ create extension if not exists "uuid-ossp";
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   plan text not null default 'free', -- free | pro | ... (futuro)
+  -- Si Quicks debe preguntar mensualmente el kilometraje de cada vehículo
+  -- (cron recurrente real en OpenClaw, no un one-shot como el resto de los
+  -- recordatorios de la app) — ver settings.ts / openclawCron.ts.
+  mileage_reminder_enabled boolean not null default false,
+  mileage_reminder_cron_id text,
   created_at timestamptz not null default now()
 );
 
@@ -247,7 +252,8 @@ create table if not exists public.vehicles (
   -- Alerta de mantenimiento: next_maintenance_date dispara un recordatorio
   -- real (reminders.vehicle_id, igual que tasks/events); next_maintenance_mileage
   -- es solo indicador en la UI (no hay lectura de odómetro en vivo, se
-  -- compara contra el mayor "mileage" registrado en vehicle_maintenance).
+  -- compara contra el mayor "mileage" registrado entre vehicle_maintenance y
+  -- vehicle_mileage_logs).
   next_maintenance_date timestamptz,
   next_maintenance_mileage numeric,
   created_by text not null default 'user' check (created_by in ('user','agent')),
@@ -271,6 +277,21 @@ create table if not exists public.vehicle_maintenance (
   created_by text not null default 'user' check (created_by in ('user','agent')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
+);
+
+-- ============================================================
+-- Lecturas de kilometraje (odómetro) por vehículo — independiente de
+-- vehicle_maintenance (que registra un servicio hecho, no solo una lectura).
+-- Alimenta el control de uso mensual y la alerta de mantenimiento por km.
+-- ============================================================
+create table if not exists public.vehicle_mileage_logs (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  vehicle_id uuid not null references public.vehicles(id) on delete cascade,
+  mileage numeric not null,
+  logged_at timestamptz not null default now(),
+  created_by text not null default 'user' check (created_by in ('user','agent')),
+  created_at timestamptz not null default now()
 );
 
 -- ============================================================
@@ -335,6 +356,8 @@ create index if not exists idx_exercise_user on public.exercise_logs(user_id, lo
 create index if not exists idx_agent_actions_user on public.agent_actions(user_id, created_at);
 create index if not exists idx_vehicles_user on public.vehicles(user_id);
 create index if not exists idx_vehicle_maintenance_vehicle on public.vehicle_maintenance(vehicle_id, date);
+create index if not exists idx_vehicle_mileage_logs_vehicle on public.vehicle_mileage_logs(vehicle_id, logged_at);
+create index if not exists idx_vehicle_mileage_logs_user on public.vehicle_mileage_logs(user_id);
 create index if not exists idx_routines_user on public.routines(user_id);
 create index if not exists idx_routine_completions_routine on public.routine_completions(routine_id, completed_at);
 create index if not exists idx_tasks_routine on public.tasks(routine_id);
@@ -357,6 +380,7 @@ alter table public.nutrition_logs enable row level security;
 alter table public.exercise_logs enable row level security;
 alter table public.vehicles enable row level security;
 alter table public.vehicle_maintenance enable row level security;
+alter table public.vehicle_mileage_logs enable row level security;
 alter table public.routines enable row level security;
 alter table public.routine_completions enable row level security;
 
@@ -370,7 +394,7 @@ begin
   for t in select unnest(array[
     'api_keys','agent_actions','lists','projects','tasks','subtasks',
     'reminders','events','notes','documents','nutrition_logs','exercise_logs',
-    'vehicles','vehicle_maintenance','routines','routine_completions'
+    'vehicles','vehicle_maintenance','vehicle_mileage_logs','routines','routine_completions'
   ])
   loop
     execute format(

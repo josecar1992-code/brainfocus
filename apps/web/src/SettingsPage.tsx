@@ -4,6 +4,45 @@ import { api, type List } from "./api";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { IconTrash } from "./icons";
 
+function MileageReminderToggle() {
+  const queryClient = useQueryClient();
+  const { data, isLoading } = useQuery({ queryKey: ["mileage-reminder"], queryFn: api.getMileageReminder });
+  const [error, setError] = useState<string | null>(null);
+
+  const toggle = useMutation({
+    mutationFn: api.setMileageReminder,
+    onSuccess: (result) => {
+      queryClient.setQueryData(["mileage-reminder"], result);
+      setError(null);
+    },
+    onError: (err) => setError(err instanceof Error ? err.message : "No se pudo guardar"),
+  });
+
+  return (
+    <div className="bg-night-blue/40 backdrop-blur-md rounded-2xl border border-electric-cyan/10 shadow-[0_0_40px_-24px_rgba(0,210,255,0.35)] p-5">
+      <p className="text-xs font-semibold uppercase tracking-wide text-white/40 mb-3">Vehículos</p>
+      <label className="flex items-start gap-3 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={data?.enabled ?? false}
+          disabled={isLoading || toggle.isPending}
+          onChange={(e) => toggle.mutate(e.target.checked)}
+          className="accent-electric-cyan w-4 h-4 flex-shrink-0 mt-0.5"
+        />
+        <span>
+          <span className="text-sm text-white/90 block">Preguntar el kilometraje mensualmente</span>
+          <span className="text-xs text-white/40 block mt-0.5">
+            El día 1 de cada mes, Quicks te va a preguntar por WhatsApp/Telegram el kilometraje actual de
+            cada vehículo registrado — así se lleva control de uso mensual y se sabe cuándo se acerca el
+            próximo mantenimiento por km.
+          </span>
+        </span>
+      </label>
+      {error && <p className="text-sm text-red-400 mt-2">{error}</p>}
+    </div>
+  );
+}
+
 const SUGGESTED_COLORS = ["#00D2FF", "#4A6FA5", "#148F53", "#B54A4A", "#B58E2E", "#7B4AB5"];
 
 export function SettingsPage() {
@@ -43,8 +82,10 @@ export function SettingsPage() {
     <div className="space-y-5">
       <div>
         <h1 className="text-2xl font-bold text-white">Configuración</h1>
-        <p className="text-sm text-white/40">Categorías para organizar tus tareas</p>
+        <p className="text-sm text-white/40">Categorías para organizar tus tareas, y preferencias</p>
       </div>
+
+      <MileageReminderToggle />
 
       <div className="bg-night-blue/40 backdrop-blur-md rounded-2xl border border-electric-cyan/10 shadow-[0_0_40px_-24px_rgba(0,210,255,0.35)] p-5">
         <p className="text-xs font-semibold uppercase tracking-wide text-white/40 mb-3">Nueva categoría</p>

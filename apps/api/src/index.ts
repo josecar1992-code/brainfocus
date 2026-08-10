@@ -16,9 +16,11 @@ import { projectsRouter } from "./routes/projects.js";
 import { remindersRouter } from "./routes/reminders.js";
 import { routineCompletionsRouter } from "./routes/routineCompletions.js";
 import { routinesRouter } from "./routes/routines.js";
+import { settingsRouter } from "./routes/settings.js";
 import { subtasksRouter } from "./routes/subtasks.js";
 import { tasksRouter } from "./routes/tasks.js";
 import { vehicleMaintenanceRouter } from "./routes/vehicleMaintenance.js";
+import { vehicleMileageRouter } from "./routes/vehicleMileage.js";
 import { vehiclesRouter } from "./routes/vehicles.js";
 
 const app = express();
@@ -53,8 +55,10 @@ app.use("/nutrition", nutritionRouter);
 app.use("/exercise", exerciseRouter);
 app.use("/vehicles", vehiclesRouter);
 app.use("/vehicle-maintenance", vehicleMaintenanceRouter);
+app.use("/vehicle-mileage", vehicleMileageRouter);
 app.use("/routines", routinesRouter);
 app.use("/routine-completions", routineCompletionsRouter);
+app.use("/settings", settingsRouter);
 
 app.use(errorHandler);
 

@@ -71,6 +71,19 @@ No implementado todavía — este documento es la lista de trabajo, no un change
   kilometraje es solo indicador visual (badge rojo si el mayor `mileage` del historial ya lo alcanzó) —
   no hay forma de disparar un aviso automático sin una lectura de odómetro en vivo. MCP:
   `fijar_proximo_mantenimiento`.
+- ~~**Pedido del usuario 09-ago-2026: que Quicks pregunte mensualmente el kilometraje.**~~ ✅ Resuelto —
+  `vehicle_mileage_logs` nuevo (lecturas de odómetro sueltas, no implican un servicio hecho), alimenta el
+  control de uso mensual (Δ entre lecturas, mostrado en `VehiclesPage.tsx`) y la alerta de mantenimiento
+  por km (junto con `vehicle_maintenance`). Toggle en Configuración
+  (`profiles.mileage_reminder_enabled`/`mileage_reminder_cron_id`) crea/cancela un cron **recurrente** real
+  en OpenClaw (`schedule.kind:"cron"` + `expr` + `tz`) — a diferencia de todo el resto de recordatorios de
+  la app, que son one-shot (`schedule.at`). El shape recurrente no está documentado en ningún lado; se
+  confirmó en vivo el 09-ago-2026 con `openclaw cron add --cron ... --tz ... --json` y probando el mismo
+  payload directo contra `POST /tools/invoke` antes de codificarlo (mismo criterio que la investigación del
+  canal WhatsApp/Kapso del 07-ago). MCP: `registrar_kilometraje`, `listar_kilometrajes`.
+  **Pendiente de acción manual**: otorgar los scopes `vehicle_mileage:read`/`vehicle_mileage:write` a la
+  API key `quicks-agent` — bloqueado por el clasificador de seguridad (igual que pasó con `projects`), ver
+  el SQL en el historial de la conversación o correrlo desde el dashboard de Supabase.
 - Búsqueda global (Ctrl+K) — hoy `q` solo existe en notas/documentos.
 - Multiusuario/compartido — `supabase/schema.sql` ya insinúa "single-user hoy, multi-tenant mañana".
 

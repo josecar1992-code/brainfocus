@@ -142,6 +142,23 @@ export interface NewMaintenance {
   mileage?: number;
 }
 
+// Lectura de odómetro, distinta de un mantenimiento (no implica que se hizo
+// un servicio, solo "hoy tiene tantos km") — alimenta el control de uso
+// mensual y la alerta de mantenimiento por km.
+export interface VehicleMileageLog {
+  id: string;
+  vehicle_id: string;
+  mileage: number;
+  logged_at: string;
+  created_by: "user" | "agent";
+}
+
+export interface NewMileageLog {
+  vehicle_id: string;
+  mileage: number;
+  logged_at?: string;
+}
+
 export interface Routine {
   id: string;
   title: string;
@@ -410,6 +427,16 @@ export const api = {
   createMaintenance: (input: NewMaintenance) =>
     request<VehicleMaintenance>("/vehicle-maintenance", { method: "POST", body: JSON.stringify(input) }),
   deleteMaintenance: (id: string) => request<void>(`/vehicle-maintenance/${id}`, { method: "DELETE" }),
+
+  listMileageLogs: (vehicleId: string) =>
+    request<VehicleMileageLog[]>(`/vehicle-mileage?vehicle_id=${vehicleId}&limit=200`),
+  createMileageLog: (input: NewMileageLog) =>
+    request<VehicleMileageLog>("/vehicle-mileage", { method: "POST", body: JSON.stringify(input) }),
+  deleteMileageLog: (id: string) => request<void>(`/vehicle-mileage/${id}`, { method: "DELETE" }),
+
+  getMileageReminder: () => request<{ enabled: boolean }>("/settings/mileage-reminder"),
+  setMileageReminder: (enabled: boolean) =>
+    request<{ enabled: boolean }>("/settings/mileage-reminder", { method: "POST", body: JSON.stringify({ enabled }) }),
 
   listRoutines: () => request<Routine[]>("/routines"),
   createRoutine: (input: NewRoutine) => request<Routine>("/routines", { method: "POST", body: JSON.stringify(input) }),

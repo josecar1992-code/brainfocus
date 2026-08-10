@@ -44,6 +44,13 @@ interface VehicleMaintenance {
   mileage: number | null;
 }
 
+interface VehicleMileageLog {
+  id: string;
+  vehicle_id: string;
+  mileage: number;
+  logged_at: string;
+}
+
 interface Category {
   id: string;
   name: string;
@@ -533,6 +540,50 @@ const tools = {
     argsSchema: z.object({ vehiculo_id: z.string().uuid() }),
     handler: (args: { vehiculo_id: string }) =>
       apiRequest<VehicleMaintenance[]>(`/vehicle-maintenance?vehicle_id=${args.vehiculo_id}&limit=100`),
+  },
+
+  registrar_kilometraje: {
+    description:
+      "Guarda una lectura de kilometraje (odómetro) de un vehículo — distinto de un mantenimiento: " +
+      "es solo 'hoy tiene tantos km', no que se le hizo algo. Se usa para el control de uso mensual y " +
+      "para saber si ya llegó al kilometraje del próximo mantenimiento (`next_maintenance_mileage` en " +
+      `\`listar_vehiculos\`). Necesita el \`id\` del vehículo — usar \`listar_vehiculos\` primero si no ` +
+      `se conoce. ${AHORA_CR}`,
+    inputSchema: {
+      type: "object",
+      properties: {
+        vehiculo_id: { type: "string" },
+        kilometraje: { type: "number" },
+        fecha: {
+          type: "string",
+          description:
+            "ISO 8601 con offset -06:00 (Costa Rica). Opcional — si no se manda, se usa el momento actual.",
+        },
+      },
+      required: ["vehiculo_id", "kilometraje"],
+    },
+    argsSchema: z.object({
+      vehiculo_id: z.string().uuid(),
+      kilometraje: z.number(),
+      fecha: z.string().datetime({ offset: true }).optional(),
+    }),
+    handler: (args: { vehiculo_id: string; kilometraje: number; fecha?: string }) =>
+      apiRequest<VehicleMileageLog>("/vehicle-mileage", {
+        method: "POST",
+        body: JSON.stringify({ vehicle_id: args.vehiculo_id, mileage: args.kilometraje, logged_at: args.fecha }),
+      }),
+  },
+
+  listar_kilometrajes: {
+    description: "Lista las lecturas de kilometraje guardadas de un vehículo, de la más reciente a la más vieja.",
+    inputSchema: {
+      type: "object",
+      properties: { vehiculo_id: { type: "string" } },
+      required: ["vehiculo_id"],
+    },
+    argsSchema: z.object({ vehiculo_id: z.string().uuid() }),
+    handler: (args: { vehiculo_id: string }) =>
+      apiRequest<VehicleMileageLog[]>(`/vehicle-mileage?vehicle_id=${args.vehiculo_id}&limit=100`),
   },
 
   listar_categorias: {

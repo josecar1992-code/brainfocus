@@ -1,6 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { api, type NewMaintenance, type NewVehicle, type Vehicle, type VehicleMaintenance } from "./api";
+import {
+  api,
+  type NewMaintenance,
+  type NewMileageLog,
+  type NewVehicle,
+  type Vehicle,
+  type VehicleMaintenance,
+  type VehicleMileageLog,
+} from "./api";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { CornerBrackets } from "./CornerBrackets";
 import { IconX } from "./icons";
@@ -13,8 +21,9 @@ function formatDate(iso: string) {
 }
 
 // Sin lectura de odómetro en vivo, el mejor proxy de "kilometraje actual" es
-// el mayor mileage ya registrado en el historial — por eso esto es un
-// indicador visual, no un aviso automático como el de fecha.
+// el mayor mileage ya registrado entre el historial de mantenimiento y las
+// lecturas sueltas de vehicle_mileage_logs — por eso esto es un indicador
+// visual, no un aviso automático como el de fecha.
 function MaintenanceAlerts({ vehicle, maxLoggedMileage }: { vehicle: Vehicle; maxLoggedMileage: number | null }) {
   const dateSoon = vehicle.next_maintenance_date && new Date(vehicle.next_maintenance_date).getTime() < Date.now();
   const mileageDue =
@@ -304,17 +313,73 @@ function AddMaintenanceForm({ vehicleId, onDone }: { vehicleId: string; onDone: 
   );
 }
 
+// Lectura de odómetro suelta — distinta de un mantenimiento (no implica que
+// se hizo un servicio). Mismo mecanismo que usa Quicks mensualmente vía
+// registrar_kilometraje, solo que acá es manual.
+function AddMileageForm({ vehicleId, onDone }: { vehicleId: string; onDone: () => void }) {
+  const queryClient = useQueryClient();
+  const [mileage, setMileage] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const createLog = useMutation({
+    mutationFn: (input: NewMileageLog) => api.createMileageLog(input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["vehicle-mileage", vehicleId] });
+      setMileage("");
+      onDone();
+    },
+    onError: (err) => setError(err instanceof Error ? err.message : "No se pudo guardar el kilometraje"),
+  });
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    if (!mileage) {
+      setError("Poné el kilometraje actual.");
+      return;
+    }
+    createLog.mutate({ vehicle_id: vehicleId, mileage: Number(mileage) });
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="flex gap-2 bg-black/20 rounded-xl p-3 border border-white/10">
+      <input
+        type="number"
+        value={mileage}
+        onChange={(e) => setMileage(e.target.value)}
+        placeholder="Kilometraje actual"
+        autoFocus
+        className="border border-deep-blue/40 bg-black/20 rounded-lg px-2 py-1.5 text-sm placeholder:text-white/30 focus:outline-none focus:border-electric-cyan/70 flex-1"
+      />
+      {error && <p className="text-xs text-red-400 self-center">{error}</p>}
+      <button
+        type="submit"
+        disabled={createLog.isPending}
+        className="bg-gradient-to-br from-deep-blue via-electric-cyan to-electric-cyan text-night-blue font-semibold rounded-lg shadow-[0_0_18px_-4px_rgba(0,210,255,0.55)] px-3 py-1.5 text-sm disabled:opacity-50 hover:brightness-110 transition flex-shrink-0"
+      >
+        {createLog.isPending ? "Guardando..." : "Agregar"}
+      </button>
+    </form>
+  );
+}
+
 function VehicleDetail({ vehicle, onClose }: { vehicle: Vehicle; onClose: () => void }) {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [showAddMaintenance, setShowAddMaintenance] = useState(false);
+  const [showAddMileage, setShowAddMileage] = useState(false);
   const [confirmingDeleteVehicle, setConfirmingDeleteVehicle] = useState(false);
   const [maintenanceToDelete, setMaintenanceToDelete] = useState<VehicleMaintenance | null>(null);
+  const [mileageToDelete, setMileageToDelete] = useState<VehicleMileageLog | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const { data: maintenance, isLoading } = useQuery({
     queryKey: ["vehicle-maintenance", vehicle.id],
     queryFn: () => api.listMaintenance(vehicle.id),
+  });
+  const { data: mileageLogs, isLoading: loadingMileage } = useQuery({
+    queryKey: ["vehicle-mileage", vehicle.id],
+    queryFn: () => api.listMileageLogs(vehicle.id),
   });
 
   const updateVehicle = useMutation({
@@ -342,6 +407,28 @@ function VehicleDetail({ vehicle, onClose }: { vehicle: Vehicle; onClose: () => 
       setMaintenanceToDelete(null);
     },
   });
+
+  const deleteMileageLog = useMutation({
+    mutationFn: (id: string) => api.deleteMileageLog(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["vehicle-mileage", vehicle.id] });
+      setMileageToDelete(null);
+    },
+  });
+
+  // Kilometraje recorrido en el último mes: diferencia entre la lectura más
+  // reciente y la más reciente de hace >= 30 días — no un promedio ni un
+  // corte de calendario exacto, solo una idea rápida de "cuánto se usó".
+  const sortedMileage = [...(mileageLogs ?? [])].sort(
+    (a, b) => new Date(b.logged_at).getTime() - new Date(a.logged_at).getTime(),
+  );
+  const latestReading = sortedMileage[0];
+  const monthAgoMs = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  const priorReading = sortedMileage.find((m) => new Date(m.logged_at).getTime() <= monthAgoMs) ?? sortedMileage[1];
+  const monthlyUsage =
+    latestReading && priorReading && latestReading.id !== priorReading.id
+      ? latestReading.mileage - priorReading.mileage
+      : null;
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center px-4 z-20 overflow-y-auto py-8">
@@ -382,10 +469,9 @@ function VehicleDetail({ vehicle, onClose }: { vehicle: Vehicle; onClose: () => 
               <MaintenanceAlerts
                 vehicle={vehicle}
                 maxLoggedMileage={
-                  maintenance?.reduce<number | null>(
-                    (max, m) => (m.mileage != null && (max == null || m.mileage > max) ? m.mileage : max),
-                    null,
-                  ) ?? null
+                  [...(maintenance ?? []).map((m) => m.mileage), ...(mileageLogs ?? []).map((m) => m.mileage)].reduce<
+                    number | null
+                  >((max, km) => (km != null && (max == null || km > max) ? km : max), null)
                 }
               />
             </div>
@@ -467,6 +553,74 @@ function VehicleDetail({ vehicle, onClose }: { vehicle: Vehicle; onClose: () => 
                 </ul>
               )}
             </div>
+
+            <div className="border-t border-white/8 pt-3">
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-white/40">Kilometraje</p>
+                  {monthlyUsage != null && (
+                    <p className="text-[11px] text-white/40 mt-0.5">
+                      ~{monthlyUsage.toLocaleString("es-CR")} km en el último mes
+                    </p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowAddMileage((v) => !v)}
+                  className="text-xs text-electric-cyan hover:brightness-110"
+                >
+                  {showAddMileage ? "Cancelar" : "+ Agregar"}
+                </button>
+              </div>
+
+              {showAddMileage && (
+                <div className="mb-3">
+                  <AddMileageForm vehicleId={vehicle.id} onDone={() => setShowAddMileage(false)} />
+                </div>
+              )}
+
+              {loadingMileage && <p className="text-white/40 text-sm">Cargando...</p>}
+              {sortedMileage.length === 0 && !loadingMileage && (
+                <p className="text-white/40 text-sm">
+                  Sin lecturas todavía — activá el aviso mensual en Configuración para que Quicks te lo
+                  pregunte solo.
+                </p>
+              )}
+
+              {sortedMileage.length > 0 && (
+                <ul className="flex flex-col gap-2 max-h-60 overflow-y-auto">
+                  {sortedMileage.map((m, i) => {
+                    const prev = sortedMileage[i + 1];
+                    const delta = prev ? m.mileage - prev.mileage : null;
+                    return (
+                      <li
+                        key={m.id}
+                        className="flex items-start justify-between gap-2 bg-white/5 rounded-lg px-3 py-2 text-sm group"
+                      >
+                        <div className="min-w-0 flex items-center gap-2">
+                          <span className="text-white/90">{m.mileage.toLocaleString("es-CR")} km</span>
+                          {m.created_by === "agent" && <QuickBadge iconOnly />}
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <span className="text-white/40 text-xs">
+                            {formatDate(m.logged_at)}
+                            {delta != null && delta > 0 ? ` · +${delta.toLocaleString("es-CR")} km` : ""}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setMileageToDelete(m)}
+                            aria-label="Borrar lectura"
+                            className="text-white/20 hover:text-red-400 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100"
+                          >
+                            <IconX className="w-4 h-4" strokeWidth={1.75} />
+                          </button>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
           </>
         )}
       </div>
@@ -485,6 +639,14 @@ function VehicleDetail({ vehicle, onClose }: { vehicle: Vehicle; onClose: () => 
           pending={deleteMaintenance.isPending}
           onCancel={() => setMaintenanceToDelete(null)}
           onConfirm={() => deleteMaintenance.mutate(maintenanceToDelete.id)}
+        />
+      )}
+      {mileageToDelete && (
+        <ConfirmDialog
+          message={`¿Borrar la lectura de ${mileageToDelete.mileage.toLocaleString("es-CR")} km?`}
+          pending={deleteMileageLog.isPending}
+          onCancel={() => setMileageToDelete(null)}
+          onConfirm={() => deleteMileageLog.mutate(mileageToDelete.id)}
         />
       )}
     </div>

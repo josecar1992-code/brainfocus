@@ -56,6 +56,42 @@ async function invoke(tool: string, action: string, args: Record<string, unknown
   return json;
 }
 
+// Default "whatsapp" (07-ago-2026, confirmado con test de entrega en vivo):
+// tras migrar la integración de OpenClaw a Kapso (API oficial de Meta), un
+// primer intento de revertir a WhatsApp pareció fallar en vivo — pero la
+// causa real era que el cron de prueba usaba el string viejo "whatsapp" en
+// vez de "kapso-whatsapp" (el gateway lo rechaza con 400 antes de intentar
+// entregar nada; no es un problema de conexión/salud del canal, ese ruido
+// de health-monitor cada ~10min es normal en Kapso porque no mantiene
+// conexión persistente como Baileys — recibe por webhook). Con el string
+// correcto, un segundo cron de prueba sí llegó, confirmado por el usuario.
+// Ver infra/DEPLOY.md para el historial completo.
+function resolveDelivery(channel: string | null): { to: string; gatewayChannel: string } {
+  const ch = channel ?? "whatsapp";
+  // env.openclawReminderTo es un número de teléfono ("+506..."), formato
+  // válido para WhatsApp — Telegram exige un chat ID numérico (probado
+  // 05-ago-2026: "+506..." como `to` de Telegram falla con "recipient must
+  // be a numeric chat ID"), por eso usa su propia variable
+  // (openclawReminderToTelegram).
+  const to = ch === "telegram" ? env.openclawReminderToTelegram : env.openclawReminderTo;
+  if (!to) throw new Error(`No hay destinatario configurado para el canal "${ch}"`);
+  // El gateway de OpenClaw, tras migrar WhatsApp a Kapso (07-ago-2026), sólo
+  // acepta "kapso-whatsapp" | "telegram" como delivery.channel (confirmado en
+  // vivo: cron.add con "whatsapp" responde 400 "delivery.channel must be one
+  // of: kapso-whatsapp, telegram"). Adentro de Focusbrain seguimos guardando
+  // "whatsapp" (valor simple, estable de cara al usuario/UI); este mapeo es
+  // la única capa que conoce el nombre real que espera el gateway.
+  const gatewayChannel = ch === "whatsapp" ? "kapso-whatsapp" : ch;
+  return { to, gatewayChannel };
+}
+
+function extractJobId(result: unknown): string {
+  // POST /tools/invoke devuelve el sobre completo: { ok, result: { content, details: { id } } }.
+  const jobId = (result as { result?: { details?: { id?: string } } } | null)?.result?.details?.id;
+  if (!jobId) throw new Error("OpenClaw no devolvió jobId al crear el cron");
+  return jobId;
+}
+
 /**
  * Si OpenClaw no está configurado (env vars vacías, típico en local), no se
  * programa nada y devuelve null — el recordatorio queda visible en la app
@@ -65,32 +101,7 @@ async function invoke(tool: string, action: string, args: Record<string, unknown
  */
 export async function scheduleReminderCron(reminder: ReminderForCron): Promise<string | null> {
   if (!isConfigured()) return null;
-
-  // Default "whatsapp" (07-ago-2026, confirmado con test de entrega en vivo):
-  // tras migrar la integración de OpenClaw a Kapso (API oficial de Meta), un
-  // primer intento de revertir a WhatsApp pareció fallar en vivo — pero la
-  // causa real era que el cron de prueba usaba el string viejo "whatsapp" en
-  // vez de "kapso-whatsapp" (el gateway lo rechaza con 400 antes de intentar
-  // entregar nada; no es un problema de conexión/salud del canal, ese ruido
-  // de health-monitor cada ~10min es normal en Kapso porque no mantiene
-  // conexión persistente como Baileys — recibe por webhook). Con el string
-  // correcto, un segundo cron de prueba sí llegó, confirmado por el usuario.
-  // Ver infra/DEPLOY.md para el historial completo.
-  const channel = reminder.channel ?? "whatsapp";
-  // env.openclawReminderTo es un número de teléfono ("+506..."), formato
-  // válido para WhatsApp — Telegram exige un chat ID numérico (probado
-  // 05-ago-2026: "+506..." como `to` de Telegram falla con "recipient must
-  // be a numeric chat ID"), por eso usa su propia variable
-  // (openclawReminderToTelegram).
-  const to = channel === "telegram" ? env.openclawReminderToTelegram : env.openclawReminderTo;
-  if (!to) throw new Error(`No hay destinatario configurado para el canal "${channel}"`);
-  // El gateway de OpenClaw, tras migrar WhatsApp a Kapso (07-ago-2026), sólo
-  // acepta "kapso-whatsapp" | "telegram" como delivery.channel (confirmado en
-  // vivo: cron.add con "whatsapp" responde 400 "delivery.channel must be one
-  // of: kapso-whatsapp, telegram"). Adentro de Focusbrain seguimos guardando
-  // "whatsapp" (valor simple, estable de cara al usuario/UI); este mapeo es
-  // la única capa que conoce el nombre real que espera el gateway.
-  const gatewayChannel = channel === "whatsapp" ? "kapso-whatsapp" : channel;
+  const { to, gatewayChannel } = resolveDelivery(reminder.channel);
 
   const result = await invoke("cron", "add", {
     job: {
@@ -114,10 +125,37 @@ export async function scheduleReminderCron(reminder: ReminderForCron): Promise<s
     },
   });
 
-  // POST /tools/invoke devuelve el sobre completo: { ok, result: { content, details: { id } } }.
-  const jobId = (result as { result?: { details?: { id?: string } } } | null)?.result?.details?.id;
-  if (!jobId) throw new Error("OpenClaw no devolvió jobId al crear el cron");
-  return jobId;
+  return extractJobId(result);
+}
+
+interface RecurringCronInput {
+  displayName: string;
+  // 5 o 6 campos (con segundos), formato estándar de cron.
+  cronExpr: string;
+  message: string;
+  channel: string | null;
+}
+
+// Único job recurrente real de la app hoy (el resto de los "recordatorios"
+// son one-shot, ver scheduleReminderCron) — confirmado en vivo el
+// 09-ago-2026 que el gateway acepta schedule.kind:"cron" con expr + tz
+// (ver `openclaw cron add --cron ... --tz ... --json` para inspeccionar el
+// shape real; no está documentado, solo lo devuelve el propio comando).
+export async function scheduleRecurringCron(input: RecurringCronInput): Promise<string | null> {
+  if (!isConfigured()) return null;
+  const { to, gatewayChannel } = resolveDelivery(input.channel);
+
+  const result = await invoke("cron", "add", {
+    job: {
+      displayName: input.displayName,
+      sessionTarget: "isolated",
+      schedule: { kind: "cron", expr: input.cronExpr, tz: "America/Costa_Rica" },
+      payload: { kind: "agentTurn", message: input.message },
+      delivery: { mode: "announce", channel: gatewayChannel, to },
+    },
+  });
+
+  return extractJobId(result);
 }
 
 /** Cancelación best-effort: no debe bloquear que una tarea/evento se complete o se borre. */
