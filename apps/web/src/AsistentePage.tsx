@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { CR_OFFSET } from "@brainfocus/shared-time";
 import { api, type NewRecurringReminder, type RecurringReminder } from "./api";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { IconTrash } from "./icons";
@@ -10,7 +11,12 @@ const WEEKDAYS = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes
 function describeReminder(r: RecurringReminder): string {
   if (r.schedule_type === "once") {
     if (!r.scheduled_at) return "Sin fecha";
+    // timeZone explícito: sin esto, toLocaleString usa la del navegador/SO —
+    // si no está en Costa Rica, muestra una hora distinta a la real
+    // programada (el mismo motivo por el que se guarda con CR_OFFSET
+    // explícito abajo, no con new Date().toISOString()).
     return new Date(r.scheduled_at).toLocaleString("es-CR", {
+      timeZone: "America/Costa_Rica",
       day: "numeric",
       month: "short",
       hour: "2-digit",
@@ -29,13 +35,15 @@ function isSent(r: RecurringReminder): boolean {
   return r.schedule_type === "once" && !!r.scheduled_at && new Date(r.scheduled_at) <= new Date();
 }
 
-// Formato que espera <input type="datetime-local"> a partir de "ahora + 1h",
-// como valor por defecto razonable al abrir el formulario.
+// Formato que espera <input type="datetime-local"> ("YYYY-MM-DDTHH:MM"), a
+// partir de "ahora en Costa Rica + 1h" — calculado a mano con el offset fijo
+// -06:00 (no hay DST en CR) en vez de con la zona horaria del navegador/SO,
+// que puede no coincidir (el mismo bug que causó que un aviso puesto para
+// las 10:51am quedara guardado para las 11:51am: `new Date().toISOString()`
+// asume la hora local del dispositivo, no la de Costa Rica).
 function defaultLocalDateTime(): string {
-  const d = new Date(Date.now() + 60 * 60 * 1000);
-  d.setSeconds(0, 0);
-  const tzOffsetMs = d.getTimezoneOffset() * 60 * 1000;
-  return new Date(d.getTime() - tzOffsetMs).toISOString().slice(0, 16);
+  const crNow = new Date(Date.now() + 60 * 60 * 1000 - 6 * 60 * 60 * 1000);
+  return crNow.toISOString().slice(0, 16);
 }
 
 export function AsistentePage() {
@@ -86,11 +94,16 @@ export function AsistentePage() {
       return;
     }
     if (scheduleType === "once") {
+      // scheduledAt viene de <input type="datetime-local"> como
+      // "YYYY-MM-DDTHH:MM", sin zona horaria — se interpreta como hora de
+      // Costa Rica (así se le muestra al usuario en toda la app) y se le
+      // agrega el offset explícito -06:00, en vez de `new Date(...).toISOString()`
+      // que asumía la zona horaria del navegador/SO.
       createReminder.mutate({
         title: title.trim(),
         is_instruction: isInstruction,
         schedule_type: "once",
-        scheduled_at: new Date(scheduledAt).toISOString(),
+        scheduled_at: `${scheduledAt}:00${CR_OFFSET}`,
       });
       return;
     }
