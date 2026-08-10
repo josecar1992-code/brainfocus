@@ -49,14 +49,12 @@ No implementado todavía — este documento es la lista de trabajo, no un change
 
 ## 3. Funciones nuevas sugeridas
 
-- ~~**Módulo de proyectos**~~ ✅ Implementado — tabla `projects` (name, description, status
-  active/archived, created_by) + `project_id` nullable en tasks/events/notes/documents. API
-  (`projectsRouter`), MCP (`crear_proyecto`, `listar_proyectos`, `proyecto_id` opcional en
-  crear_tarea/crear_evento/crear_nota) y web (`ProjectsPage.tsx`, progreso agregado en verde a partir de
-  las tareas ligadas). `ProjectSelect.tsx` agregado al formulario de crear/editar tarea (`TasksPage.tsx`).
-  Scopes `projects:read`/`projects:write` otorgados a la API key `quicks-agent`. **Pendiente**: selector de
-  proyecto en los formularios de evento/nota (Agenda/Notas, hoy solo se asigna desde el MCP o vía API) y
-  wireing en `documents.ts` (la columna existe, la ruta de upload todavía no la usa).
+- ~~**Módulo de proyectos**~~ ✅ Completo — tabla `projects` (name, description, status active/archived,
+  created_by) + `project_id` nullable en tasks/events/notes/documents. API (`projectsRouter` + `project_id`
+  wireado en tasks/events/notes/documents), MCP (`crear_proyecto`, `listar_proyectos`, `proyecto_id`
+  opcional en crear_tarea/crear_evento/crear_nota/guardar_documento) y web (`ProjectsPage.tsx` con progreso
+  agregado en verde, `ProjectSelect.tsx` wireado en Tareas/Agenda/Notas/Documentos — crear y editar). Scopes
+  `projects:read`/`projects:write` otorgados a `quicks-agent`.
 - Recordatorios recurrentes independientes de rutinas ("cada 2 horas", sin crear una rutina completa).
 - Indicador en la UI cuando un recordatorio quedó "sin aviso real" por fallo silencioso del cron.
 - Vista "Hoy" consolidada (tareas vencen hoy + eventos hoy + próxima ocurrencia de rutina) — el dato ya
