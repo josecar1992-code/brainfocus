@@ -64,7 +64,13 @@ No implementado todavía — este documento es la lista de trabajo, no un change
 - ~~**Vista "Hoy" consolidada.**~~ ✅ Resuelto — `TodayPage.tsx` nuevo, primer módulo del nav: eventos de
   hoy + tareas que vencen hoy + ocurrencia de rutina de hoy, con el mismo checkbox de completar
   (`useCompleteTask`) que Tareas/Agenda/Rutinas.
-- Recordatorios recurrentes independientes de rutinas ("cada 2 horas", sin crear una rutina completa).
+- ~~**Recordatorios recurrentes independientes de rutinas.**~~ ✅ Resuelto (09-ago-2026) — tabla
+  `recurring_reminders` nueva (frequency: every_n_hours/daily/weekly, `active` para pausar sin borrar).
+  Reusa `scheduleRecurringCron` (mismo mecanismo del aviso mensual de kilometraje) — puro aviso periódico,
+  no genera tarea ni queda en ningún historial. API con hooks que programan/reprograman/cancelan el cron
+  real cuando cambia algo relevante. MCP: `crear_recordatorio_recurrente`,
+  `listar_recordatorios_recurrentes`, `pausar_recordatorio_recurrente`, `borrar_recordatorio_recurrente`
+  (scopes ya otorgados a `quicks-agent`). Web: sección "Avisos recurrentes" en Configuración.
 - ~~**Alertas de mantenimiento vehicular por km/fecha.**~~ ✅ Resuelto — `vehicles.next_maintenance_date` /
   `next_maintenance_mileage` nuevos. La fecha programa un recordatorio real (`reminders.vehicle_id`, mismo
   mecanismo que tasks/events: se recrea si la fecha cambia, se cancela si se borra el vehículo). El
