@@ -93,6 +93,9 @@ No implementado todavía — este documento es la lista de trabajo, no un change
   Pendientes. Los recurrentes siempre caen en Pendientes (no tienen noción de "enviado", un solo
   disparo no aplica); solo los "una vez" pasan a Enviados, y solo una vez que `scheduled_at` ya pasó
   (mismo `isSent()` que ya se usaba para el badge).
+  **10-ago-2026 (más tarde todavía):** movido en el sidebar a debajo de Tareas (antes iba después de
+  Vehículos) — orden nuevo: Hoy, Agenda, Tareas, **Asistente**, Proyectos, Rutinas, Notas y memorias,
+  Documentos, Vehículos, Configuración.
 - ~~**Alertas de mantenimiento vehicular por km/fecha.**~~ ✅ Resuelto — `vehicles.next_maintenance_date` /
   `next_maintenance_mileage` nuevos. La fecha programa un recordatorio real (`reminders.vehicle_id`, mismo
   mecanismo que tasks/events: se recrea si la fecha cambia, se cancela si se borra el vehículo). El

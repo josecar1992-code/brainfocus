@@ -32,12 +32,12 @@ export const MODULES: { key: ModuleKey; label: string; icon: ComponentType<SVGPr
   { key: "hoy", label: "Hoy", icon: IconSun },
   { key: "agenda", label: "Agenda", icon: IconCalendar },
   { key: "tareas", label: "Tareas", icon: IconCheckSquare },
+  { key: "asistente", label: "Asistente", icon: IconRobot },
   { key: "proyectos", label: "Proyectos", icon: IconFolder },
   { key: "rutinas", label: "Rutinas", icon: IconRepeat },
   { key: "notas", label: "Notas y memorias", icon: IconNote },
   { key: "documentos", label: "Documentos", icon: IconFile },
   { key: "vehiculos", label: "Vehículos", icon: IconCar },
-  { key: "asistente", label: "Asistente", icon: IconRobot },
   { key: "configuracion", label: "Configuración", icon: IconSettings },
 ];
 
