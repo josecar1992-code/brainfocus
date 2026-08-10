@@ -22,6 +22,14 @@ No implementado todavía — este documento es la lista de trabajo, no un change
   producción todavía, a diferencia del caso real de duplicado exacto que sí pasó)_
 - ~~**[BAJO] `routine_completions` expone escritura completa.**~~ ✅ Resuelto — nuevo flag `readOnly` en
   `createResourceRouter`, aplicado a `routine_completions` (solo GET).
+- ~~**[MEDIO] Todos los módulos vivían en la misma URL (`app.focusbraincr.com/`), sin rutas propias.**~~
+  ✅ Resuelto (10-ago-2026, reportado por el usuario) — refrescar la página (o guardar/compartir un link a
+  un módulo específico) siempre volvía a "Hoy", porque el módulo activo era solo un `useState` en memoria,
+  nunca reflejado en la URL. `apps/web/src/useModuleRoute.ts` nuevo: cada módulo tiene su ruta real
+  (`/tareas`, `/agenda`, `/asistente`, ...) sincronizada con `window.history` — sin sumar
+  `react-router-dom`, un router casero alcanza para 10 pantallas fijas de un solo usuario. Requirió que el
+  server sirva `index.html` para cualquier ruta (ya estaba: `apps/web/nginx.conf` tiene
+  `try_files $uri $uri/ /index.html`).
 
 ## 2. Mejoras a funciones existentes
 

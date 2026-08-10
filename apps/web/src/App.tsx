@@ -7,7 +7,7 @@ import { DocumentsPage } from "./DocumentsPage";
 import { Header } from "./Header";
 import { Login } from "./Login";
 import { NeuronBackground } from "./NeuronBackground";
-import { MODULES, Sidebar, type ModuleKey } from "./Sidebar";
+import { Sidebar } from "./Sidebar";
 import { NotesPage } from "./NotesPage";
 import { ProjectsPage } from "./ProjectsPage";
 import { RoutinesPage } from "./RoutinesPage";
@@ -15,6 +15,7 @@ import { TodayPage } from "./TodayPage";
 import { SettingsPage } from "./SettingsPage";
 import { supabase } from "./supabaseClient";
 import { TasksPage } from "./TasksPage";
+import { useModuleRoute } from "./useModuleRoute";
 import { VehiclesPage } from "./VehiclesPage";
 
 type AccessState = "checking" | "granted";
@@ -23,7 +24,7 @@ export function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [access, setAccess] = useState<AccessState>("checking");
-  const [activeModule, setActiveModule] = useState<ModuleKey>(MODULES[0].key);
+  const [activeModule, setActiveModule] = useModuleRoute();
   // Independiente de `session`: signOut() lo borra, pero el mensaje debe seguir
   // visible en vez de saltar directo a la pantalla de login.
   const [denied, setDenied] = useState(false);
