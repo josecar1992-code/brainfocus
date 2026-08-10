@@ -89,6 +89,10 @@ No implementado todavía — este documento es la lista de trabajo, no un change
   Rica explícito" para no repetir esta clase de bug. También se agregó **edición** en la UI del
   Asistente (lápiz por ítem, precarga el formulario, usa el `afterUpdate` hook que ya reprogramaba el
   cron solo — antes solo existía crear/pausar/borrar).
+  **10-ago-2026 (más tarde el mismo día):** filtro Pendientes/Enviados en la lista, default
+  Pendientes. Los recurrentes siempre caen en Pendientes (no tienen noción de "enviado", un solo
+  disparo no aplica); solo los "una vez" pasan a Enviados, y solo una vez que `scheduled_at` ya pasó
+  (mismo `isSent()` que ya se usaba para el badge).
 - ~~**Alertas de mantenimiento vehicular por km/fecha.**~~ ✅ Resuelto — `vehicles.next_maintenance_date` /
   `next_maintenance_mileage` nuevos. La fecha programa un recordatorio real (`reminders.vehicle_id`, mismo
   mecanismo que tasks/events: se recrea si la fecha cambia, se cancela si se borra el vehículo). El

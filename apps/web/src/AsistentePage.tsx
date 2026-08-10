@@ -67,11 +67,18 @@ export function AsistentePage() {
   const [error, setError] = useState<string | null>(null);
   const [reminderToDelete, setReminderToDelete] = useState<RecurringReminder | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [filter, setFilter] = useState<"pending" | "sent">("pending");
 
   const { data: reminders, isLoading } = useQuery({
     queryKey: ["recurring-reminders"],
     queryFn: api.listRecurringReminders,
   });
+
+  // Los recurrentes no tienen noción de "enviado" (no hay un único disparo
+  // que marcar) — siempre caen en Pendientes, sin importar si están
+  // activos o pausados. Solo los "una vez" se mueven a Enviados, y solo
+  // cuando ya pasó su scheduled_at (ver isSent).
+  const filteredReminders = (reminders ?? []).filter((r) => (filter === "sent" ? isSent(r) : !isSent(r)));
 
   function resetForm() {
     setTitle("");
@@ -299,13 +306,30 @@ export function AsistentePage() {
           </form>
         </div>
 
+        <div className="flex items-center gap-1 px-5 pt-4">
+          {(["pending", "sent"] as const).map((f) => (
+            <button
+              key={f}
+              type="button"
+              onClick={() => setFilter(f)}
+              className={`text-xs font-medium rounded-lg px-3 py-1.5 transition-colors ${
+                filter === f ? "bg-electric-cyan/15 text-electric-cyan" : "text-white/40 hover:text-white/70"
+              }`}
+            >
+              {f === "pending" ? "Pendientes" : "Enviados"}
+            </button>
+          ))}
+        </div>
+
         {isLoading && <p className="text-white/40 text-sm px-5 py-4">Cargando...</p>}
-        {reminders && reminders.length === 0 && !isLoading && (
-          <p className="text-white/40 text-sm px-5 py-4">No hay avisos todavía.</p>
+        {reminders && filteredReminders.length === 0 && !isLoading && (
+          <p className="text-white/40 text-sm px-5 py-4">
+            {filter === "pending" ? "No hay avisos pendientes." : "No hay avisos enviados todavía."}
+          </p>
         )}
-        {reminders && reminders.length > 0 && (
+        {reminders && filteredReminders.length > 0 && (
           <ul>
-            {reminders.map((r) => (
+            {filteredReminders.map((r) => (
               <li
                 key={r.id}
                 className="flex items-center justify-between gap-3 px-5 py-3 border-t border-white/8 hover:bg-white/5 transition-colors group"
