@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
-import { api, canRemindTwoHoursBefore, type List, type NewTask, type Subtask, type Task } from "./api";
+import { api, canRemindTwoHoursBefore, type List, type NewTask, type Project, type Subtask, type Task } from "./api";
 import { CategorySelect } from "./CategorySelect";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { CornerBrackets } from "./CornerBrackets";
 import { IconGripVertical, IconTrash } from "./icons";
+import { ProjectSelect } from "./ProjectSelect";
 import { QuickBadge } from "./QuickBadge";
 import { RoutineBadge } from "./RoutineBadge";
 import { OPTION_STYLE, PRIORITIES, SELECT_CLASS } from "./selectStyles";
@@ -81,10 +82,12 @@ function PriorityBadge({ priority }: { priority: Task["priority"] }) {
 
 function NewTaskModal({
   lists,
+  projects,
   defaultListId,
   onClose,
 }: {
   lists: List[];
+  projects: Project[];
   defaultListId?: string;
   onClose: () => void;
 }) {
@@ -92,6 +95,7 @@ function NewTaskModal({
   const [title, setTitle] = useState("");
   const [notes, setNotes] = useState("");
   const [listId, setListId] = useState(defaultListId ?? "");
+  const [projectId, setProjectId] = useState("");
   const [priority, setPriority] = useState<Task["priority"]>("normal");
   const [crearEvento, setCrearEvento] = useState(false);
   const [fecha, setFecha] = useState("");
@@ -134,6 +138,7 @@ function NewTaskModal({
       title: title.trim(),
       notes: notes.trim() || undefined,
       list_id: listId,
+      project_id: projectId || undefined,
       priority,
       crearEvento,
       fecha: crearEvento ? fecha : undefined,
@@ -193,6 +198,13 @@ function NewTaskModal({
             </select>
           </div>
         </div>
+
+        {projects.length > 0 && (
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-white/50">Proyecto (opcional)</label>
+            <ProjectSelect projects={projects} value={projectId} onChange={setProjectId} />
+          </div>
+        )}
 
         {!crearEvento && (
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-2">
@@ -288,13 +300,24 @@ function NewTaskModal({
   );
 }
 
-function TaskDetail({ task, lists, onClose }: { task: Task; lists: List[]; onClose: () => void }) {
+function TaskDetail({
+  task,
+  lists,
+  projects,
+  onClose,
+}: {
+  task: Task;
+  lists: List[];
+  projects: Project[];
+  onClose: () => void;
+}) {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [title, setTitle] = useState(task.title);
   const [notes, setNotes] = useState(task.notes ?? "");
   const [listId, setListId] = useState(task.list_id ?? "");
+  const [projectId, setProjectId] = useState(task.project_id ?? "");
   const [priority, setPriority] = useState<Task["priority"]>(task.priority);
   const [crearEvento, setCrearEvento] = useState(false);
   const [fecha, setFecha] = useState("");
@@ -371,6 +394,7 @@ function TaskDetail({ task, lists, onClose }: { task: Task; lists: List[]; onClo
         title: title.trim(),
         notes: notes.trim(),
         list_id: listId,
+        project_id: projectId,
         priority,
         ...(dueDateSinEvento !== undefined ? { due_date: dueDateSinEvento } : {}),
       });
@@ -465,6 +489,13 @@ function TaskDetail({ task, lists, onClose }: { task: Task; lists: List[]; onClo
                 </select>
               </div>
             </div>
+
+            {projects.length > 0 && (
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-white/50">Proyecto (opcional)</label>
+                <ProjectSelect projects={projects} value={projectId} onChange={setProjectId} />
+              </div>
+            )}
 
             {existingEvent ? (
               <p className="text-xs text-white/40">
@@ -751,6 +782,7 @@ function CategoryTasksView({
   const dragStartRef = useRef<{ index: number; clientY: number; rowHeight: number } | null>(null);
   const queryClient = useQueryClient();
   const { data: lists } = useQuery({ queryKey: ["lists"], queryFn: api.listLists });
+  const { data: projects } = useQuery({ queryKey: ["projects"], queryFn: api.listProjects });
   const { data: allSubtasks } = useQuery({ queryKey: ["subtasks"], queryFn: () => api.listSubtasks() });
   const completeTask = useCompleteTask();
 
@@ -987,10 +1019,18 @@ function CategoryTasksView({
         )}
       </div>
 
-      {selectedTask && <TaskDetail task={selectedTask} lists={lists ?? []} onClose={() => setSelectedTask(null)} />}
+      {selectedTask && (
+        <TaskDetail
+          task={selectedTask}
+          lists={lists ?? []}
+          projects={projects ?? []}
+          onClose={() => setSelectedTask(null)}
+        />
+      )}
       {showForm && (
         <NewTaskModal
           lists={lists ?? []}
+          projects={projects ?? []}
           defaultListId={categoryId === SIN_CATEGORIA ? undefined : categoryId}
           onClose={() => setShowForm(false)}
         />
@@ -1022,6 +1062,7 @@ export function TasksPage() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const { data: tasks, isLoading } = useQuery({ queryKey: ["tasks"], queryFn: api.listTasks });
   const { data: lists } = useQuery({ queryKey: ["lists"], queryFn: api.listLists });
+  const { data: projects } = useQuery({ queryKey: ["projects"], queryFn: api.listProjects });
 
   const pendientes = tasks?.filter((t) => t.status !== "done").length ?? 0;
   const completadas = tasks?.filter((t) => t.status === "done").length ?? 0;
@@ -1091,7 +1132,9 @@ export function TasksPage() {
         </div>
       )}
 
-      {showForm && <NewTaskModal lists={lists ?? []} onClose={() => setShowForm(false)} />}
+      {showForm && (
+        <NewTaskModal lists={lists ?? []} projects={projects ?? []} onClose={() => setShowForm(false)} />
+      )}
     </div>
   );
 }

@@ -294,6 +294,7 @@ export const api = {
       title: string;
       notes?: string;
       list_id?: string | null;
+      project_id?: string | null;
       priority: Task["priority"];
       due_date?: string | null;
     },
@@ -304,6 +305,7 @@ export const api = {
         title: input.title,
         notes: input.notes || null,
         list_id: input.list_id || null,
+        ...(input.project_id !== undefined ? { project_id: input.project_id || null } : {}),
         priority: input.priority,
         ...(input.due_date !== undefined ? { due_date: input.due_date } : {}),
       }),
