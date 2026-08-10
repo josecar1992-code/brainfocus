@@ -450,6 +450,8 @@ export const api = {
     request<RecurringReminder>("/recurring-reminders", { method: "POST", body: JSON.stringify(input) }),
   toggleRecurringReminder: (id: string, active: boolean) =>
     request<RecurringReminder>(`/recurring-reminders/${id}`, { method: "PATCH", body: JSON.stringify({ active }) }),
+  updateRecurringReminder: (id: string, input: Partial<NewRecurringReminder>) =>
+    request<RecurringReminder>(`/recurring-reminders/${id}`, { method: "PATCH", body: JSON.stringify(input) }),
   deleteRecurringReminder: (id: string) => request<void>(`/recurring-reminders/${id}`, { method: "DELETE" }),
 
   listRoutines: () => request<Routine[]>("/routines"),

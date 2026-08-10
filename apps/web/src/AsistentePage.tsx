@@ -3,7 +3,7 @@ import { useState } from "react";
 import { CR_OFFSET } from "@brainfocus/shared-time";
 import { api, type NewRecurringReminder, type RecurringReminder } from "./api";
 import { ConfirmDialog } from "./ConfirmDialog";
-import { IconTrash } from "./icons";
+import { IconPencil, IconTrash } from "./icons";
 import { QuickBadge } from "./QuickBadge";
 
 const WEEKDAYS = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
@@ -46,6 +46,14 @@ function defaultLocalDateTime(): string {
   return crNow.toISOString().slice(0, 16);
 }
 
+// Inverso de lo anterior: un scheduled_at guardado (ISO, cualquier offset) a
+// "YYYY-MM-DDTHH:MM" en hora de Costa Rica, para precargar el input al
+// editar — mismo motivo, no depender de la zona horaria del navegador.
+function toCRLocalInput(iso: string): string {
+  const crTime = new Date(new Date(iso).getTime() - 6 * 60 * 60 * 1000);
+  return crTime.toISOString().slice(0, 16);
+}
+
 export function AsistentePage() {
   const queryClient = useQueryClient();
   const [title, setTitle] = useState("");
@@ -58,19 +66,58 @@ export function AsistentePage() {
   const [dayOfWeek, setDayOfWeek] = useState("1");
   const [error, setError] = useState<string | null>(null);
   const [reminderToDelete, setReminderToDelete] = useState<RecurringReminder | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const { data: reminders, isLoading } = useQuery({
     queryKey: ["recurring-reminders"],
     queryFn: api.listRecurringReminders,
   });
 
+  function resetForm() {
+    setTitle("");
+    setIsInstruction(false);
+    setScheduleType("recurring");
+    setScheduledAt(defaultLocalDateTime());
+    setFrequency("daily");
+    setIntervalHours("2");
+    setTimeOfDay("09:00");
+    setDayOfWeek("1");
+    setEditingId(null);
+  }
+
+  function startEdit(r: RecurringReminder) {
+    setEditingId(r.id);
+    setTitle(r.title);
+    setIsInstruction(r.is_instruction);
+    setScheduleType(r.schedule_type);
+    setError(null);
+    if (r.schedule_type === "once") {
+      setScheduledAt(r.scheduled_at ? toCRLocalInput(r.scheduled_at) : defaultLocalDateTime());
+    } else {
+      setFrequency(r.frequency ?? "daily");
+      setIntervalHours(String(r.interval_hours ?? 2));
+      setTimeOfDay(r.time_of_day ?? "09:00");
+      setDayOfWeek(String(r.day_of_week ?? 1));
+    }
+  }
+
   const createReminder = useMutation({
     mutationFn: api.createRecurringReminder,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["recurring-reminders"] });
-      setTitle("");
+      resetForm();
     },
     onError: (err) => setError(err instanceof Error ? err.message : "No se pudo crear el aviso"),
+  });
+
+  const updateReminder = useMutation({
+    mutationFn: ({ id, input }: { id: string; input: Partial<NewRecurringReminder> }) =>
+      api.updateRecurringReminder(id, input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["recurring-reminders"] });
+      resetForm();
+    },
+    onError: (err) => setError(err instanceof Error ? err.message : "No se pudo guardar el cambio"),
   });
 
   const toggleReminder = useMutation({
@@ -93,30 +140,37 @@ export function AsistentePage() {
       setError(isInstruction ? "Escribí la instrucción para Quicks." : "Ponele un nombre al aviso.");
       return;
     }
-    if (scheduleType === "once") {
-      // scheduledAt viene de <input type="datetime-local"> como
-      // "YYYY-MM-DDTHH:MM", sin zona horaria — se interpreta como hora de
-      // Costa Rica (así se le muestra al usuario en toda la app) y se le
-      // agrega el offset explícito -06:00, en vez de `new Date(...).toISOString()`
-      // que asumía la zona horaria del navegador/SO.
-      createReminder.mutate({
-        title: title.trim(),
-        is_instruction: isInstruction,
-        schedule_type: "once",
-        scheduled_at: `${scheduledAt}:00${CR_OFFSET}`,
-      });
-      return;
+    // scheduledAt viene de <input type="datetime-local"> como
+    // "YYYY-MM-DDTHH:MM", sin zona horaria — se interpreta como hora de
+    // Costa Rica (así se le muestra al usuario en toda la app) y se le
+    // agrega el offset explícito -06:00, en vez de `new Date(...).toISOString()`
+    // que asumía la zona horaria del navegador/SO.
+    const input: NewRecurringReminder =
+      scheduleType === "once"
+        ? {
+            title: title.trim(),
+            is_instruction: isInstruction,
+            schedule_type: "once",
+            scheduled_at: `${scheduledAt}:00${CR_OFFSET}`,
+          }
+        : {
+            title: title.trim(),
+            is_instruction: isInstruction,
+            schedule_type: "recurring",
+            frequency,
+            interval_hours: frequency === "every_n_hours" ? Number(intervalHours) : undefined,
+            time_of_day: frequency !== "every_n_hours" ? timeOfDay : undefined,
+            day_of_week: frequency === "weekly" ? Number(dayOfWeek) : undefined,
+          };
+
+    if (editingId) {
+      updateReminder.mutate({ id: editingId, input });
+    } else {
+      createReminder.mutate(input);
     }
-    createReminder.mutate({
-      title: title.trim(),
-      is_instruction: isInstruction,
-      schedule_type: "recurring",
-      frequency,
-      interval_hours: frequency === "every_n_hours" ? Number(intervalHours) : undefined,
-      time_of_day: frequency !== "every_n_hours" ? timeOfDay : undefined,
-      day_of_week: frequency === "weekly" ? Number(dayOfWeek) : undefined,
-    });
   }
+
+  const isPending = createReminder.isPending || updateReminder.isPending;
 
   return (
     <div className="space-y-5">
@@ -130,6 +184,11 @@ export function AsistentePage() {
 
       <div className="bg-night-blue/40 backdrop-blur-md rounded-2xl border border-electric-cyan/10 shadow-[0_0_40px_-24px_rgba(0,210,255,0.35)] overflow-hidden">
         <div className="p-5 border-b border-white/8">
+          {editingId && (
+            <p className="text-xs font-semibold uppercase tracking-wide text-electric-cyan/80 mb-3">
+              Editando aviso
+            </p>
+          )}
           <form onSubmit={handleSubmit} className="flex flex-col gap-3">
             <input
               value={title}
@@ -219,13 +278,24 @@ export function AsistentePage() {
               )}
             </div>
             {error && <p className="text-sm text-red-400">{error}</p>}
-            <button
-              type="submit"
-              disabled={createReminder.isPending}
-              className="self-end bg-gradient-to-br from-deep-blue via-electric-cyan to-electric-cyan text-night-blue font-semibold rounded-lg shadow-[0_0_18px_-4px_rgba(0,210,255,0.55)] px-4 py-2 disabled:opacity-50 hover:brightness-110 transition"
-            >
-              {createReminder.isPending ? "Creando..." : "Crear"}
-            </button>
+            <div className="flex items-center justify-end gap-2">
+              {editingId && (
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="text-sm text-white/40 hover:text-white/70 transition-colors px-3 py-2"
+                >
+                  Cancelar
+                </button>
+              )}
+              <button
+                type="submit"
+                disabled={isPending}
+                className="bg-gradient-to-br from-deep-blue via-electric-cyan to-electric-cyan text-night-blue font-semibold rounded-lg shadow-[0_0_18px_-4px_rgba(0,210,255,0.55)] px-4 py-2 disabled:opacity-50 hover:brightness-110 transition"
+              >
+                {isPending ? "Guardando..." : editingId ? "Guardar cambios" : "Crear"}
+              </button>
+            </div>
           </form>
         </div>
 
@@ -273,6 +343,14 @@ export function AsistentePage() {
                       {r.active ? "Pausar" : "Reactivar"}
                     </button>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => startEdit(r)}
+                    aria-label="Editar aviso"
+                    className="text-white/20 hover:text-electric-cyan transition-colors opacity-0 group-hover:opacity-100"
+                  >
+                    <IconPencil className="w-4 h-4" strokeWidth={1.75} />
+                  </button>
                   <button
                     type="button"
                     onClick={() => setReminderToDelete(r)}
