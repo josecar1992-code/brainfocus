@@ -12,4 +12,5 @@ export const listsRouter = createResourceRouter({
   createSchema,
   updateSchema: createSchema.partial(),
   orderBy: { column: "name", ascending: true },
+  trackCreatedBy: true,
 });

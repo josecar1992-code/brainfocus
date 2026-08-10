@@ -18,4 +18,5 @@ export const nutritionRouter = createResourceRouter({
   createSchema,
   updateSchema: createSchema.partial(),
   orderBy: { column: "logged_at", ascending: false },
+  trackCreatedBy: true,
 });

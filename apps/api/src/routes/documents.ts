@@ -5,6 +5,7 @@ import { z } from "zod";
 import { requireScope } from "../middleware/auth.js";
 import { logAgentAction } from "../services/agentActions.js";
 import { supabaseAdmin } from "../supabaseClient.js";
+import { parseLimit } from "../utils/pagination.js";
 
 // Bucket privado: nunca público, siempre vía URL firmada de vencimiento corto
 // generada acá con la service-role key (ver GET /:id/download-url abajo).
@@ -39,8 +40,7 @@ export const documentsRouter = Router();
 
 documentsRouter.get("/", requireScope("documents:read"), async (req, res, next) => {
   try {
-    const limitParam = Number(req.query.limit);
-    const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 200) : 50;
+    const limit = parseLimit(req.query.limit, { max: 200, defaultValue: 50 });
 
     let query = supabaseAdmin
       .from("documents")

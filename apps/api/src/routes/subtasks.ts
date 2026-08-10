@@ -16,4 +16,5 @@ export const subtasksRouter = createResourceRouter({
   createSchema,
   updateSchema: createSchema.partial(),
   orderBy: { column: "created_at", ascending: true },
+  trackCreatedBy: true,
 });

@@ -111,6 +111,7 @@ export interface Vehicle {
   year: number | null;
   vehicle_type: string | null;
   plate: string | null;
+  created_by: "user" | "agent";
   created_at: string;
 }
 

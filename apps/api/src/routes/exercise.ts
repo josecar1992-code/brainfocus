@@ -18,4 +18,5 @@ export const exerciseRouter = createResourceRouter({
   createSchema,
   updateSchema: createSchema.partial(),
   orderBy: { column: "logged_at", ascending: false },
+  trackCreatedBy: true,
 });

@@ -14,4 +14,5 @@ export const vehicleMaintenanceRouter = createResourceRouter({
   createSchema,
   updateSchema: createSchema.partial(),
   orderBy: { column: "date", ascending: false },
+  trackCreatedBy: true,
 });

@@ -15,4 +15,5 @@ export const vehiclesRouter = createResourceRouter({
   createSchema,
   updateSchema: createSchema.partial(),
   orderBy: { column: "created_at", ascending: false },
+  trackCreatedBy: true,
 });

@@ -4,6 +4,7 @@ import { api, type NewMaintenance, type NewVehicle, type Vehicle, type VehicleMa
 import { ConfirmDialog } from "./ConfirmDialog";
 import { CornerBrackets } from "./CornerBrackets";
 import { IconX } from "./icons";
+import { QuickBadge } from "./QuickBadge";
 
 const VEHICLE_TYPES = ["Sedán", "SUV", "Pickup", "Hatchback", "Moto", "Otro"];
 
@@ -441,8 +442,9 @@ export function VehiclesPage() {
               onClick={() => setSelectedVehicle(v)}
               className="text-left bg-night-blue/40 backdrop-blur-md rounded-2xl border border-electric-cyan/10 shadow-[0_0_40px_-24px_rgba(0,210,255,0.35)] p-4 hover:bg-white/10 transition-colors"
             >
-              <p className="text-sm font-semibold text-white/90">
+              <p className="text-sm font-semibold text-white/90 flex items-center gap-2">
                 {v.brand} {v.model}
+                {v.created_by === "agent" && <QuickBadge iconOnly />}
               </p>
               <p className="text-xs text-white/40 mt-1">
                 {[v.year, v.vehicle_type, v.plate].filter(Boolean).join(" · ") || "Sin más datos"}

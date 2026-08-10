@@ -3,6 +3,7 @@ import type { ZodTypeAny } from "zod";
 import { supabaseAdmin } from "../supabaseClient.js";
 import { requireScope } from "../middleware/auth.js";
 import { logAgentAction } from "../services/agentActions.js";
+import { parseLimit } from "../utils/pagination.js";
 
 interface ResourceConfig {
   table: string;
@@ -66,8 +67,7 @@ export function createResourceRouter(config: ResourceConfig): Router {
 
   router.get("/", requireScope(`${resourceName}:read`), async (req, res, next) => {
     try {
-      const limitParam = Number(req.query.limit);
-      const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, MAX_LIMIT) : DEFAULT_LIMIT;
+      const limit = parseLimit(req.query.limit, { max: MAX_LIMIT, defaultValue: DEFAULT_LIMIT });
 
       // Solo lista de columnas simples separadas por coma (ej. "id,title"). Sin
       // esto, supabase-js interpreta acá sintaxis de embeds/joins

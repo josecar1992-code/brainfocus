@@ -51,6 +51,7 @@ create table if not exists public.lists (
   user_id uuid not null references auth.users(id) on delete cascade,
   name text not null,
   color text,
+  created_by text not null default 'user' check (created_by in ('user','agent')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -106,6 +107,7 @@ create table if not exists public.subtasks (
   task_id uuid not null references public.tasks(id) on delete cascade,
   title text not null,
   done boolean not null default false,
+  created_by text not null default 'user' check (created_by in ('user','agent')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -207,6 +209,7 @@ create table if not exists public.nutrition_logs (
   carbs_g numeric,
   fat_g numeric,
   water_ml numeric,
+  created_by text not null default 'user' check (created_by in ('user','agent')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -225,6 +228,7 @@ create table if not exists public.exercise_logs (
   weight_kg numeric,
   distance_km numeric,
   notes text,
+  created_by text not null default 'user' check (created_by in ('user','agent')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -240,6 +244,7 @@ create table if not exists public.vehicles (
   year integer,
   vehicle_type text,
   plate text,
+  created_by text not null default 'user' check (created_by in ('user','agent')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -251,6 +256,7 @@ create table if not exists public.vehicle_maintenance (
   date timestamptz not null,
   description text not null, -- ej. "cambio de aceite"
   mileage numeric,
+  created_by text not null default 'user' check (created_by in ('user','agent')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
