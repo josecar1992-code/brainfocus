@@ -1,12 +1,17 @@
 import { z } from "zod";
 import { createResourceRouter } from "./resourceRouter.js";
 import { supabaseAdmin } from "../supabaseClient.js";
-import { cancelReminderCron, scheduleRecurringCron } from "../services/openclawCron.js";
+import { cancelReminderCron, scheduleOnceCron, scheduleRecurringCron } from "../services/openclawCron.js";
 
 const createSchema = z
   .object({
     title: z.string().min(1),
-    frequency: z.enum(["every_n_hours", "daily", "weekly"]),
+    schedule_type: z.enum(["once", "recurring"]).default("recurring"),
+    is_instruction: z.boolean().optional(),
+    // schedule_type: "once"
+    scheduled_at: z.string().datetime({ offset: true }).optional(),
+    // schedule_type: "recurring"
+    frequency: z.enum(["every_n_hours", "daily", "weekly"]).optional(),
     interval_hours: z.number().int().min(1).max(23).optional(),
     time_of_day: z
       .string()
@@ -18,18 +23,22 @@ const createSchema = z
   })
   .refine(
     (data) => {
+      if (data.schedule_type === "once") return data.scheduled_at != null;
       if (data.frequency === "every_n_hours") return data.interval_hours != null;
       if (data.frequency === "daily") return data.time_of_day != null;
       if (data.frequency === "weekly") return data.time_of_day != null && data.day_of_week != null;
-      return true;
+      return data.frequency != null;
     },
-    { message: "Faltan campos para la frecuencia elegida (interval_hours / time_of_day / day_of_week)" },
+    { message: "Faltan campos para el tipo/frecuencia elegida (scheduled_at o interval_hours/time_of_day/day_of_week)" },
   );
 
 type RecurringReminderRow = {
   id: string;
   title: string;
-  frequency: "every_n_hours" | "daily" | "weekly";
+  schedule_type: "once" | "recurring";
+  scheduled_at: string | null;
+  is_instruction: boolean;
+  frequency: "every_n_hours" | "daily" | "weekly" | null;
   interval_hours: number | null;
   time_of_day: string | null;
   day_of_week: number | null;
@@ -52,23 +61,41 @@ function buildCronExpr(row: RecurringReminderRow): string {
   return `${minute} ${hour} * * ${row.day_of_week}`;
 }
 
+// El mensaje final que ve Quicks: si es_instruction, el texto es la orden
+// tal cual (ej. "dame el tipo de cambio del bitcoin actual"); si no, se
+// envuelve como aviso a relayar (comportamiento de siempre).
+function buildMessage(row: RecurringReminderRow): string {
+  if (row.is_instruction) return row.title;
+  return (
+    `Avisale esto al usuario: "${row.title}". Podés redactarlo con tus palabras, pero el contenido ` +
+    `tiene que quedar claro en el mensaje final.`
+  );
+}
+
 // Best-effort, igual que routines.ts/vehicles.ts: si falla programar el cron,
-// no tiene sentido bloquear crear/editar el recordatorio recurrente por eso
-// — queda guardado con cron_job_id null y sin aviso real hasta que se
-// corrija (ej. OpenClaw no configurado en local).
+// no tiene sentido bloquear crear/editar el aviso por eso — queda guardado
+// con cron_job_id null y sin aviso real hasta que se corrija (ej. OpenClaw
+// no configurado en local).
 async function syncCron(row: RecurringReminderRow): Promise<string | null> {
-  if (!row.active) return null;
   try {
+    if (row.schedule_type === "once") {
+      if (!row.scheduled_at) return null;
+      return await scheduleOnceCron({
+        displayName: `brainfocus:asistente:${row.id}`,
+        at: row.scheduled_at,
+        message: buildMessage(row),
+        channel: row.channel,
+      });
+    }
+    if (!row.active) return null;
     return await scheduleRecurringCron({
-      displayName: `brainfocus:recurring-reminder:${row.id}`,
+      displayName: `brainfocus:asistente:${row.id}`,
       cronExpr: buildCronExpr(row),
-      message:
-        `Avisale esto al usuario: "${row.title}". Podés redactarlo con tus palabras, pero el contenido ` +
-        `tiene que quedar claro en el mensaje final.`,
+      message: buildMessage(row),
       channel: row.channel,
     });
   } catch (err) {
-    console.error(`[recurring-reminders] no se pudo programar "${row.title}":`, err);
+    console.error(`[asistente] no se pudo programar "${row.title}":`, err);
     return null;
   }
 }
@@ -84,23 +111,31 @@ export const recurringRemindersRouter = createResourceRouter({
     async afterCreate(_userId, row) {
       const jobId = await syncCron(row);
       const { error } = await supabaseAdmin.from("recurring_reminders").update({ cron_job_id: jobId }).eq("id", row.id);
-      if (error) console.error(`[recurring-reminders] cron creado pero no se pudo guardar:`, error.message);
+      if (error) console.error(`[asistente] cron creado pero no se pudo guardar:`, error.message);
     },
     async afterUpdate(_userId, before, after) {
+      // Una vez ya disparada (pasado su scheduled_at), editar no debería
+      // volver a programar nada — solo importa para las que siguen pendientes.
+      if (after.schedule_type === "once" && after.scheduled_at && new Date(after.scheduled_at) <= new Date()) return;
+
       const relevant: (keyof RecurringReminderRow)[] = [
+        "schedule_type",
+        "scheduled_at",
+        "is_instruction",
         "frequency",
         "interval_hours",
         "time_of_day",
         "day_of_week",
         "channel",
         "active",
+        "title",
       ];
       if (!relevant.some((k) => before[k] !== after[k])) return;
 
       await cancelReminderCron(before.cron_job_id ?? null);
       const jobId = await syncCron(after);
       const { error } = await supabaseAdmin.from("recurring_reminders").update({ cron_job_id: jobId }).eq("id", after.id);
-      if (error) console.error(`[recurring-reminders] cron reprogramado pero no se pudo guardar:`, error.message);
+      if (error) console.error(`[asistente] cron reprogramado pero no se pudo guardar:`, error.message);
     },
     async beforeDelete(_userId, row) {
       await cancelReminderCron(row.cron_job_id ?? null);

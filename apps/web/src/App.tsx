@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { AgendaPage } from "./AgendaPage";
+import { AsistentePage } from "./AsistentePage";
 import { ApiError, api } from "./api";
 import { DocumentsPage } from "./DocumentsPage";
 import { Header } from "./Header";
@@ -107,6 +108,7 @@ export function App() {
             {activeModule === "notas" && <NotesPage />}
             {activeModule === "documentos" && <DocumentsPage />}
             {activeModule === "vehiculos" && <VehiclesPage />}
+            {activeModule === "asistente" && <AsistentePage />}
             {activeModule === "configuracion" && <SettingsPage />}
           </div>
         </main>

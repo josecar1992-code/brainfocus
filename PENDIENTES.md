@@ -71,6 +71,13 @@ No implementado todavía — este documento es la lista de trabajo, no un change
   real cuando cambia algo relevante. MCP: `crear_recordatorio_recurrente`,
   `listar_recordatorios_recurrentes`, `pausar_recordatorio_recurrente`, `borrar_recordatorio_recurrente`
   (scopes ya otorgados a `quicks-agent`). Web: sección "Avisos recurrentes" en Configuración.
+  **10-ago-2026:** promovido a módulo propio del sidebar, **Asistente** (`AsistentePage.tsx`), mismo
+  table (`recurring_reminders`, columnas nuevas `schedule_type`/`scheduled_at`/`is_instruction`). Ahora
+  cubre también avisos de una sola vez (`scheduleOnceCron` nuevo en `openclawCron.ts`, análogo al
+  recurrente pero con `schedule.at`) y el checkbox "Es una instrucción para Quicks" — cuando está
+  marcado, el texto se manda tal cual como orden a ejecutar (no envuelto en "avisale esto"). MCP: tools
+  renombradas `crear_aviso_asistente`/`listar_avisos_asistente`/`pausar_aviso_asistente`/
+  `borrar_aviso_asistente` (mismo resource/scopes, no hizo falta SQL nuevo).
 - ~~**Alertas de mantenimiento vehicular por km/fecha.**~~ ✅ Resuelto — `vehicles.next_maintenance_date` /
   `next_maintenance_mileage` nuevos. La fecha programa un recordatorio real (`reminders.vehicle_id`, mismo
   mecanismo que tasks/events: se recrea si la fecha cambia, se cancela si se borra el vehículo). El

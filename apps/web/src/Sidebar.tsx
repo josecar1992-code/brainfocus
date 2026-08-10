@@ -9,6 +9,7 @@ import {
   IconLogOut,
   IconNote,
   IconRepeat,
+  IconRobot,
   IconSettings,
   IconSun,
   IconX,
@@ -24,6 +25,7 @@ export type ModuleKey =
   | "notas"
   | "documentos"
   | "vehiculos"
+  | "asistente"
   | "configuracion";
 
 export const MODULES: { key: ModuleKey; label: string; icon: ComponentType<SVGProps<SVGSVGElement>> }[] = [
@@ -35,6 +37,7 @@ export const MODULES: { key: ModuleKey; label: string; icon: ComponentType<SVGPr
   { key: "notas", label: "Notas y memorias", icon: IconNote },
   { key: "documentos", label: "Documentos", icon: IconFile },
   { key: "vehiculos", label: "Vehículos", icon: IconCar },
+  { key: "asistente", label: "Asistente", icon: IconRobot },
   { key: "configuracion", label: "Configuración", icon: IconSettings },
 ];
 

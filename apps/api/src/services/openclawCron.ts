@@ -158,6 +158,37 @@ export async function scheduleRecurringCron(input: RecurringCronInput): Promise<
   return extractJobId(result);
 }
 
+interface OnceCronInput {
+  displayName: string;
+  // ISO con offset explícito (-06:00 para Costa Rica), mismo requisito que
+  // scheduleReminderCron.
+  at: string;
+  message: string;
+  channel: string | null;
+}
+
+// One-shot con mensaje libre — a diferencia de scheduleReminderCron, no
+// envuelve el mensaje en "Avisale esto al usuario: ...": lo manda tal cual,
+// para el caso "instrucción para Quicks" del módulo Asistente (ej. "dame el
+// tipo de cambio del bitcoin actual"), donde el texto ya es la orden final,
+// no un dato para relayar.
+export async function scheduleOnceCron(input: OnceCronInput): Promise<string | null> {
+  if (!isConfigured()) return null;
+  const { to, gatewayChannel } = resolveDelivery(input.channel);
+
+  const result = await invoke("cron", "add", {
+    job: {
+      displayName: input.displayName,
+      sessionTarget: "isolated",
+      schedule: { at: input.at },
+      payload: { kind: "agentTurn", message: input.message },
+      delivery: { mode: "announce", channel: gatewayChannel, to },
+    },
+  });
+
+  return extractJobId(result);
+}
+
 /** Cancelación best-effort: no debe bloquear que una tarea/evento se complete o se borre. */
 export async function cancelReminderCron(jobId: string | null): Promise<void> {
   if (!jobId || !isConfigured()) return;

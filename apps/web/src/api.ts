@@ -164,13 +164,18 @@ export interface NewMileageLog {
   logged_at?: string;
 }
 
-// Aviso periódico sin tarea ni historial de ocurrencias — distinto de una
-// rutina (que genera tarea+evento por ocurrencia) y de un recordatorio común
-// (que es de una sola vez).
+// Aviso del módulo Asistente — único (una vez) o recurrente (periódico, sin
+// tarea ni historial de ocurrencias, distinto de una rutina que sí genera
+// tarea+evento por ocurrencia). `is_instruction` cambia cómo se arma el
+// mensaje final que ve Quicks: false = "avisale esto: <title>" (relayar),
+// true = <title> tal cual, como una orden a ejecutar.
 export interface RecurringReminder {
   id: string;
   title: string;
-  frequency: "every_n_hours" | "daily" | "weekly";
+  schedule_type: "once" | "recurring";
+  scheduled_at: string | null;
+  is_instruction: boolean;
+  frequency: "every_n_hours" | "daily" | "weekly" | null;
   interval_hours: number | null;
   time_of_day: string | null;
   day_of_week: number | null;
@@ -181,10 +186,14 @@ export interface RecurringReminder {
 
 export interface NewRecurringReminder {
   title: string;
-  frequency: "every_n_hours" | "daily" | "weekly";
+  is_instruction?: boolean;
+  schedule_type: "once" | "recurring";
+  scheduled_at?: string;
+  frequency?: "every_n_hours" | "daily" | "weekly";
   interval_hours?: number;
   time_of_day?: string;
   day_of_week?: number;
+  channel?: "whatsapp" | "telegram";
 }
 
 export interface Routine {

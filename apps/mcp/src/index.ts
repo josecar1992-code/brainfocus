@@ -29,7 +29,10 @@ interface Note {
 interface RecurringReminder {
   id: string;
   title: string;
-  frequency: "every_n_hours" | "daily" | "weekly";
+  schedule_type: "once" | "recurring";
+  scheduled_at: string | null;
+  is_instruction: boolean;
+  frequency: "every_n_hours" | "daily" | "weekly" | null;
   interval_hours: number | null;
   time_of_day: string | null;
   day_of_week: number | null;
@@ -247,18 +250,33 @@ const tools = {
       }),
   },
 
-  crear_recordatorio_recurrente: {
+  crear_aviso_asistente: {
     description:
-      "Crea un aviso que se repite solo (ej. 'recordame tomar agua cada 2 horas', 'todos los días a " +
-      "las 8pm recordame tomar la pastilla', 'cada lunes a las 9am recordame sacar la basura') — a " +
-      "diferencia de `crear_recordatorio` (una sola vez) o `crear_rutina` (genera tarea+evento por " +
-      "ocurrencia), esto es solo un aviso periódico sin tarea ni historial. La API programa sola el " +
-      "cron real recurrente en OpenClaw.",
+      "Crea un aviso del módulo Asistente — puede ser único (una vez, ej. 'recordame a las 6pm que " +
+      "salga la carne del freezer') o recurrente (se repite solo, ej. 'recordame tomar agua cada 2 " +
+      "horas', 'todos los días a las 8pm recordame la pastilla'). A diferencia de `crear_recordatorio` " +
+      "(siempre atado a una tarea/hora única y sin instrucciones) o `crear_rutina` (genera tarea+evento " +
+      "por ocurrencia), esto es un aviso suelto sin tarea ni historial. `es_instruccion=true` es para " +
+      "cuando el texto NO es algo para repetirle al usuario tal cual, sino una orden para que VOS " +
+      "ejecutes cuando dispare (ej. 'dame el tipo de cambio del bitcoin actual', 'contame el clima de " +
+      "hoy') — en ese caso el texto se te manda como instrucción, no como aviso a relayar. La API " +
+      `programa sola el cron real (único o recurrente) en OpenClaw. ${AHORA_CR}`,
     inputSchema: {
       type: "object",
       properties: {
-        titulo: { type: "string", description: "ej. 'Tomar agua'" },
-        frecuencia: { type: "string", enum: ["cada_n_horas", "diaria", "semanal"] },
+        titulo: { type: "string", description: "El aviso a relayar, o la instrucción si es_instruccion=true" },
+        es_instruccion: {
+          type: "boolean",
+          description: "true si el texto es una orden para que ejecutes vos (no un dato para el usuario). Default false.",
+        },
+        tipo: { type: "string", enum: ["unico", "recurrente"], description: "Default 'recurrente'." },
+        fecha_hora: {
+          type: "string",
+          description:
+            "ISO 8601 con offset -06:00 (Costa Rica). Requerido si tipo='unico'. Construir a partir de " +
+            "`hora_actual`, no de memoria/estimación.",
+        },
+        frecuencia: { type: "string", enum: ["cada_n_horas", "diaria", "semanal"], description: "Requerido si tipo='recurrente'." },
         cada_cuantas_horas: {
           type: "number",
           description: "1-23. Requerido si frecuencia es 'cada_n_horas'. Dispara en marcas de reloj " +
@@ -270,27 +288,38 @@ const tools = {
           description: "0=domingo .. 6=sábado. Requerido si frecuencia es 'semanal'.",
         },
       },
-      required: ["titulo", "frecuencia"],
+      required: ["titulo"],
     },
     argsSchema: z.object({
       titulo: z.string().min(1),
-      frecuencia: z.enum(["cada_n_horas", "diaria", "semanal"]),
+      es_instruccion: z.boolean().optional(),
+      tipo: z.enum(["unico", "recurrente"]).default("recurrente"),
+      fecha_hora: z.string().datetime({ offset: true }).optional(),
+      frecuencia: z.enum(["cada_n_horas", "diaria", "semanal"]).optional(),
       cada_cuantas_horas: z.number().int().min(1).max(23).optional(),
       hora: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(),
       dia_semana: z.number().int().min(0).max(6).optional(),
     }),
     handler: (args: {
       titulo: string;
-      frecuencia: "cada_n_horas" | "diaria" | "semanal";
+      es_instruccion?: boolean;
+      tipo: "unico" | "recurrente";
+      fecha_hora?: string;
+      frecuencia?: "cada_n_horas" | "diaria" | "semanal";
       cada_cuantas_horas?: number;
       hora?: string;
       dia_semana?: number;
     }) => {
-      const frequency = { cada_n_horas: "every_n_hours", diaria: "daily", semanal: "weekly" }[args.frecuencia];
+      const frequency = args.frecuencia
+        ? { cada_n_horas: "every_n_hours", diaria: "daily", semanal: "weekly" }[args.frecuencia]
+        : undefined;
       return apiRequest<RecurringReminder>("/recurring-reminders", {
         method: "POST",
         body: JSON.stringify({
           title: args.titulo,
+          is_instruction: args.es_instruccion,
+          schedule_type: args.tipo === "unico" ? "once" : "recurring",
+          scheduled_at: args.fecha_hora,
           frequency,
           interval_hours: args.cada_cuantas_horas,
           time_of_day: args.hora,
@@ -300,17 +329,18 @@ const tools = {
     },
   },
 
-  listar_recordatorios_recurrentes: {
-    description: "Lista los avisos periódicos guardados del usuario (frecuencia, hora, si están activos).",
+  listar_avisos_asistente: {
+    description: "Lista los avisos del módulo Asistente del usuario (únicos y recurrentes, con su estado).",
     inputSchema: { type: "object", properties: {} },
     argsSchema: z.object({}),
     handler: () => apiRequest<RecurringReminder[]>("/recurring-reminders?limit=100"),
   },
 
-  pausar_recordatorio_recurrente: {
+  pausar_aviso_asistente: {
     description:
-      "Activa o pausa un aviso periódico sin borrarlo (pausado, no vuelve a sonar hasta que se " +
-      "reactive). Necesita el `id` — usar `listar_recordatorios_recurrentes` primero si no se conoce.",
+      "Activa o pausa un aviso recurrente del Asistente sin borrarlo (pausado, no vuelve a sonar hasta " +
+      "que se reactive; no aplica a avisos únicos). Necesita el `id` — usar `listar_avisos_asistente` " +
+      "primero si no se conoce.",
     inputSchema: {
       type: "object",
       properties: { id: { type: "string" }, activo: { type: "boolean" } },
@@ -324,10 +354,10 @@ const tools = {
       }),
   },
 
-  borrar_recordatorio_recurrente: {
+  borrar_aviso_asistente: {
     description:
-      "Borra un aviso periódico y cancela su cron. Necesita el `id` — usar " +
-      "`listar_recordatorios_recurrentes` primero si no se conoce.",
+      "Borra un aviso del Asistente y cancela su cron. Necesita el `id` — usar `listar_avisos_asistente` " +
+      "primero si no se conoce.",
     inputSchema: {
       type: "object",
       properties: { id: { type: "string" } },

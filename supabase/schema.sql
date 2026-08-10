@@ -145,17 +145,27 @@ create table if not exists public.reminders (
 -- RECURRENTE real de OpenClaw que el aviso mensual de kilometraje
 -- (scheduleRecurringCron, ver openclawCron.ts) — puro aviso periódico sin
 -- estado de completado, no genera filas en reminders/tasks.
+--
+-- 10-ago-2026: pasó a ser el backend del módulo "Asistente" del sidebar
+-- (antes solo vivía como sección de Configuración) — se le agregaron
+-- schedule_type/scheduled_at/is_instruction para cubrir también avisos de
+-- una sola vez e instrucciones libres para Quicks (no solo "avisale esto").
+-- El nombre de la tabla se dejó igual a propósito para no arriesgar una
+-- migración de datos/RLS/scopes ya otorgados por un rename cosmético.
 -- ============================================================
 create table if not exists public.recurring_reminders (
   id uuid primary key default uuid_generate_v4(),
   user_id uuid not null references auth.users(id) on delete cascade,
-  title text not null,
-  frequency text not null, -- every_n_hours | daily | weekly
+  title text not null, -- si is_instruction=true, es la instrucción textual para Quicks
+  schedule_type text not null default 'recurring' check (schedule_type in ('once','recurring')),
+  scheduled_at timestamptz, -- solo schedule_type='once': fecha/hora exacta del aviso
+  is_instruction boolean not null default false, -- false: "avisale esto: <title>" | true: <title> tal cual, como comando
+  frequency text, -- solo schedule_type='recurring': every_n_hours | daily | weekly
   interval_hours integer, -- solo every_n_hours: cada cuántas horas (1-23)
   time_of_day text, -- HH:MM, solo daily/weekly
   day_of_week integer, -- 0 (domingo) .. 6 (sábado), solo weekly
   channel text default 'whatsapp', -- telegram | whatsapp
-  active boolean not null default true,
+  active boolean not null default true, -- solo aplica a schedule_type='recurring' (pausar sin borrar)
   cron_job_id text,
   created_by text not null default 'user' check (created_by in ('user','agent')),
   created_at timestamptz not null default now(),
