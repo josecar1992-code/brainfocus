@@ -10,6 +10,14 @@ apunta a `host.docker.internal:3001`, no a `localhost:3001` — y hace falta una
 para las redes de Docker (ver paso 4). El puerto 3001 lo publica el contenedor `api` en
 `127.0.0.1:3001`, así que `host.docker.internal` desde el contenedor de Caddy llega a él igual.
 
+**Contexto de build (09-ago-2026):** los tres servicios (`api`, `web`, `mcp`) construyen con la
+raíz del repo como contexto (`context: .` + `dockerfile: apps/<app>/Dockerfile` en
+`docker-compose.yml`), no `./apps/<app>` como antes — `packages/shared-time` (lógica de fecha/hora
+Costa Rica compartida entre `apps/web` y `apps/mcp`) necesita ser visible al construir cada imagen.
+Los comandos de `docker compose build <servicio>` de abajo siguen siendo los mismos, docker compose
+resuelve el contexto solo. Si algún día se agrega otro paquete compartido, va en `packages/` y cada
+`Dockerfile` debe compilarlo primero (ver el bloque inicial de `apps/api/Dockerfile` como ejemplo).
+
 ## 1. Clonar y preparar
 
 ```bash
