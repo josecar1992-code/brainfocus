@@ -51,6 +51,20 @@ function withTelegramFallback(message: string): string {
   );
 }
 
+// Una sesión de cron `isolated` sin `payload.toolsAllow` explícito cae a un
+// set mínimo (`cron`, `message`, `web_search`, `web_fetch`) — ninguna tool de
+// `brainfocus-api__*`, aunque el agente esté registrado con ellas fuera de
+// cron. Bug real confirmado el 10-ago-2026: el aviso mensual de kilometraje
+// (que necesita llamar `listar_vehiculos`/`listar_kilometrajes`/
+// `registrar_kilometraje` de verdad, no solo relayar texto) fallaba en
+// silencio porque el job nunca pedía esas tools. `message` siempre se incluye
+// (hace falta para poder avisar por WhatsApp/Telegram); las de
+// `brainfocus-api__*` se agregan solo si el job las necesita — pasarlas de
+// más no es gratis, cada tool extra se infla en el prompt del agente.
+function buildToolsAllow(brainfocusTools: string[] = []): string[] {
+  return ["cron", "message", "web_search", "web_fetch", ...brainfocusTools.map((t) => `brainfocus-api__${t}`)];
+}
+
 interface ReminderForCron {
   id: string;
   title: string;
@@ -151,6 +165,8 @@ export async function scheduleReminderCron(reminder: ReminderForCron): Promise<s
             `la hora del evento que aparece ahí tiene que quedar sí o sí en el mensaje final, textual, ` +
             `sin cambiarla ni omitirla.`,
         ),
+        // Solo relaya texto, no necesita llamar ninguna tool de brainfocus-api.
+        toolsAllow: buildToolsAllow(),
       },
       delivery: { mode: "announce", channel: gatewayChannel, to },
       failureAlert: buildFailureAlert(),
@@ -166,6 +182,11 @@ interface RecurringCronInput {
   cronExpr: string;
   message: string;
   channel: string | null;
+  // Nombres cortos de tools de brainfocus-api que este job necesita llamar de
+  // verdad (ej. ["listar_vehiculos", "registrar_kilometraje"]), sin el
+  // prefijo `brainfocus-api__` — se agrega solo. Vacío/omitido si el job solo
+  // relaya texto.
+  brainfocusTools?: string[];
 }
 
 // Único job recurrente real de la app hoy (el resto de los "recordatorios"
@@ -182,7 +203,11 @@ export async function scheduleRecurringCron(input: RecurringCronInput): Promise<
       displayName: input.displayName,
       sessionTarget: "isolated",
       schedule: { kind: "cron", expr: input.cronExpr, tz: "America/Costa_Rica" },
-      payload: { kind: "agentTurn", message: withTelegramFallback(input.message) },
+      payload: {
+        kind: "agentTurn",
+        message: withTelegramFallback(input.message),
+        toolsAllow: buildToolsAllow(input.brainfocusTools),
+      },
       delivery: { mode: "announce", channel: gatewayChannel, to },
       failureAlert: buildFailureAlert(),
     },
@@ -198,6 +223,8 @@ interface OnceCronInput {
   at: string;
   message: string;
   channel: string | null;
+  // Ver RecurringCronInput.brainfocusTools.
+  brainfocusTools?: string[];
 }
 
 // One-shot con mensaje libre — a diferencia de scheduleReminderCron, no
@@ -214,7 +241,11 @@ export async function scheduleOnceCron(input: OnceCronInput): Promise<string | n
       displayName: input.displayName,
       sessionTarget: "isolated",
       schedule: { at: input.at },
-      payload: { kind: "agentTurn", message: withTelegramFallback(input.message) },
+      payload: {
+        kind: "agentTurn",
+        message: withTelegramFallback(input.message),
+        toolsAllow: buildToolsAllow(input.brainfocusTools),
+      },
       delivery: { mode: "announce", channel: gatewayChannel, to },
       failureAlert: buildFailureAlert(),
     },

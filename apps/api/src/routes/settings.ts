@@ -69,6 +69,11 @@ settingsRouter.post("/mileage-reminder", requireScope("settings:write"), async (
       cronExpr: MILEAGE_CRON_EXPR,
       message: MILEAGE_CRON_MESSAGE,
       channel: null,
+      // El mensaje le pide llamar estas 3 tools de verdad, no solo relayar
+      // texto — sin esto, la sesión de cron cae al set mínimo (cron/message/
+      // web_search/web_fetch) y el job falla en silencio (bug real
+      // confirmado 10-ago-2026, ver PENDIENTES.md).
+      brainfocusTools: ["listar_vehiculos", "listar_kilometrajes", "registrar_kilometraje"],
     });
 
     const { error } = await supabaseAdmin

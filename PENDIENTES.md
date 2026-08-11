@@ -5,6 +5,21 @@ No implementado todavía — este documento es la lista de trabajo, no un change
 
 ## 1. Bugs / correcciones
 
+- ~~**[ALTO] El aviso de kilometraje fallaba en silencio: la sesión de cron no tenía las tools de
+  brainfocus-api.**~~ ✅ Resuelto (10-ago-2026, reportado por el propio Quicks al correr el job) —
+  `apps/api/src/services/openclawCron.ts` nunca seteaba `payload.toolsAllow` en ningún `cron.add`; sin
+  ese campo, una sesión de cron `isolated` cae al set mínimo del gateway (`cron`, `message`,
+  `web_search`, `web_fetch`), sin ninguna tool `brainfocus-api__*` — el job de kilometraje necesita
+  llamar `listar_vehiculos`/`listar_kilometrajes`/`registrar_kilometraje` de verdad, no solo relayar
+  texto, así que no podía avanzar. `scheduleRecurringCron`/`scheduleOnceCron` ahora aceptan
+  `brainfocusTools?: string[]` (nombres cortos, se les agrega el prefijo `brainfocus-api__` solo) y
+  arman `payload.toolsAllow` con eso + el set base. `settings.ts` (kilometraje) pasa las 3 tools que
+  necesita; `recurringReminders.ts` (Asistente) le da acceso de solo-lectura amplio a los avisos con
+  `is_instruction=true` (no se sabe de antemano qué va a necesitar una instrucción libre). Los
+  recordatorios simples (`scheduleReminderCron`, tarea/evento) solo relayan texto — no necesitaban
+  tools nuevas, pero ahora también setean `toolsAllow` explícito en vez de depender del default
+  implícito del gateway, para no repetir esta clase de bug.
+
 - ~~**[ALTO] WhatsApp falla en silencio si el usuario no interactúa con Quicks en 24h.**~~ ✅ Resuelto
   (10-ago-2026, pedido explícito del usuario) — Kapso/WhatsApp exige reabrir la conversación con una
   plantilla si pasaron más de 24h desde la última interacción del usuario; sin eso, el envío se pierde

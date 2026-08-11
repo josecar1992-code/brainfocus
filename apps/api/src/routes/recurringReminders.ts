@@ -76,7 +76,26 @@ function buildMessage(row: RecurringReminderRow): string {
 // no tiene sentido bloquear crear/editar el aviso por eso — queda guardado
 // con cron_job_id null y sin aviso real hasta que se corrija (ej. OpenClaw
 // no configurado en local).
+// Una sesión de cron sin `toolsAllow` explícito cae al set mínimo (cron/
+// message/web_search/web_fetch) — sin esto, una instrucción como "revisame
+// si tengo tareas pendientes" fallaría en silencio igual que el bug real que
+// tuvo el aviso de kilometraje (ver openclawCron.ts). Como el texto es libre
+// (lo escribe el usuario, no se sabe de antemano qué necesita), se le da
+// acceso de solo-lectura amplio en vez de intentar adivinar la tool exacta.
+const ASISTENTE_INSTRUCTION_TOOLS = [
+  "listar_tareas",
+  "listar_proyectos",
+  "listar_rutinas",
+  "buscar_notas",
+  "listar_vehiculos",
+  "listar_kilometrajes",
+  "listar_mantenimientos",
+  "buscar_documentos",
+  "listar_categorias",
+];
+
 async function syncCron(row: RecurringReminderRow): Promise<string | null> {
+  const brainfocusTools = row.is_instruction ? ASISTENTE_INSTRUCTION_TOOLS : undefined;
   try {
     if (row.schedule_type === "once") {
       if (!row.scheduled_at) return null;
@@ -85,6 +104,7 @@ async function syncCron(row: RecurringReminderRow): Promise<string | null> {
         at: row.scheduled_at,
         message: buildMessage(row),
         channel: row.channel,
+        brainfocusTools,
       });
     }
     if (!row.active) return null;
@@ -93,6 +113,7 @@ async function syncCron(row: RecurringReminderRow): Promise<string | null> {
       cronExpr: buildCronExpr(row),
       message: buildMessage(row),
       channel: row.channel,
+      brainfocusTools,
     });
   } catch (err) {
     console.error(`[asistente] no se pudo programar "${row.title}":`, err);
