@@ -24,10 +24,12 @@ import { env } from "../env.js";
 //   (Kapso/Meta) falla si el usuario no interactúa con Quicks dentro de una
 //   ventana de 24h — sin eso, la plantilla de reapertura de conversación no
 //   se puede mandar y el envío se pierde en silencio. Todo `cron.add` de
-//   recordatorios ahora (1) le agrega al `payload.message` la instrucción de
-//   reintentar por Telegram si falla WhatsApp, y (2) manda `failureAlert` a
-//   nivel de job para que el propio gateway avise por Telegram si el intento
-//   de entrega falla del todo — ver `buildFailureAlert`/`withTelegramFallback`.
+//   recordatorios manda `failureAlert` a nivel de job para que el propio
+//   gateway avise por Telegram si la entrega falla del todo — ver
+//   `buildFailureAlert`. (Retirado 13-ago-2026: pedirle a Quicks que
+//   reintentara por Telegram con la tool `message` dentro del mismo mensaje
+//   — el gateway bloquea ese reintento en todos los casos, ver
+//   `withTelegramFallback` para el detalle.)
 
 const TELEGRAM_FALLBACK_TO = "7843485332";
 
@@ -39,28 +41,28 @@ function buildFailureAlert() {
   return { channel: "telegram", to: TELEGRAM_FALLBACK_TO, accountId: "default" };
 }
 
-// Además del failureAlert del gateway, se le pide explícitamente a Quicks en
-// el propio mensaje que reintente por Telegram si el envío por WhatsApp
-// falla — doble capa, uno a nivel de infraestructura (failureAlert) y otro a
-// nivel de instrucción (por si el agente puede reaccionar al fallo dentro del
-// mismo turno).
-//
-// Bug real confirmado el 12-ago-2026: la primera versión de este texto decía
-// `to: "<numero>"`, pero el parámetro real de la tool `message` (confirmado
-// en vivo con `openclaw message send --channel telegram --target <numero>`)
-// es `target`, no `to` — con la palabra equivocada, el agente terminó
-// mandando el reintento por el canal por defecto (WhatsApp) usando el chat id
-// de Telegram como si fuera un número de teléfono, y ese envío fallaba
-// también ("Message: `7843485332` failed"). El `failureAlert` de abajo sí
-// funcionaba bien porque ese es un campo de `cron.add`, no pasa por la tool
-// `message` del agente — por eso el usuario igual se enteraba del fallo,
-// solo que el reintento automático nunca llegaba a mandarse.
+// Retirado el 13-ago-2026: se probó pedirle a Quicks, dentro del propio
+// mensaje, que reintentara por Telegram con la tool `message` si fallaba
+// WhatsApp — resultó estructuralmente imposible, no un bug de texto. Los
+// logs de OpenClaw (`journalctl -u openclaw`) muestran que el gateway
+// rechaza cualquier intento de la tool `message` hacia un canal distinto del
+// que quedó "bound" a la sesión del cron (acá, `kapso-whatsapp`, por ser el
+// `delivery.channel` del job):
+//   Cross-context messaging denied: action=send target provider "whatsapp"
+//   while bound to "kapso-whatsapp"
+//   Cross-context messaging denied: action=send target provider "telegram"
+//   while bound to "kapso-whatsapp"
+// Es una restricción de seguridad del propio gateway, no depende de si el
+// nombre del parámetro es "to" o "target" (eso ya estaba bien) ni del canal
+// pedido — bloquea cross-context sin excepción. Cada disparo generaba dos
+// fallos garantizados, y Quicks terminaba agregando una nota de advertencia
+// confusa al mensaje final ("no pude enviar por error de permisos...")
+// aunque la entrega real (vía `delivery: {mode:"announce"}`, que no pasa por
+// la tool `message` del agente y sí llega bien) ya se había completado.
+// `failureAlert` (más abajo) es el único fallback real y sigue activo: es un
+// campo de `cron.add` que maneja el gateway mismo, no la tool `message`.
 function withTelegramFallback(message: string): string {
-  return (
-    `${message} Si el envío por WhatsApp falla, reintentá mandando el mismo mensaje por Telegram con ` +
-    `la tool "message": channel "telegram", target "${TELEGRAM_FALLBACK_TO}" (el parámetro se llama ` +
-    `"target", no "to").`
-  );
+  return message;
 }
 
 // Una sesión de cron `isolated` sin `payload.toolsAllow` explícito cae a un

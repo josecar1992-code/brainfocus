@@ -19,6 +19,24 @@ No implementado todavía — este documento es la lista de trabajo, no un change
   diferencia de `crear_rutina`, que sí tiene `categoria_id`) — no es algo que "cambió", nunca estuvo.
   Se agregó `categoria_id` a `crear_tarea` (mapea a `list_id`) y se aclaró en la descripción que las
   tareas sí tienen categoría, para que Quicks no vuelva a inventar esa limitación.
+- ~~**[ALTO] El reintento por Telegram dentro del propio turno de Quicks es estructuralmente
+  imposible — el gateway lo bloquea siempre, no era un bug de nombre de parámetro.**~~ ✅ Resuelto
+  (13-ago-2026, reportado por el usuario: un recordatorio de "cortarte el pelo" llegó bien por
+  WhatsApp pero con una nota final confusa de "no pude enviar por error de permisos de
+  cross-context"). Diagnosticado con `journalctl -u openclaw` en el VPS:
+  `Cross-context messaging denied: action=send target provider "whatsapp"/"telegram" while bound to
+  "kapso-whatsapp"` — el gateway rechaza cualquier uso de la tool `message` hacia un canal distinto
+  del que quedó atado (`delivery.channel`) a la sesión del cron, sin excepción, independientemente
+  del nombre del parámetro (`target` ya estaba bien desde el fix del 12-ago) o del canal pedido. La
+  instrucción "reintentá por Telegram con la tool message si falla WhatsApp" (agregada el 10-ago)
+  nunca podía cumplirse: cada disparo generaba dos fallos garantizados (whatsapp y telegram) que
+  Quicks terminaba filtrando como advertencia en el texto final del mensaje, aunque la entrega real
+  (vía `delivery: {mode:"announce"}`, que maneja el gateway directo y no pasa por la tool `message`
+  del agente) ya se había completado bien. `withTelegramFallback()` en
+  `apps/api/src/services/openclawCron.ts` ahora es un passthrough — se sacó la instrucción de
+  reintento del mensaje. `failureAlert` (campo de `cron.add`, gateway-native, no usa la tool
+  `message`) sigue siendo el único fallback real y no se tocó.
+
 - ~~**[ALTO] El reintento por Telegram cuando falla WhatsApp nunca se mandaba — la instrucción usaba
   el parámetro equivocado.**~~ ✅ Resuelto (12-ago-2026) — `withTelegramFallback` (`openclawCron.ts`,
   agregado el 10-ago) le decía a Quicks usar `to: "<numero>"` con la tool `message`, pero el parámetro
