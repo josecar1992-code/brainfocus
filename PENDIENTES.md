@@ -5,6 +5,24 @@ No implementado todavía — este documento es la lista de trabajo, no un change
 
 ## 1. Bugs / correcciones
 
+- ~~**[ALTO] `crear_tarea` del MCP no exponía categoría — Quicks le decía al usuario que las tareas no
+  tienen categoría, lo cual es falso.**~~ ✅ Resuelto (12-ago-2026, reportado por el usuario vía
+  transcript de WhatsApp) — `apps/api/src/routes/tasks.ts` siempre soportó `list_id` (categoría)
+  opcional; el gap era que `crear_tarea` en `apps/mcp/src/index.ts` nunca exponía ese parámetro (a
+  diferencia de `crear_rutina`, que sí tiene `categoria_id`) — no es algo que "cambió", nunca estuvo.
+  Se agregó `categoria_id` a `crear_tarea` (mapea a `list_id`) y se aclaró en la descripción que las
+  tareas sí tienen categoría, para que Quicks no vuelva a inventar esa limitación.
+- ~~**[ALTO] El reintento por Telegram cuando falla WhatsApp nunca se mandaba — la instrucción usaba
+  el parámetro equivocado.**~~ ✅ Resuelto (12-ago-2026) — `withTelegramFallback` (`openclawCron.ts`,
+  agregado el 10-ago) le decía a Quicks usar `to: "<numero>"` con la tool `message`, pero el parámetro
+  real (confirmado en vivo con `openclaw message send --channel telegram --target <numero>`) es
+  `target`, no `to`. Con el nombre equivocado, el reintento terminaba mandándose por el canal por
+  defecto (WhatsApp) usando el chat id de Telegram como si fuera un número de teléfono, y fallaba
+  también — confirmado con un caso real ("Tender mi ropa", error `Message: \`7843485332\` failed`). El
+  `failureAlert` (campo de `cron.add`, no pasa por la tool `message`) sí funcionaba bien todo este
+  tiempo, por eso el usuario se enteraba del fallo igual, solo que el reintento automático nunca
+  llegaba. Texto de la instrucción corregido para usar `target` explícito.
+
 - ~~**[ALTO] El aviso de kilometraje fallaba en silencio: la sesión de cron no tenía las tools de
   brainfocus-api.**~~ ✅ Resuelto (10-ago-2026, reportado por el propio Quicks al correr el job) —
   `apps/api/src/services/openclawCron.ts` nunca seteaba `payload.toolsAllow` en ningún `cron.add`; sin

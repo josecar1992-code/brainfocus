@@ -163,7 +163,10 @@ const tools = {
   },
 
   crear_tarea: {
-    description: `Crea una tarea nueva. ${AHORA_CR}`,
+    description:
+      `Crea una tarea nueva. Las tareas sí tienen categoría en Focusbrain (igual que las rutinas) — ` +
+      `usar \`categoria_id\` cuando el usuario mencione una categoría/etiqueta (ej. "trabajo", ` +
+      `"personal"), no asumir que no se puede. ${AHORA_CR}`,
     inputSchema: {
       type: "object",
       properties: {
@@ -179,6 +182,10 @@ const tools = {
           type: "string",
           description: "id del proyecto al que pertenece, opcional — usar `listar_proyectos` si no se conoce.",
         },
+        categoria_id: {
+          type: "string",
+          description: "id de la categoría, opcional — usar `listar_categorias` primero si no se conoce.",
+        },
       },
       required: ["titulo"],
     },
@@ -187,8 +194,15 @@ const tools = {
       notas: z.string().optional(),
       fecha_limite: z.string().datetime({ offset: true }).optional(),
       proyecto_id: z.string().uuid().optional(),
+      categoria_id: z.string().uuid().optional(),
     }),
-    handler: async (args: { titulo: string; notas?: string; fecha_limite?: string; proyecto_id?: string }) => {
+    handler: async (args: {
+      titulo: string;
+      notas?: string;
+      fecha_limite?: string;
+      proyecto_id?: string;
+      categoria_id?: string;
+    }) => {
       const tarea = await apiRequest<Task>("/tasks", {
         method: "POST",
         body: JSON.stringify({
@@ -196,6 +210,7 @@ const tools = {
           notes: args.notas,
           due_date: args.fecha_limite,
           project_id: args.proyecto_id,
+          list_id: args.categoria_id,
         }),
       });
       return { ...tarea, due_date_costa_rica: tarea.due_date ? isoACostaRica(tarea.due_date) : null };

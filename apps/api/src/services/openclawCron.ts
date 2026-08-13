@@ -44,10 +44,22 @@ function buildFailureAlert() {
 // falla — doble capa, uno a nivel de infraestructura (failureAlert) y otro a
 // nivel de instrucción (por si el agente puede reaccionar al fallo dentro del
 // mismo turno).
+//
+// Bug real confirmado el 12-ago-2026: la primera versión de este texto decía
+// `to: "<numero>"`, pero el parámetro real de la tool `message` (confirmado
+// en vivo con `openclaw message send --channel telegram --target <numero>`)
+// es `target`, no `to` — con la palabra equivocada, el agente terminó
+// mandando el reintento por el canal por defecto (WhatsApp) usando el chat id
+// de Telegram como si fuera un número de teléfono, y ese envío fallaba
+// también ("Message: `7843485332` failed"). El `failureAlert` de abajo sí
+// funcionaba bien porque ese es un campo de `cron.add`, no pasa por la tool
+// `message` del agente — por eso el usuario igual se enteraba del fallo,
+// solo que el reintento automático nunca llegaba a mandarse.
 function withTelegramFallback(message: string): string {
   return (
-    `${message} Si el envío por WhatsApp falla, reintentá mandando el mismo mensaje por Telegram ` +
-    `(channel: "telegram", to: "${TELEGRAM_FALLBACK_TO}").`
+    `${message} Si el envío por WhatsApp falla, reintentá mandando el mismo mensaje por Telegram con ` +
+    `la tool "message": channel "telegram", target "${TELEGRAM_FALLBACK_TO}" (el parámetro se llama ` +
+    `"target", no "to").`
   );
 }
 
