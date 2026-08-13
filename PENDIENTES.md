@@ -5,6 +5,13 @@ No implementado todavía — este documento es la lista de trabajo, no un change
 
 ## 1. Bugs / correcciones
 
+- ~~**[ALTO] El MCP no tenía forma de editar una tarea ya creada — solo crear y completar.**~~ ✅
+  Resuelto (12-ago-2026, encontrado al intentar corregir la categoría de una tarea que Quicks acababa
+  de crear sin ella) — `editar_tarea` nueva en `apps/mcp/src/index.ts`, PATCH parcial sobre
+  `/tasks/:id` (título, notas, fecha límite, proyecto, categoría, prioridad — todos opcionales, solo
+  se manda lo que cambia). El API (`resourceRouter` genérico) ya soportaba `PATCH` para tasks, el gap
+  era solo que ninguna tool del MCP lo exponía.
+
 - ~~**[ALTO] `crear_tarea` del MCP no exponía categoría — Quicks le decía al usuario que las tareas no
   tienen categoría, lo cual es falso.**~~ ✅ Resuelto (12-ago-2026, reportado por el usuario vía
   transcript de WhatsApp) — `apps/api/src/routes/tasks.ts` siempre soportó `list_id` (categoría)

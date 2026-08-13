@@ -232,6 +232,66 @@ const tools = {
       }),
   },
 
+  editar_tarea: {
+    description:
+      "Edita una tarea ya existente (título, notas, fecha límite, categoría, proyecto o prioridad) — " +
+      "solo mandá los campos que cambian, el resto queda igual. Necesita el `id` — usar `listar_tareas` " +
+      `primero si no se conoce. Para marcarla como hecha usar \`completar_tarea\`, no esto. ${AHORA_CR}`,
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "id de la tarea" },
+        titulo: { type: "string" },
+        notas: { type: "string" },
+        fecha_limite: {
+          type: "string",
+          description: "ISO 8601 con offset -06:00 (Costa Rica). Mandar null para quitarle la fecha límite.",
+        },
+        proyecto_id: {
+          type: "string",
+          description: "id del proyecto, opcional. Mandar null para quitarla de su proyecto.",
+        },
+        categoria_id: {
+          type: "string",
+          description: "id de la categoría, opcional — usar `listar_categorias` si no se conoce.",
+        },
+        prioridad: { type: "string", enum: ["low", "normal", "high"] },
+      },
+      required: ["id"],
+    },
+    argsSchema: z.object({
+      id: z.string().uuid(),
+      titulo: z.string().min(1).optional(),
+      notas: z.string().nullable().optional(),
+      fecha_limite: z.string().datetime({ offset: true }).nullable().optional(),
+      proyecto_id: z.string().uuid().nullable().optional(),
+      categoria_id: z.string().uuid().nullable().optional(),
+      prioridad: z.enum(["low", "normal", "high"]).optional(),
+    }),
+    handler: (args: {
+      id: string;
+      titulo?: string;
+      notas?: string | null;
+      fecha_limite?: string | null;
+      proyecto_id?: string | null;
+      categoria_id?: string | null;
+      prioridad?: "low" | "normal" | "high";
+    }) => {
+      const { id, titulo, notas, fecha_limite, proyecto_id, categoria_id, prioridad } = args;
+      return apiRequest<Task>(`/tasks/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          title: titulo,
+          notes: notas,
+          due_date: fecha_limite,
+          project_id: proyecto_id,
+          list_id: categoria_id,
+          priority: prioridad,
+        }),
+      });
+    },
+  },
+
   crear_recordatorio: {
     description:
       "Guarda un recordatorio en Focusbrain. La API programa sola el aviso real de " +
