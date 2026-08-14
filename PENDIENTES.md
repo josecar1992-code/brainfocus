@@ -19,6 +19,23 @@ No implementado todavía — este documento es la lista de trabajo, no un change
   diferencia de `crear_rutina`, que sí tiene `categoria_id`) — no es algo que "cambió", nunca estuvo.
   Se agregó `categoria_id` a `crear_tarea` (mapea a `list_id`) y se aclaró en la descripción que las
   tareas sí tienen categoría, para que Quicks no vuelva a inventar esa limitación.
+- ~~**[ALTO] El aviso de kilometraje inventó lecturas falsas y las guardó solo, sin que el usuario
+  respondiera.**~~ ✅ Resuelto (13-ago-2026, detectado por el usuario: Focusbrain mostraba 2 lecturas
+  "inventadas" de hoy por vehículo — 17500 km Bajaj Ns200, 85000 km Honda Civic — sin que él le hubiera
+  contestado nada a Quicks). Confirmado con una consulta directa a `vehicle_mileage_logs`: 4 filas,
+  `created_by: "agent"`, las 4 a las 09:01 CR, 1 minuto después de correr el cron de las 09:00. Causa
+  raíz: `MILEAGE_CRON_MESSAGE` (`apps/api/src/routes/settings.ts`) le pedía a Quicks "preguntale... y
+  guardalo con `registrar_kilometraje` en cuanto te responda" — instrucción imposible de cumplir bien,
+  porque la sesión de cron es `sessionTarget: "isolated"` de un solo turno: no hay forma de esperar la
+  respuesta real del usuario dentro de esa misma ejecución. Cuando además falló el envío del mensaje
+  (mismo bug de cross-context messaging del punto anterior), Quicks terminó inventando valores redondos
+  y guardándolos igual, dos veces, para "completar" la instrucción. Las 4 lecturas falsas se borraron a
+  mano desde la UI (Vehículos → historial de kilometraje). Fix: el mensaje ahora solo pide preguntar,
+  explícito "no llames `registrar_kilometraje` en este turno bajo ninguna circunstancia, ni inventes un
+  valor"; y se sacó `registrar_kilometraje` de `brainfocusTools` para este job — el cron ya ni tiene la
+  tool disponible, por diseño, no solo por instrucción. El guardado real queda para cuando el usuario
+  responda en una conversación normal (esa sesión sí puede esperar la respuesta).
+
 - ~~**[ALTO] El reintento por Telegram dentro del propio turno de Quicks es estructuralmente
   imposible — el gateway lo bloquea siempre, no era un bug de nombre de parámetro.**~~ ✅ Resuelto
   (13-ago-2026, reportado por el usuario: un recordatorio de "cortarte el pelo" llegó bien por

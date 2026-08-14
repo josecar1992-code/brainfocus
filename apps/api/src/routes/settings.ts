@@ -10,14 +10,29 @@ import { cancelReminderCron, scheduleRecurringCron } from "../services/openclawC
 // en la práctica insiste cada 2 días hasta que el usuario responde, y después
 // queda en silencio el resto del mes.
 const MILEAGE_CRON_EXPR = "0 9 */2 * *";
+// Bug real confirmado el 13-ago-2026: la versión anterior de este mensaje
+// decía "preguntale... y guardalo con `registrar_kilometraje` en cuanto te
+// responda" — pero esta sesión de cron es `sessionTarget: "isolated"`, de
+// un solo turno: no existe forma de "esperar" la respuesta real del usuario
+// dentro de esa misma ejecución, así que esa instrucción era estructuralmente
+// imposible de cumplir bien. Cuando además falló el envío del mensaje
+// (bug de cross-context messaging, ver openclawCron.ts), Quicks terminó
+// inventando valores de kilometraje (17500 y 85000, números redondos) y
+// guardándolos igual, dos veces, para "cumplir" la instrucción — 4 lecturas
+// falsas creadas y borradas manualmente por el usuario. Esta versión solo
+// pregunta; el guardado real tiene que pasar en una conversación normal
+// cuando el usuario responda de verdad (esa sesión sí puede esperar la
+// respuesta y sí tiene `registrar_kilometraje` disponible fuera de cron).
 const MILEAGE_CRON_MESSAGE =
   "Es el aviso de kilometraje de Focusbrain (corre cada 2 días): usá `listar_vehiculos` para ver los " +
   "vehículos del usuario. Para cada uno, revisá con `listar_kilometrajes` si ya hay una lectura " +
   "registrada este mes-calendario (comparando la fecha de la más reciente contra el mes actual). Si ya " +
   "hay una lectura de este mes, no preguntes por ese vehículo — ya respondió. Si no hay ninguna lectura " +
-  "de este mes, preguntale el kilometraje actual de ese vehículo y guardalo con `registrar_kilometraje` " +
-  "en cuanto te responda. Si no tiene vehículos registrados, o todos ya tienen lectura de este mes, no " +
-  "hace falta que digas nada.";
+  "de este mes, preguntale el kilometraje actual de ese vehículo — nada más. No llames " +
+  "`registrar_kilometraje` en este turno bajo ninguna circunstancia, ni inventes un valor: no hay forma " +
+  "de recibir la respuesta real del usuario dentro de esta misma ejecución. El guardado real pasa después, " +
+  "en la conversación normal cuando el usuario responda. Si no tiene vehículos registrados, o todos ya " +
+  "tienen lectura de este mes, no hace falta que digas nada.";
 
 export const settingsRouter = Router();
 
@@ -69,11 +84,14 @@ settingsRouter.post("/mileage-reminder", requireScope("settings:write"), async (
       cronExpr: MILEAGE_CRON_EXPR,
       message: MILEAGE_CRON_MESSAGE,
       channel: null,
-      // El mensaje le pide llamar estas 3 tools de verdad, no solo relayar
+      // El mensaje le pide llamar estas tools de verdad, no solo relayar
       // texto — sin esto, la sesión de cron cae al set mínimo (cron/message/
       // web_search/web_fetch) y el job falla en silencio (bug real
-      // confirmado 10-ago-2026, ver PENDIENTES.md).
-      brainfocusTools: ["listar_vehiculos", "listar_kilometrajes", "registrar_kilometraje"],
+      // confirmado 10-ago-2026, ver PENDIENTES.md). `registrar_kilometraje`
+      // se sacó a propósito el 13-ago-2026: este cron nunca debe poder
+      // guardar una lectura, solo consultarlas y preguntar — ver comentario
+      // de MILEAGE_CRON_MESSAGE.
+      brainfocusTools: ["listar_vehiculos", "listar_kilometrajes"],
     });
 
     const { error } = await supabaseAdmin
