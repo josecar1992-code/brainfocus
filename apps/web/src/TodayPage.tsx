@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { api, type Routine, type Task } from "./api";
-import { CategoryBadge } from "./CategoryBadge";
+import { api, type List, type Routine, type Task } from "./api";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { IconAlertTriangle, IconCalendar, IconCheckSquare, IconRepeat } from "./icons";
 import { PriorityBadge } from "./PriorityBadge";
@@ -21,6 +20,45 @@ function formatTime(iso: string) {
 
 function formatOverdueDate(iso: string) {
   return new Date(iso).toLocaleDateString("es-CR", { day: "2-digit", month: "short", timeZone: "America/Costa_Rica" });
+}
+
+// Agrupa tareas por categoría (list_id) sin ocultar ninguna — a diferencia de
+// la vista Tareas por categoría, acá todos los grupos quedan siempre
+// visibles (pedido por el usuario 14-ago-2026), solo con un subtítulo entre
+// medio para separarlas dentro de la misma sección de Hoy.
+function groupByCategory(tasks: Task[], listsById: Map<string, List>): { list: List | null; tasks: Task[] }[] {
+  const groups = new Map<string, Task[]>();
+  for (const task of tasks) {
+    const key = task.list_id && listsById.has(task.list_id) ? task.list_id : "__sin_categoria__";
+    const arr = groups.get(key) ?? [];
+    arr.push(task);
+    groups.set(key, arr);
+  }
+  const result: { list: List | null; tasks: Task[] }[] = [];
+  for (const [key, groupTasks] of groups) {
+    result.push({ list: key === "__sin_categoria__" ? null : listsById.get(key)!, tasks: groupTasks });
+  }
+  // Sin categoría siempre al final, el resto alfabético.
+  result.sort((a, b) => {
+    if (!a.list) return 1;
+    if (!b.list) return -1;
+    return a.list.name.localeCompare(b.list.name);
+  });
+  return result;
+}
+
+function CategoryGroupHeader({ list }: { list: List | null }) {
+  return (
+    <div className="px-5 pt-3 pb-1 flex items-center gap-1.5">
+      <span
+        className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+        style={{ backgroundColor: list?.color ?? "#5B6B82" }}
+      />
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-white/35">
+        {list?.name ?? "Sin categoría"}
+      </p>
+    </div>
+  );
 }
 
 function SectionHeader({
@@ -122,32 +160,36 @@ export function TodayPage() {
       {tasksOverdue.length > 0 && (
         <div className="bg-night-blue/40 backdrop-blur-md rounded-2xl border border-amber-400/20 shadow-[0_0_40px_-24px_rgba(251,191,36,0.35)] overflow-hidden">
           <SectionHeader icon={IconAlertTriangle} title="Tareas atrasadas" count={tasksOverdue.length} tone="amber" />
-          <ul>
-            {tasksOverdue.map((task: Task) => (
-              <li key={task.id} className="px-5 py-3 border-t border-white/8 first:border-t-0 flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  checked={task.status === "done"}
-                  onChange={() => completeTask.request(task)}
-                  className="accent-electric-cyan w-4 h-4 flex-shrink-0"
-                />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm text-white/90">{task.title}</span>
-                    {task.list_id && listsById.get(task.list_id) && <CategoryBadge list={listsById.get(task.list_id)!} />}
-                    {task.project_id && projectsById.get(task.project_id) && (
-                      <ProjectBadge project={projectsById.get(task.project_id)!} />
-                    )}
-                    <PriorityBadge priority={task.priority} />
-                    {task.created_by === "agent" && <QuickBadge iconOnly />}
-                  </div>
-                  <p className="text-[11px] text-amber-400/80 mt-0.5">
-                    Venció el {formatOverdueDate(task.due_date as string)}
-                  </p>
-                </div>
-              </li>
-            ))}
-          </ul>
+          {groupByCategory(tasksOverdue, listsById).map((group) => (
+            <div key={group.list?.id ?? "sin-categoria"}>
+              <CategoryGroupHeader list={group.list} />
+              <ul>
+                {group.tasks.map((task: Task) => (
+                  <li key={task.id} className="px-5 py-3 border-t border-white/8 first:border-t-0 flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={task.status === "done"}
+                      onChange={() => completeTask.request(task)}
+                      className="accent-electric-cyan w-4 h-4 flex-shrink-0"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm text-white/90">{task.title}</span>
+                        {task.project_id && projectsById.get(task.project_id) && (
+                          <ProjectBadge project={projectsById.get(task.project_id)!} />
+                        )}
+                        <PriorityBadge priority={task.priority} />
+                        {task.created_by === "agent" && <QuickBadge iconOnly />}
+                      </div>
+                      <p className="text-[11px] text-amber-400/80 mt-0.5">
+                        Venció el {formatOverdueDate(task.due_date as string)}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </div>
       )}
 
@@ -192,29 +234,33 @@ export function TodayPage() {
       {tasksToday.length > 0 && (
         <div className="bg-night-blue/40 backdrop-blur-md rounded-2xl border border-electric-cyan/10 shadow-[0_0_40px_-24px_rgba(0,210,255,0.35)] overflow-hidden">
           <SectionHeader icon={IconCheckSquare} title="Tareas que vencen hoy" count={tasksToday.length} />
-          <ul>
-            {tasksToday.map((task: Task) => (
-              <li key={task.id} className="px-5 py-3 border-t border-white/8 first:border-t-0 flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  checked={task.status === "done"}
-                  onChange={() => completeTask.request(task)}
-                  className="accent-electric-cyan w-4 h-4 flex-shrink-0"
-                />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm text-white/90">{task.title}</span>
-                    {task.list_id && listsById.get(task.list_id) && <CategoryBadge list={listsById.get(task.list_id)!} />}
-                    {task.project_id && projectsById.get(task.project_id) && (
-                      <ProjectBadge project={projectsById.get(task.project_id)!} />
-                    )}
-                    <PriorityBadge priority={task.priority} />
-                    {task.created_by === "agent" && <QuickBadge iconOnly />}
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
+          {groupByCategory(tasksToday, listsById).map((group) => (
+            <div key={group.list?.id ?? "sin-categoria"}>
+              <CategoryGroupHeader list={group.list} />
+              <ul>
+                {group.tasks.map((task: Task) => (
+                  <li key={task.id} className="px-5 py-3 border-t border-white/8 first:border-t-0 flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={task.status === "done"}
+                      onChange={() => completeTask.request(task)}
+                      className="accent-electric-cyan w-4 h-4 flex-shrink-0"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm text-white/90">{task.title}</span>
+                        {task.project_id && projectsById.get(task.project_id) && (
+                          <ProjectBadge project={projectsById.get(task.project_id)!} />
+                        )}
+                        <PriorityBadge priority={task.priority} />
+                        {task.created_by === "agent" && <QuickBadge iconOnly />}
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </div>
       )}
 

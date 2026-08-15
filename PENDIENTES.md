@@ -198,6 +198,12 @@ No implementado todavía — este documento es la lista de trabajo, no un change
   muestran de qué categoría y de qué proyecto vienen (badges nuevos, junto a la prioridad). `CategoryBadge.tsx`
   se extrajo del pill que ya existía en el detalle de tarea (`TasksPage.tsx`) a componente compartido;
   `ProjectBadge.tsx` es nuevo (ícono `IconFolder` + nombre del proyecto).
+  **Mismo día, ampliado:** pedido "agrupa las tareas según su categoría pero siempre visibles" — dentro de
+  esas dos secciones las tareas ahora se agrupan por categoría con un subtítulo (punto de color + nombre)
+  entre grupos, sin colapsar ni ocultar ninguno (a diferencia de la vista Tareas por categoría, que sí es
+  navegación aparte). `groupByCategory` nuevo en `TodayPage.tsx`; el `CategoryBadge` por tarea se quitó de
+  estas dos secciones porque quedaba redundante con el subtítulo del grupo — `ProjectBadge` se mantiene por
+  tarea porque no se agrupa por proyecto.
 - ~~**Recordatorios recurrentes independientes de rutinas.**~~ ✅ Resuelto (09-ago-2026) — tabla
   `recurring_reminders` nueva (frequency: every_n_hours/daily/weekly, `active` para pausar sin borrar).
   Reusa `scheduleRecurringCron` (mismo mecanismo del aviso mensual de kilometraje) — puro aviso periódico,
