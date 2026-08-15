@@ -234,6 +234,14 @@ No implementado todavía — este documento es la lista de trabajo, no un change
   que `nextOccurrenceDate` no se quede repitiendo un mes corto. Wireado en la API (`routines.ts`,
   `services/routines.ts`), la web (`RoutinesPage.tsx` — selector de frecuencia nuevo + picker de día 1-31) y
   el MCP (`crear_rutina`, `frecuencia: "mensual"` + `dia_del_mes`).
+  **Mismo día, corregido:** pedido "elimina la opción de crear un recordatorio los 31 de cada mes porque se
+  puede romper si el mes tiene 30" — el tope de `day_of_month` bajó de 31 a 30 en los tres lugares (web,
+  API, MCP): el 31 no existe en abril/junio/septiembre/noviembre ni en febrero, así que en vez de dejar
+  elegirlo y clampearlo se saca directo de la opción. Esto es **solo para rutinas recurrentes** — un
+  recordatorio puntual para una fecha específica (`crear_recordatorio`/`crear_recordatorio_recurrente` de
+  una sola vez) sigue funcionando igual, porque ahí el usuario elige una fecha calendario real (ej.
+  "31 de agosto"), no un número de día que se repite cada mes — no se tocó nada ahí, confirmado con el
+  usuario. Febrero (que tampoco llega a 30) sigue clampeado al 28/29 como antes.
   **Requiere una migración manual antes de desplegar** — igual que documenta el README para cambios de
   schema, hay que correr esto en el SQL Editor de Supabase (no se pudo aplicar solo, la API no tiene acceso
   a SQL crudo, solo REST vía `supabase-js`):

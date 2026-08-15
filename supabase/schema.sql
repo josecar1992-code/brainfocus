@@ -354,9 +354,9 @@ create table if not exists public.routines (
 );
 
 -- Agregado 14-ago-2026 para la rutina mensual ("el 15 de cada mes") — solo
--- aplica cuando frequency = 'monthly'; 1..31, clampeado al último día real
--- del mes en apps/api/src/services/routineSchedule.ts (ej. el 31 en febrero
--- cae el 28/29).
+-- aplica cuando frequency = 'monthly'; 1..30 (la API/web/MCP rechazan 31 —
+-- no existe en varios meses del año). Febrero, que tampoco llega a 30, sigue
+-- clampeado al último día real en apps/api/src/services/routineSchedule.ts.
 alter table public.routines
   add column if not exists day_of_month integer;
 

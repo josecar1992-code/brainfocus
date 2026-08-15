@@ -36,12 +36,14 @@ const monthly15th: RecurrenceRule = {
   startDate: "2026-01-01",
 };
 
-// el 31 de cada mes — para probar el clamp en meses más cortos
-const monthly31st: RecurrenceRule = {
+// el 30 de cada mes (30 es el tope permitido — el 31 no se ofrece porque no
+// existe en varios meses del año, ver day_of_month en routines.ts) — para
+// probar el clamp en el único mes que sí choca: febrero.
+const monthly30th: RecurrenceRule = {
   frequency: "monthly",
   intervalWeeks: 1,
   daysOfWeek: [],
-  dayOfMonth: 31,
+  dayOfMonth: 30,
   startDate: "2026-01-01",
 };
 
@@ -82,12 +84,12 @@ describe("firstOccurrenceDate", () => {
     expect(firstOccurrenceDate(monthly15th, "2026-03-20")).toBe("2026-04-15");
   });
 
-  it("mensual (día 31): cae en el último día real de un mes de 30 días", () => {
-    expect(firstOccurrenceDate(monthly31st, "2026-04-01")).toBe("2026-04-30");
+  it("mensual (día 30): en un mes de 30 días cae justo en el 30, sin clamp", () => {
+    expect(firstOccurrenceDate(monthly30th, "2026-04-01")).toBe("2026-04-30");
   });
 
-  it("mensual (día 31): cae el 28 en febrero (2026 no es bisiesto)", () => {
-    expect(firstOccurrenceDate(monthly31st, "2026-02-01")).toBe("2026-02-28");
+  it("mensual (día 30): cae el 28 en febrero (2026 no es bisiesto)", () => {
+    expect(firstOccurrenceDate(monthly30th, "2026-02-01")).toBe("2026-02-28");
   });
 });
 
@@ -119,8 +121,8 @@ describe("nextOccurrenceDate", () => {
     expect(nextOccurrenceDate(monthly15th, "2026-03-15")).toBe("2026-04-15");
   });
 
-  it("mensual (día 31): de un mes corto (28 de feb) salta al 31 de marzo, no se queda repitiendo febrero", () => {
-    expect(nextOccurrenceDate(monthly31st, "2026-02-28")).toBe("2026-03-31");
+  it("mensual (día 30): de un mes corto (28 de feb) salta al 30 de marzo, no se queda repitiendo febrero", () => {
+    expect(nextOccurrenceDate(monthly30th, "2026-02-28")).toBe("2026-03-30");
   });
 });
 

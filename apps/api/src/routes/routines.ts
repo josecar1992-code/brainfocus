@@ -11,7 +11,10 @@ const baseSchema = z.object({
   frequency: z.enum(["daily", "weekly", "monthly"]),
   interval_weeks: z.number().int().min(1).max(52).optional(),
   days_of_week: z.array(z.number().int().min(0).max(6)).optional(),
-  day_of_month: z.number().int().min(1).max(31).optional(),
+  // Tope en 30, no 31 — el 31 no existe en varios meses del año (y en
+  // febrero tampoco), así que se rechaza directo en vez de dejar que se
+  // rompa/clampee (pedido por el usuario 14-ago-2026).
+  day_of_month: z.number().int().min(1).max(30).optional(),
   time_of_day: z.string().regex(/^\d{2}:\d{2}$/, "Formato de hora inválido (HH:MM)"),
   start_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato de fecha inválido (YYYY-MM-DD)"),
   crear_recordatorio: z.boolean().optional(),

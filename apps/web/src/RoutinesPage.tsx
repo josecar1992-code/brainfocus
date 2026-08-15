@@ -161,8 +161,12 @@ function RoutineForm({
       {frequency === "monthly" && (
         <div className="flex flex-col gap-1">
           <label className="text-xs text-white/50">Día del mes</label>
+          {/* Tope en 30, no 31 — el 31 no existe en abril/junio/septiembre/noviembre ni en
+              febrero, así que se saca del picker directamente en vez de dejar elegir un día
+              que "se rompe" (cae distinto) la mitad de los meses del año (pedido por el
+              usuario 14-ago-2026). El 29/30 solo choca con febrero, que sigue clampeado. */}
           <select value={dayOfMonth} onChange={(e) => setDayOfMonth(Number(e.target.value))} className={SELECT_CLASS}>
-            {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+            {Array.from({ length: 30 }, (_, i) => i + 1).map((day) => (
               <option key={day} value={day} style={OPTION_STYLE}>
                 {day}
               </option>
@@ -170,7 +174,7 @@ function RoutineForm({
           </select>
           {dayOfMonth > 28 && (
             <p className="text-[11px] text-white/40">
-              En meses más cortos cae en el último día (ej. el {dayOfMonth} de febrero cae el 28).
+              En febrero cae en el último día (el {dayOfMonth} de febrero cae el 28).
             </p>
           )}
         </div>

@@ -830,8 +830,9 @@ const tools = {
         dia_del_mes: {
           type: "number",
           description:
-            "1..31. Requerido si frecuencia es 'mensual' — ej. 15 para 'el 15 de cada mes'. En meses " +
-            "más cortos cae en el último día real del mes (el 31 en febrero cae el 28/29).",
+            "1..30 (no 31 — no existe en varios meses del año, se rechaza). Requerido si frecuencia " +
+            "es 'mensual' — ej. 15 para 'el 15 de cada mes'. En febrero (que tampoco llega a 30) cae " +
+            "en el último día real del mes (el 30 en febrero cae el 28/29).",
         },
         hora: { type: "string", description: "HH:MM, 24 horas. ej. '19:00'" },
         fecha_inicio: {
@@ -853,7 +854,7 @@ const tools = {
       frecuencia: z.enum(["diaria", "semanal", "mensual"]),
       dias_semana: z.array(z.number().int().min(0).max(6)).optional(),
       cada_cuantas_semanas: z.number().int().min(1).max(52).optional(),
-      dia_del_mes: z.number().int().min(1).max(31).optional(),
+      dia_del_mes: z.number().int().min(1).max(30).optional(),
       hora: z.string().regex(/^\d{2}:\d{2}$/),
       fecha_inicio: z
         .string()

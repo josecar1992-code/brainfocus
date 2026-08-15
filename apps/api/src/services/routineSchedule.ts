@@ -5,7 +5,7 @@ export interface RecurrenceRule {
   frequency: "daily" | "weekly" | "monthly";
   intervalWeeks: number; // 1 = todas las semanas, 2 = de por medio, etc. (solo aplica a "weekly")
   daysOfWeek: number[]; // 0 (domingo) .. 6 (sábado) — solo aplica a "weekly"
-  dayOfMonth: number | null; // 1..31 — solo aplica a "monthly"
+  dayOfMonth: number | null; // 1..30 — solo aplica a "monthly" (31 no se permite, ver routines.ts)
   startDate: string; // YYYY-MM-DD, ancla para contar la paridad de semanas
 }
 
