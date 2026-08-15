@@ -2,9 +2,10 @@
 // datos, para poder probarlo/razonarlo aislado del resto del sistema.
 
 export interface RecurrenceRule {
-  frequency: "daily" | "weekly";
+  frequency: "daily" | "weekly" | "monthly";
   intervalWeeks: number; // 1 = todas las semanas, 2 = de por medio, etc. (solo aplica a "weekly")
   daysOfWeek: number[]; // 0 (domingo) .. 6 (sábado) — solo aplica a "weekly"
+  dayOfMonth: number | null; // 1..31 — solo aplica a "monthly"
   startDate: string; // YYYY-MM-DD, ancla para contar la paridad de semanas
 }
 
@@ -31,8 +32,19 @@ function weeksBetween(anchor: Date, d: Date): number {
   return Math.round((startOfWeek(d).getTime() - startOfWeek(anchor).getTime()) / (7 * DAY_MS));
 }
 
+// Días reales del mes de `d` — para "el 31 de cada mes" en un mes de 30 días
+// (o febrero), se cae en el último día del mes en vez de saltárselo o
+// desbordar al mes siguiente. Mismo criterio que usan Google/Apple Calendar.
+function daysInMonth(d: Date): number {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
+}
+
 function matches(rule: RecurrenceRule, d: Date, anchor: Date): boolean {
   if (rule.frequency === "daily") return true;
+  if (rule.frequency === "monthly") {
+    const target = Math.min(rule.dayOfMonth ?? 1, daysInMonth(d));
+    return d.getUTCDate() === target;
+  }
   if (!rule.daysOfWeek.includes(d.getUTCDay())) return false;
   return weeksBetween(anchor, d) % rule.intervalWeeks === 0;
 }
@@ -69,6 +81,7 @@ const DAY_LABELS = ["domingo", "lunes", "martes", "miércoles", "jueves", "viern
 
 export function describeRecurrence(rule: RecurrenceRule): string {
   if (rule.frequency === "daily") return "Todos los días";
+  if (rule.frequency === "monthly") return `El día ${rule.dayOfMonth} de cada mes`;
   const days = [...rule.daysOfWeek].sort().map((d) => DAY_LABELS[d]).join(", ");
   return rule.intervalWeeks > 1 ? `Cada ${rule.intervalWeeks} semanas: ${days}` : `Cada semana: ${days}`;
 }

@@ -1,13 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { describeRecurrence, firstOccurrenceDate, nextOccurrenceDate, type RecurrenceRule } from "./routineSchedule.js";
 
-const daily: RecurrenceRule = { frequency: "daily", intervalWeeks: 1, daysOfWeek: [], startDate: "2026-01-01" };
+const daily: RecurrenceRule = {
+  frequency: "daily",
+  intervalWeeks: 1,
+  daysOfWeek: [],
+  dayOfMonth: null,
+  startDate: "2026-01-01",
+};
 
 // martes y viernes, todas las semanas
 const weeklyTueFri: RecurrenceRule = {
   frequency: "weekly",
   intervalWeeks: 1,
   daysOfWeek: [2, 5],
+  dayOfMonth: null,
   startDate: "2026-01-01", // jueves
 };
 
@@ -16,7 +23,26 @@ const biweeklySunday: RecurrenceRule = {
   frequency: "weekly",
   intervalWeeks: 2,
   daysOfWeek: [0],
+  dayOfMonth: null,
   startDate: "2026-01-04",
+};
+
+// el 15 de cada mes
+const monthly15th: RecurrenceRule = {
+  frequency: "monthly",
+  intervalWeeks: 1,
+  daysOfWeek: [],
+  dayOfMonth: 15,
+  startDate: "2026-01-01",
+};
+
+// el 31 de cada mes — para probar el clamp en meses más cortos
+const monthly31st: RecurrenceRule = {
+  frequency: "monthly",
+  intervalWeeks: 1,
+  daysOfWeek: [],
+  dayOfMonth: 31,
+  startDate: "2026-01-01",
 };
 
 describe("firstOccurrenceDate", () => {
@@ -47,6 +73,22 @@ describe("firstOccurrenceDate", () => {
   it("quincenal: el propio startDate matchea como primera ocurrencia si today <= startDate", () => {
     expect(firstOccurrenceDate(biweeklySunday, "2026-01-01")).toBe("2026-01-04");
   });
+
+  it("mensual (día 15): busca el 15 del mes actual si today <= 15", () => {
+    expect(firstOccurrenceDate(monthly15th, "2026-03-01")).toBe("2026-03-15");
+  });
+
+  it("mensual (día 15): salta al mes siguiente si today ya pasó el 15", () => {
+    expect(firstOccurrenceDate(monthly15th, "2026-03-20")).toBe("2026-04-15");
+  });
+
+  it("mensual (día 31): cae en el último día real de un mes de 30 días", () => {
+    expect(firstOccurrenceDate(monthly31st, "2026-04-01")).toBe("2026-04-30");
+  });
+
+  it("mensual (día 31): cae el 28 en febrero (2026 no es bisiesto)", () => {
+    expect(firstOccurrenceDate(monthly31st, "2026-02-01")).toBe("2026-02-28");
+  });
 });
 
 describe("nextOccurrenceDate", () => {
@@ -72,6 +114,14 @@ describe("nextOccurrenceDate", () => {
     const next = nextOccurrenceDate(weeklyTueFri, "2026-03-10");
     expect(next).not.toBe("2026-03-10");
   });
+
+  it("mensual (día 15): de un 15 salta al 15 del mes siguiente", () => {
+    expect(nextOccurrenceDate(monthly15th, "2026-03-15")).toBe("2026-04-15");
+  });
+
+  it("mensual (día 31): de un mes corto (28 de feb) salta al 31 de marzo, no se queda repitiendo febrero", () => {
+    expect(nextOccurrenceDate(monthly31st, "2026-02-28")).toBe("2026-03-31");
+  });
 });
 
 describe("describeRecurrence", () => {
@@ -86,5 +136,9 @@ describe("describeRecurrence", () => {
 
   it("cada N semanas", () => {
     expect(describeRecurrence(biweeklySunday)).toBe("Cada 2 semanas: domingo");
+  });
+
+  it("mensual", () => {
+    expect(describeRecurrence(monthly15th)).toBe("El día 15 de cada mes");
   });
 });

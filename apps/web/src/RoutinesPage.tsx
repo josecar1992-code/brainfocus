@@ -19,9 +19,12 @@ const DAYS = [
 ];
 const DAY_NAMES = DAYS.map((d) => d.label);
 
-function describeRecurrence(r: Pick<Routine, "frequency" | "interval_weeks" | "days_of_week" | "time_of_day">) {
+function describeRecurrence(
+  r: Pick<Routine, "frequency" | "interval_weeks" | "days_of_week" | "day_of_month" | "time_of_day">,
+) {
   const time = r.time_of_day.slice(0, 5);
   if (r.frequency === "daily") return `Todos los días, ${time}`;
+  if (r.frequency === "monthly") return `El día ${r.day_of_month} de cada mes, ${time}`;
   const days = [...r.days_of_week].sort().map((d) => DAY_NAMES[d]).join(", ") || "sin días elegidos";
   const cada = r.interval_weeks > 1 ? `Cada ${r.interval_weeks} semanas` : "Cada semana";
   return `${cada} (${days}), ${time}`;
@@ -91,6 +94,7 @@ function RoutineForm({
   const [frequency, setFrequency] = useState<NewRoutine["frequency"]>(initial?.frequency ?? "weekly");
   const [intervalWeeks, setIntervalWeeks] = useState(initial?.interval_weeks ?? 1);
   const [daysOfWeek, setDaysOfWeek] = useState<number[]>(initial?.days_of_week ?? []);
+  const [dayOfMonth, setDayOfMonth] = useState(initial?.day_of_month ?? 1);
   const [timeOfDay, setTimeOfDay] = useState(initial?.time_of_day?.slice(0, 5) ?? "");
   const [startDate, setStartDate] = useState(initial?.start_date ?? new Date().toISOString().slice(0, 10));
   const [crearRecordatorio, setCrearRecordatorio] = useState(initial?.crear_recordatorio ?? true);
@@ -111,6 +115,7 @@ function RoutineForm({
       frequency,
       interval_weeks: frequency === "weekly" ? intervalWeeks : undefined,
       days_of_week: frequency === "weekly" ? daysOfWeek : undefined,
+      day_of_month: frequency === "monthly" ? dayOfMonth : undefined,
       time_of_day: timeOfDay,
       start_date: startDate,
       crear_recordatorio: crearRecordatorio,
@@ -147,8 +152,29 @@ function RoutineForm({
           <option value="daily" style={OPTION_STYLE}>
             Todos los días
           </option>
+          <option value="monthly" style={OPTION_STYLE}>
+            Un día específico de cada mes
+          </option>
         </select>
       </div>
+
+      {frequency === "monthly" && (
+        <div className="flex flex-col gap-1">
+          <label className="text-xs text-white/50">Día del mes</label>
+          <select value={dayOfMonth} onChange={(e) => setDayOfMonth(Number(e.target.value))} className={SELECT_CLASS}>
+            {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+              <option key={day} value={day} style={OPTION_STYLE}>
+                {day}
+              </option>
+            ))}
+          </select>
+          {dayOfMonth > 28 && (
+            <p className="text-[11px] text-white/40">
+              En meses más cortos cae en el último día (ej. el {dayOfMonth} de febrero cae el 28).
+            </p>
+          )}
+        </div>
+      )}
 
       {frequency === "weekly" && (
         <>
@@ -314,6 +340,7 @@ function RoutineDetail({ routine, lists, onClose }: { routine: Routine; lists: L
                 frequency: routine.frequency,
                 interval_weeks: routine.interval_weeks,
                 days_of_week: routine.days_of_week,
+                day_of_month: routine.day_of_month ?? undefined,
                 time_of_day: routine.time_of_day,
                 start_date: routine.start_date,
                 crear_recordatorio: routine.crear_recordatorio,

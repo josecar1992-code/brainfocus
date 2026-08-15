@@ -225,6 +225,23 @@ No implementado todavía — este documento es la lista de trabajo, no un change
   mismo pill verde "2/5 · 40%" que ya existía en la vista compacta de Tareas — se extrajo a
   `subtaskProgress.ts` + `SubtaskProgressBadge.tsx` compartidos (antes la función vivía duplicada solo
   dentro de `TasksPage.tsx`) para poder reusarlo acá sin copiar el cálculo.
+
+- ~~**Rutinas con fecha específica del mes ("el 15 de cada mes").**~~ ✅ Resuelto (14-ago-2026, pedido por
+  el usuario) — antes `routines` solo soportaba `daily`/`weekly`. Se agregó `frequency: "monthly"` +
+  columna nueva `day_of_month` (1..31, nullable, solo aplica a `monthly`). El cálculo de ocurrencias
+  (`routineSchedule.ts`) clampea al último día real del mes cuando el día elegido no existe ese mes (ej. el
+  31 en febrero cae el 28/29) — mismo criterio que Google/Apple Calendar; tests nuevos para el clamp y para
+  que `nextOccurrenceDate` no se quede repitiendo un mes corto. Wireado en la API (`routines.ts`,
+  `services/routines.ts`), la web (`RoutinesPage.tsx` — selector de frecuencia nuevo + picker de día 1-31) y
+  el MCP (`crear_rutina`, `frecuencia: "mensual"` + `dia_del_mes`).
+  **Requiere una migración manual antes de desplegar** — igual que documenta el README para cambios de
+  schema, hay que correr esto en el SQL Editor de Supabase (no se pudo aplicar solo, la API no tiene acceso
+  a SQL crudo, solo REST vía `supabase-js`):
+  ```sql
+  alter table public.routines add column if not exists day_of_month integer;
+  ```
+  Ya está en `supabase/schema.sql` para que quede como referencia permanente del esquema.
+
 - ~~**Recordatorios recurrentes independientes de rutinas.**~~ ✅ Resuelto (09-ago-2026) — tabla
   `recurring_reminders` nueva (frequency: every_n_hours/daily/weekly, `active` para pausar sin borrar).
   Reusa `scheduleRecurringCron` (mismo mecanismo del aviso mensual de kilometraje) — puro aviso periódico,

@@ -91,9 +91,10 @@ interface Routine {
   id: string;
   title: string;
   list_id: string | null;
-  frequency: "daily" | "weekly";
+  frequency: "daily" | "weekly" | "monthly";
   interval_weeks: number;
   days_of_week: number[];
+  day_of_month: number | null;
   time_of_day: string;
   start_date: string;
   crear_recordatorio: boolean;
@@ -805,17 +806,18 @@ const tools = {
 
   crear_rutina: {
     description:
-      "Crea una rutina: una tarea que se repite (diaria, ciertos días de la semana, o cada N " +
-      "semanas — ej. 'sacar la basura los martes y viernes' o 'cada domingo de por medio'). " +
-      "Genera automáticamente la tarea y el evento de la próxima ocurrencia; al marcarse esa tarea " +
-      "como hecha, la siguiente se crea sola — nunca hay que crear las ocurrencias a mano. Necesita " +
+      "Crea una rutina: una tarea que se repite (diaria, ciertos días de la semana, cada N semanas, " +
+      "o un día fijo de cada mes — ej. 'sacar la basura los martes y viernes', 'cada domingo de por " +
+      "medio', o 'pagar el alquiler el 15 de cada mes'). Genera automáticamente la tarea y el evento " +
+      "de la próxima ocurrencia; al marcarse esa tarea como hecha, la siguiente se crea sola — nunca " +
+      "hay que crear las ocurrencias a mano. Necesita " +
       `\`categoria_id\` — usar \`listar_categorias\` primero si no se conoce. ${AHORA_CR}`,
     inputSchema: {
       type: "object",
       properties: {
         titulo: { type: "string", description: "ej. 'Sacar la basura'" },
         categoria_id: { type: "string" },
-        frecuencia: { type: "string", enum: ["diaria", "semanal"] },
+        frecuencia: { type: "string", enum: ["diaria", "semanal", "mensual"] },
         dias_semana: {
           type: "array",
           items: { type: "number" },
@@ -824,6 +826,12 @@ const tools = {
         cada_cuantas_semanas: {
           type: "number",
           description: "1 = toda semana (default), 2 = de por medio, 3, 4... Solo aplica a 'semanal'.",
+        },
+        dia_del_mes: {
+          type: "number",
+          description:
+            "1..31. Requerido si frecuencia es 'mensual' — ej. 15 para 'el 15 de cada mes'. En meses " +
+            "más cortos cae en el último día real del mes (el 31 en febrero cae el 28/29).",
         },
         hora: { type: "string", description: "HH:MM, 24 horas. ej. '19:00'" },
         fecha_inicio: {
@@ -842,9 +850,10 @@ const tools = {
     argsSchema: z.object({
       titulo: z.string().min(1),
       categoria_id: z.string().uuid(),
-      frecuencia: z.enum(["diaria", "semanal"]),
+      frecuencia: z.enum(["diaria", "semanal", "mensual"]),
       dias_semana: z.array(z.number().int().min(0).max(6)).optional(),
       cada_cuantas_semanas: z.number().int().min(1).max(52).optional(),
+      dia_del_mes: z.number().int().min(1).max(31).optional(),
       hora: z.string().regex(/^\d{2}:\d{2}$/),
       fecha_inicio: z
         .string()
@@ -855,9 +864,10 @@ const tools = {
     handler: (args: {
       titulo: string;
       categoria_id: string;
-      frecuencia: "diaria" | "semanal";
+      frecuencia: "diaria" | "semanal" | "mensual";
       dias_semana?: number[];
       cada_cuantas_semanas?: number;
+      dia_del_mes?: number;
       hora: string;
       fecha_inicio?: string;
       crear_recordatorio?: boolean;
@@ -867,9 +877,10 @@ const tools = {
         body: JSON.stringify({
           title: args.titulo,
           list_id: args.categoria_id,
-          frequency: args.frecuencia === "diaria" ? "daily" : "weekly",
+          frequency: args.frecuencia === "diaria" ? "daily" : args.frecuencia === "mensual" ? "monthly" : "weekly",
           days_of_week: args.dias_semana,
           interval_weeks: args.cada_cuantas_semanas,
+          day_of_month: args.dia_del_mes,
           time_of_day: args.hora,
           start_date: args.fecha_inicio ?? new Date().toISOString().slice(0, 10),
           crear_recordatorio: args.crear_recordatorio,

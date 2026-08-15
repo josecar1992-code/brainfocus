@@ -340,7 +340,7 @@ create table if not exists public.routines (
   user_id uuid not null references auth.users(id) on delete cascade,
   title text not null,
   list_id uuid references public.lists(id) on delete set null,
-  frequency text not null, -- daily | weekly
+  frequency text not null, -- daily | weekly | monthly
   interval_weeks integer not null default 1, -- solo weekly: 1 = toda semana, 2 = de por medio, etc.
   days_of_week integer[] not null default '{}', -- 0 (domingo) .. 6 (sábado), solo weekly
   time_of_day text not null, -- HH:MM
@@ -352,6 +352,13 @@ create table if not exists public.routines (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- Agregado 14-ago-2026 para la rutina mensual ("el 15 de cada mes") — solo
+-- aplica cuando frequency = 'monthly'; 1..31, clampeado al último día real
+-- del mes en apps/api/src/services/routineSchedule.ts (ej. el 31 en febrero
+-- cae el 28/29).
+alter table public.routines
+  add column if not exists day_of_month integer;
 
 create table if not exists public.routine_completions (
   id uuid primary key default uuid_generate_v4(),

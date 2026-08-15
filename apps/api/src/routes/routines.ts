@@ -8,9 +8,10 @@ import { createFirstOccurrence } from "../services/routines.js";
 const baseSchema = z.object({
   title: z.string().min(1),
   list_id: z.string().uuid(),
-  frequency: z.enum(["daily", "weekly"]),
+  frequency: z.enum(["daily", "weekly", "monthly"]),
   interval_weeks: z.number().int().min(1).max(52).optional(),
   days_of_week: z.array(z.number().int().min(0).max(6)).optional(),
+  day_of_month: z.number().int().min(1).max(31).optional(),
   time_of_day: z.string().regex(/^\d{2}:\d{2}$/, "Formato de hora inválido (HH:MM)"),
   start_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato de fecha inválido (YYYY-MM-DD)"),
   crear_recordatorio: z.boolean().optional(),
@@ -19,6 +20,9 @@ const baseSchema = z.object({
 const createSchema = baseSchema.superRefine((data, ctx) => {
   if (data.frequency === "weekly" && !data.days_of_week?.length) {
     ctx.addIssue({ code: "custom", path: ["days_of_week"], message: "Elegí al menos un día de la semana" });
+  }
+  if (data.frequency === "monthly" && !data.day_of_month) {
+    ctx.addIssue({ code: "custom", path: ["day_of_month"], message: "Elegí el día del mes" });
   }
 });
 
@@ -72,6 +76,7 @@ routinesRouter.post("/", requireScope("routines:write"), async (req, res, next) 
         frequency: parsed.data.frequency,
         interval_weeks: parsed.data.interval_weeks ?? 1,
         days_of_week: parsed.data.days_of_week ?? [],
+        day_of_month: parsed.data.frequency === "monthly" ? (parsed.data.day_of_month ?? null) : null,
         time_of_day: parsed.data.time_of_day,
         start_date: parsed.data.start_date,
         crear_recordatorio: parsed.data.crear_recordatorio ?? true,

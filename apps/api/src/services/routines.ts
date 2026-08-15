@@ -8,9 +8,10 @@ export interface RoutineRow {
   user_id: string;
   title: string;
   list_id: string | null;
-  frequency: "daily" | "weekly";
+  frequency: "daily" | "weekly" | "monthly";
   interval_weeks: number;
   days_of_week: number[];
+  day_of_month: number | null;
   time_of_day: string;
   start_date: string;
   crear_recordatorio: boolean;
@@ -24,6 +25,7 @@ function ruleOf(routine: RoutineRow): RecurrenceRule {
     frequency: routine.frequency,
     intervalWeeks: routine.interval_weeks,
     daysOfWeek: routine.days_of_week,
+    dayOfMonth: routine.day_of_month,
     startDate: routine.start_date,
   };
 }

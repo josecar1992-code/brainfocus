@@ -200,9 +200,10 @@ export interface Routine {
   id: string;
   title: string;
   list_id: string | null;
-  frequency: "daily" | "weekly";
+  frequency: "daily" | "weekly" | "monthly";
   interval_weeks: number;
   days_of_week: number[];
+  day_of_month: number | null;
   time_of_day: string;
   start_date: string;
   crear_recordatorio: boolean;
@@ -214,9 +215,10 @@ export interface Routine {
 export interface NewRoutine {
   title: string;
   list_id: string;
-  frequency: "daily" | "weekly";
+  frequency: "daily" | "weekly" | "monthly";
   interval_weeks?: number;
   days_of_week?: number[];
+  day_of_month?: number;
   time_of_day: string;
   start_date: string;
   crear_recordatorio?: boolean;
