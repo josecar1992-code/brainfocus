@@ -179,6 +179,14 @@ No implementado todavía — este documento es la lista de trabajo, no un change
   opcional en crear_tarea/crear_evento/crear_nota/guardar_documento) y web (`ProjectsPage.tsx` con progreso
   agregado en verde, `ProjectSelect.tsx` wireado en Tareas/Agenda/Notas/Documentos — crear y editar). Scopes
   `projects:read`/`projects:write` otorgados a `quicks-agent`.
+  **14-ago-2026:** ampliado — reportado por el usuario que "abrir un proyecto no hacía nada" y que hacía
+  falta poder crear tareas/eventos agrupados dentro del proyecto. `ProjectsPage.tsx` ahora tiene una vista
+  de detalle (click en un proyecto de la lista) que agrupa sus eventos, tareas (sin duplicar las que ya
+  tienen evento, mismo criterio `eventTaskIds` que se usó para el fix de Hoy) y notas, con botones "+
+  Tarea"/"+ Evento" que abren los mismos formularios de Tareas/Agenda (`NewTaskModal`, `NewEventForm`,
+  exportados de sus archivos originales con un `defaultProjectId` nuevo) ya preasignados a ese proyecto —
+  no se duplicó el formulario, se reusó el existente. Ícono nuevo `IconArrowLeft` en `icons.tsx` para el
+  botón de volver.
 - ~~**Indicador en la UI cuando un recordatorio quedó "sin aviso real".**~~ ✅ Resuelto — `ReminderBadge.tsx`
   extraído de `AgendaPage.tsx` a componente compartido; ahora también se muestra en `TaskDetail`
   (`TasksPage.tsx`) para el recordatorio propio de la tarea o de su evento ligado, y un ícono en la vista

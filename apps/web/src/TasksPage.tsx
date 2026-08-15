@@ -73,22 +73,24 @@ function StatCard({ valor, etiqueta }: { valor: number; etiqueta: string }) {
   );
 }
 
-function NewTaskModal({
+export function NewTaskModal({
   lists,
   projects,
   defaultListId,
+  defaultProjectId,
   onClose,
 }: {
   lists: List[];
   projects: Project[];
   defaultListId?: string;
+  defaultProjectId?: string;
   onClose: () => void;
 }) {
   const queryClient = useQueryClient();
   const [title, setTitle] = useState("");
   const [notes, setNotes] = useState("");
   const [listId, setListId] = useState(defaultListId ?? "");
-  const [projectId, setProjectId] = useState("");
+  const [projectId, setProjectId] = useState(defaultProjectId ?? "");
   const [priority, setPriority] = useState<Task["priority"]>("normal");
   const [crearEvento, setCrearEvento] = useState(false);
   const [fecha, setFecha] = useState("");

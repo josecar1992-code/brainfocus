@@ -1,12 +1,26 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
-import { api, type Project } from "./api";
+import { useEffect, useState } from "react";
+import { api, type Event, type Project } from "./api";
 import { ConfirmDialog } from "./ConfirmDialog";
-import { IconX } from "./icons";
+import { NewEventForm } from "./AgendaPage";
+import { IconArrowLeft, IconCalendar, IconCheckSquare, IconNote, IconPlus, IconX } from "./icons";
+import { NewTaskModal } from "./TasksPage";
+import { PriorityBadge } from "./PriorityBadge";
 import { QuickBadge } from "./QuickBadge";
+import { useCompleteTask } from "./useCompleteTask";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("es-CR", { day: "2-digit", month: "short", year: "numeric" });
+}
+
+function formatEventDateTime(iso: string) {
+  return new Date(iso).toLocaleString("es-CR", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "America/Costa_Rica",
+  });
 }
 
 // Progreso agregado del proyecto: % de tareas ligadas ya hechas — mismo
@@ -18,6 +32,229 @@ function projectProgress(taskStatuses: ("pending" | "in_progress" | "done")[]) {
   return { done, total: taskStatuses.length, percent: Math.round((done / taskStatuses.length) * 100) };
 }
 
+/**
+ * Vista de detalle de un proyecto: agrupa sus tareas, eventos y notas, y
+ * permite crear tareas/eventos ya asignados a este proyecto — antes no había
+ * forma de crear nada desde acá ni de ver lo agrupado, "abrir un proyecto"
+ * no hacía nada (reportado por el usuario 14-ago-2026).
+ */
+function ProjectDetail({ project, onBack }: { project: Project; onBack: () => void }) {
+  const queryClient = useQueryClient();
+  const { data: lists } = useQuery({ queryKey: ["lists"], queryFn: api.listLists });
+  const { data: projects } = useQuery({ queryKey: ["projects"], queryFn: api.listProjects });
+  const { data: tasks } = useQuery({ queryKey: ["tasks"], queryFn: api.listTasks });
+  const { data: events } = useQuery({ queryKey: ["events"], queryFn: api.listEvents });
+  const { data: notes } = useQuery({ queryKey: ["notes"], queryFn: api.listNotes });
+  const completeTask = useCompleteTask();
+  const [showNewTask, setShowNewTask] = useState(false);
+  const [showNewEvent, setShowNewEvent] = useState(false);
+  const [eventToDelete, setEventToDelete] = useState<Event | null>(null);
+
+  const deleteEvent = useMutation({
+    mutationFn: api.deleteEvent,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["events"] });
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      setEventToDelete(null);
+    },
+  });
+
+  const projectEvents = (events ?? [])
+    .filter((e) => e.project_id === project.id)
+    .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime());
+  const eventTaskIds = new Set(projectEvents.map((e) => e.task_id).filter(Boolean));
+
+  // Toda tarea con evento ya se ve en la lista de eventos (con su checkbox) —
+  // mostrarla también acá sería la misma duplicación que se corrigió en Hoy.
+  const projectTasks = (tasks ?? [])
+    .filter((t) => t.project_id === project.id && !eventTaskIds.has(t.id))
+    .sort((a, b) => (a.status === "done" ? 1 : 0) - (b.status === "done" ? 1 : 0));
+
+  const projectNotes = (notes ?? []).filter((n) => n.project_id === project.id);
+  const tasksById = new Map((tasks ?? []).map((t) => [t.id, t]));
+  const progress = projectProgress((tasks ?? []).filter((t) => t.project_id === project.id).map((t) => t.status));
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={onBack}
+          className="text-white/40 hover:text-electric-cyan transition-colors p-1 -ml-1"
+          aria-label="Volver a proyectos"
+        >
+          <IconArrowLeft className="w-5 h-5" strokeWidth={1.75} />
+        </button>
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="text-2xl font-bold text-white truncate">{project.name}</h1>
+            {project.created_by === "agent" && <QuickBadge iconOnly />}
+          </div>
+          {project.description && <p className="text-sm text-white/40 whitespace-pre-wrap">{project.description}</p>}
+        </div>
+      </div>
+
+      {progress && (
+        <div className="flex items-center gap-2">
+          <div className="h-1.5 flex-1 max-w-[240px] rounded-full bg-white/8 overflow-hidden">
+            <div className="h-full bg-green-400 transition-all" style={{ width: `${progress.percent}%` }} />
+          </div>
+          <span className="text-[11px] text-green-400">
+            {progress.done}/{progress.total} tareas · {progress.percent}%
+          </span>
+        </div>
+      )}
+
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => setShowNewTask(true)}
+          className="flex items-center gap-1.5 text-sm border border-electric-cyan/20 rounded-lg px-3 py-1.5 text-electric-cyan/90 hover:bg-electric-cyan/10 transition-colors"
+        >
+          <IconPlus className="w-4 h-4" strokeWidth={1.75} />
+          Tarea
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowNewEvent(true)}
+          className="flex items-center gap-1.5 text-sm border border-electric-cyan/20 rounded-lg px-3 py-1.5 text-electric-cyan/90 hover:bg-electric-cyan/10 transition-colors"
+        >
+          <IconPlus className="w-4 h-4" strokeWidth={1.75} />
+          Evento
+        </button>
+      </div>
+
+      <div className="bg-night-blue/40 backdrop-blur-md rounded-2xl border border-electric-cyan/10 shadow-[0_0_40px_-24px_rgba(0,210,255,0.35)] overflow-hidden">
+        <div className="flex items-center gap-2 px-5 pt-5 pb-2">
+          <IconCalendar className="w-4 h-4 flex-shrink-0 text-electric-cyan/70" strokeWidth={1.75} />
+          <p className="text-xs font-semibold uppercase tracking-wide text-white/40">Eventos</p>
+          <span className="text-[11px] text-white/30">({projectEvents.length})</span>
+        </div>
+        {projectEvents.length === 0 && <p className="text-white/40 text-sm px-5 pb-5">Sin eventos todavía.</p>}
+        {projectEvents.length > 0 && (
+          <ul>
+            {projectEvents.map((event) => {
+              const linkedTask = event.task_id ? tasksById.get(event.task_id) : undefined;
+              return (
+                <li
+                  key={event.id}
+                  className="px-5 py-3 border-t border-white/8 first:border-t-0 flex items-center gap-3 group"
+                >
+                  {linkedTask && (
+                    <input
+                      type="checkbox"
+                      checked={linkedTask.status === "done"}
+                      onChange={() => completeTask.request(linkedTask)}
+                      className="accent-electric-cyan w-4 h-4 flex-shrink-0"
+                    />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span
+                        className={`text-sm ${linkedTask?.status === "done" ? "line-through text-white/30" : "text-white/90"}`}
+                      >
+                        {event.title}
+                      </span>
+                      {linkedTask && <PriorityBadge priority={linkedTask.priority} />}
+                      {event.created_by === "agent" && <QuickBadge iconOnly />}
+                    </div>
+                    <p className="text-[11px] text-electric-cyan/80 mt-0.5">{formatEventDateTime(event.starts_at)}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setEventToDelete(event)}
+                    aria-label="Borrar evento"
+                    className="text-white/20 hover:text-red-400 transition-colors p-1 opacity-0 group-hover:opacity-100"
+                  >
+                    <IconX className="w-4 h-4" strokeWidth={1.75} />
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+
+      <div className="bg-night-blue/40 backdrop-blur-md rounded-2xl border border-electric-cyan/10 shadow-[0_0_40px_-24px_rgba(0,210,255,0.35)] overflow-hidden">
+        <div className="flex items-center gap-2 px-5 pt-5 pb-2">
+          <IconCheckSquare className="w-4 h-4 flex-shrink-0 text-electric-cyan/70" strokeWidth={1.75} />
+          <p className="text-xs font-semibold uppercase tracking-wide text-white/40">Tareas</p>
+          <span className="text-[11px] text-white/30">({projectTasks.length})</span>
+        </div>
+        {projectTasks.length === 0 && <p className="text-white/40 text-sm px-5 pb-5">Sin tareas propias todavía.</p>}
+        {projectTasks.length > 0 && (
+          <ul>
+            {projectTasks.map((task) => (
+              <li key={task.id} className="px-5 py-3 border-t border-white/8 first:border-t-0 flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  checked={task.status === "done"}
+                  onChange={() => completeTask.request(task)}
+                  className="accent-electric-cyan w-4 h-4 flex-shrink-0"
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className={`text-sm ${task.status === "done" ? "line-through text-white/30" : "text-white/90"}`}>
+                      {task.title}
+                    </span>
+                    <PriorityBadge priority={task.priority} />
+                    {task.created_by === "agent" && <QuickBadge iconOnly />}
+                  </div>
+                  {task.due_date && <p className="text-[11px] text-white/30 mt-0.5">Vence {formatDate(task.due_date)}</p>}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {projectNotes.length > 0 && (
+        <div className="bg-night-blue/40 backdrop-blur-md rounded-2xl border border-electric-cyan/10 shadow-[0_0_40px_-24px_rgba(0,210,255,0.35)] overflow-hidden">
+          <div className="flex items-center gap-2 px-5 pt-5 pb-2">
+            <IconNote className="w-4 h-4 flex-shrink-0 text-electric-cyan/70" strokeWidth={1.75} />
+            <p className="text-xs font-semibold uppercase tracking-wide text-white/40">Notas</p>
+            <span className="text-[11px] text-white/30">({projectNotes.length})</span>
+          </div>
+          <ul>
+            {projectNotes.map((note) => (
+              <li key={note.id} className="px-5 py-3 border-t border-white/8 first:border-t-0">
+                {note.title && <p className="text-sm text-white/90">{note.title}</p>}
+                {note.content && <p className="text-sm text-white/50 whitespace-pre-wrap line-clamp-2 mt-0.5">{note.content}</p>}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {showNewTask && (
+        <NewTaskModal
+          lists={lists ?? []}
+          projects={projects ?? []}
+          defaultProjectId={project.id}
+          onClose={() => setShowNewTask(false)}
+        />
+      )}
+      {showNewEvent && (
+        <NewEventForm
+          lists={lists ?? []}
+          projects={projects ?? []}
+          defaultProjectId={project.id}
+          onClose={() => setShowNewEvent(false)}
+        />
+      )}
+
+      {eventToDelete && (
+        <ConfirmDialog
+          message={`¿Borrar el evento "${eventToDelete.title}"?`}
+          pending={deleteEvent.isPending}
+          onCancel={() => setEventToDelete(null)}
+          onConfirm={() => deleteEvent.mutate(eventToDelete.id)}
+        />
+      )}
+    </div>
+  );
+}
+
 export function ProjectsPage() {
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
@@ -25,6 +262,7 @@ export function ProjectsPage() {
   const [error, setError] = useState<string | null>(null);
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
   const [showArchived, setShowArchived] = useState(false);
+  const [openProject, setOpenProject] = useState<Project | null>(null);
 
   const { data: projects, isLoading } = useQuery({ queryKey: ["projects"], queryFn: api.listProjects });
   const { data: tasks } = useQuery({ queryKey: ["tasks"], queryFn: api.listTasks });
@@ -64,6 +302,17 @@ export function ProjectsPage() {
   }
 
   const visibleProjects = (projects ?? []).filter((p) => (showArchived ? p.status === "archived" : p.status === "active"));
+
+  // Si el proyecto abierto se archiva/borra desde otra pestaña, o ya no está
+  // en la lista fresca, no dejar la vista de detalle en un estado fantasma.
+  const openProjectFresh = openProject ? (projects ?? []).find((p) => p.id === openProject.id) ?? null : null;
+  useEffect(() => {
+    if (openProject && !openProjectFresh && !isLoading) setOpenProject(null);
+  }, [openProject, openProjectFresh, isLoading]);
+
+  if (openProject && openProjectFresh) {
+    return <ProjectDetail project={openProjectFresh} onBack={() => setOpenProject(null)} />;
+  }
 
   return (
     <div className="space-y-5">
@@ -133,7 +382,8 @@ export function ProjectsPage() {
               return (
                 <li
                   key={project.id}
-                  className="px-5 py-4 border-t border-white/8 first:border-t-0 hover:bg-white/5 transition-colors group"
+                  className="px-5 py-4 border-t border-white/8 first:border-t-0 hover:bg-white/5 transition-colors group cursor-pointer"
+                  onClick={() => setOpenProject(project)}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
@@ -162,19 +412,23 @@ export function ProjectsPage() {
                     <div className="flex items-center gap-2 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
                         type="button"
-                        onClick={() =>
+                        onClick={(e) => {
+                          e.stopPropagation();
                           archiveProject.mutate({
                             id: project.id,
                             status: project.status === "active" ? "archived" : "active",
-                          })
-                        }
+                          });
+                        }}
                         className="text-[11px] text-white/40 hover:text-electric-cyan transition-colors px-1.5"
                       >
                         {project.status === "active" ? "Archivar" : "Reactivar"}
                       </button>
                       <button
                         type="button"
-                        onClick={() => setProjectToDelete(project)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setProjectToDelete(project);
+                        }}
                         aria-label="Borrar proyecto"
                         className="text-white/20 hover:text-red-400 transition-colors p-1"
                       >

@@ -27,12 +27,22 @@ function formatDateTime(iso: string) {
   return `${formatDate(iso)} ${formatTime(iso)}`;
 }
 
-function NewEventForm({ lists, projects, onClose }: { lists: List[]; projects: Project[]; onClose: () => void }) {
+export function NewEventForm({
+  lists,
+  projects,
+  defaultProjectId,
+  onClose,
+}: {
+  lists: List[];
+  projects: Project[];
+  defaultProjectId?: string;
+  onClose: () => void;
+}) {
   const queryClient = useQueryClient();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [listId, setListId] = useState("");
-  const [projectId, setProjectId] = useState("");
+  const [projectId, setProjectId] = useState(defaultProjectId ?? "");
   const [priority, setPriority] = useState<Task["priority"]>("normal");
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
