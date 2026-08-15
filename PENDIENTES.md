@@ -218,6 +218,13 @@ No implementado todavía — este documento es la lista de trabajo, no un change
   navegación aparte). `groupByCategory` nuevo en `TodayPage.tsx`; el `CategoryBadge` por tarea se quitó de
   estas dos secciones porque quedaba redundante con el subtítulo del grupo — `ProjectBadge` se mantiene por
   tarea porque no se agrupa por proyecto.
+  **Mismo día, ampliado otra vez:** pedido "que al darle click a la tarea se pueda ver, y que las tareas con
+  subtareas aparezca el badge de proceso y porcentaje". Click en una tarea de "Tareas atrasadas" o "Tareas
+  que vencen hoy" ahora abre el mismo `TaskDetail` de Tareas/Proyectos (reusado, no duplicado); el checkbox
+  usa `stopPropagation` para no abrir el modal al marcar hecha. Si la tarea tiene subtareas, se muestra el
+  mismo pill verde "2/5 · 40%" que ya existía en la vista compacta de Tareas — se extrajo a
+  `subtaskProgress.ts` + `SubtaskProgressBadge.tsx` compartidos (antes la función vivía duplicada solo
+  dentro de `TasksPage.tsx`) para poder reusarlo acá sin copiar el cálculo.
 - ~~**Recordatorios recurrentes independientes de rutinas.**~~ ✅ Resuelto (09-ago-2026) — tabla
   `recurring_reminders` nueva (frequency: every_n_hours/daily/weekly, `active` para pausar sin borrar).
   Reusa `scheduleRecurringCron` (mismo mecanismo del aviso mensual de kilometraje) — puro aviso periódico,

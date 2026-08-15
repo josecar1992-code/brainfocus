@@ -1,10 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
-import { api, type List, type Routine, type Task } from "./api";
+import { useState } from "react";
+import { api, type List, type Routine, type Subtask, type Task } from "./api";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { IconAlertTriangle, IconCalendar, IconCheckSquare, IconRepeat } from "./icons";
 import { PriorityBadge } from "./PriorityBadge";
 import { ProjectBadge } from "./ProjectBadge";
 import { QuickBadge } from "./QuickBadge";
+import { SubtaskProgressBadge } from "./SubtaskProgressBadge";
+import { subtaskProgress } from "./subtaskProgress";
+import { TaskDetail } from "./TasksPage";
 import { useCompleteTask } from "./useCompleteTask";
 
 // Misma idea que toDateInputValue en TasksPage.tsx: convierte un timestamptz
@@ -93,10 +97,18 @@ export function TodayPage() {
   });
   const { data: lists } = useQuery({ queryKey: ["lists"], queryFn: api.listLists });
   const { data: projects } = useQuery({ queryKey: ["projects"], queryFn: api.listProjects });
+  const { data: subtasks } = useQuery({ queryKey: ["subtasks"], queryFn: () => api.listSubtasks() });
   const completeTask = useCompleteTask();
+  const [openTask, setOpenTask] = useState<Task | null>(null);
 
   const listsById = new Map((lists ?? []).map((l) => [l.id, l]));
   const projectsById = new Map((projects ?? []).map((p) => [p.id, p]));
+  const subtasksByTask = new Map<string, Subtask[]>();
+  for (const s of subtasks ?? []) {
+    const arr = subtasksByTask.get(s.task_id) ?? [];
+    arr.push(s);
+    subtasksByTask.set(s.task_id, arr);
+  }
 
   const todayCR = new Date().toLocaleDateString("en-CA", { timeZone: "America/Costa_Rica" });
 
@@ -164,29 +176,41 @@ export function TodayPage() {
             <div key={group.list?.id ?? "sin-categoria"}>
               <CategoryGroupHeader list={group.list} />
               <ul>
-                {group.tasks.map((task: Task) => (
-                  <li key={task.id} className="px-5 py-3 border-t border-white/8 first:border-t-0 flex items-center gap-3">
-                    <input
-                      type="checkbox"
-                      checked={task.status === "done"}
-                      onChange={() => completeTask.request(task)}
-                      className="accent-electric-cyan w-4 h-4 flex-shrink-0"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm text-white/90">{task.title}</span>
-                        {task.project_id && projectsById.get(task.project_id) && (
-                          <ProjectBadge project={projectsById.get(task.project_id)!} />
-                        )}
-                        <PriorityBadge priority={task.priority} />
-                        {task.created_by === "agent" && <QuickBadge iconOnly />}
+                {group.tasks.map((task: Task) => {
+                  const progress = subtaskProgress(subtasksByTask.get(task.id) ?? []);
+                  return (
+                    <li
+                      key={task.id}
+                      className="px-5 py-3 border-t border-white/8 first:border-t-0 flex items-center gap-3 cursor-pointer hover:bg-white/5 transition-colors"
+                      onClick={() => setOpenTask(task)}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={task.status === "done"}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          completeTask.request(task);
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        className="accent-electric-cyan w-4 h-4 flex-shrink-0"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm text-white/90">{task.title}</span>
+                          {task.project_id && projectsById.get(task.project_id) && (
+                            <ProjectBadge project={projectsById.get(task.project_id)!} />
+                          )}
+                          <PriorityBadge priority={task.priority} />
+                          {progress && <SubtaskProgressBadge {...progress} />}
+                          {task.created_by === "agent" && <QuickBadge iconOnly />}
+                        </div>
+                        <p className="text-[11px] text-amber-400/80 mt-0.5">
+                          Venció el {formatOverdueDate(task.due_date as string)}
+                        </p>
                       </div>
-                      <p className="text-[11px] text-amber-400/80 mt-0.5">
-                        Venció el {formatOverdueDate(task.due_date as string)}
-                      </p>
-                    </div>
-                  </li>
-                ))}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           ))}
@@ -238,26 +262,38 @@ export function TodayPage() {
             <div key={group.list?.id ?? "sin-categoria"}>
               <CategoryGroupHeader list={group.list} />
               <ul>
-                {group.tasks.map((task: Task) => (
-                  <li key={task.id} className="px-5 py-3 border-t border-white/8 first:border-t-0 flex items-center gap-3">
-                    <input
-                      type="checkbox"
-                      checked={task.status === "done"}
-                      onChange={() => completeTask.request(task)}
-                      className="accent-electric-cyan w-4 h-4 flex-shrink-0"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm text-white/90">{task.title}</span>
-                        {task.project_id && projectsById.get(task.project_id) && (
-                          <ProjectBadge project={projectsById.get(task.project_id)!} />
-                        )}
-                        <PriorityBadge priority={task.priority} />
-                        {task.created_by === "agent" && <QuickBadge iconOnly />}
+                {group.tasks.map((task: Task) => {
+                  const progress = subtaskProgress(subtasksByTask.get(task.id) ?? []);
+                  return (
+                    <li
+                      key={task.id}
+                      className="px-5 py-3 border-t border-white/8 first:border-t-0 flex items-center gap-3 cursor-pointer hover:bg-white/5 transition-colors"
+                      onClick={() => setOpenTask(task)}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={task.status === "done"}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          completeTask.request(task);
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        className="accent-electric-cyan w-4 h-4 flex-shrink-0"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm text-white/90">{task.title}</span>
+                          {task.project_id && projectsById.get(task.project_id) && (
+                            <ProjectBadge project={projectsById.get(task.project_id)!} />
+                          )}
+                          <PriorityBadge priority={task.priority} />
+                          {progress && <SubtaskProgressBadge {...progress} />}
+                          {task.created_by === "agent" && <QuickBadge iconOnly />}
+                        </div>
                       </div>
-                    </div>
-                  </li>
-                ))}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           ))}
@@ -304,6 +340,15 @@ export function TodayPage() {
           pending={completeTask.isPending}
           onCancel={completeTask.cancel}
           onConfirm={completeTask.confirm}
+        />
+      )}
+
+      {openTask && (
+        <TaskDetail
+          task={tasksById.get(openTask.id) ?? openTask}
+          lists={lists ?? []}
+          projects={projects ?? []}
+          onClose={() => setOpenTask(null)}
         />
       )}
     </div>

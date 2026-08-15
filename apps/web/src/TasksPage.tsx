@@ -12,6 +12,8 @@ import { ReminderBadge } from "./ReminderBadge";
 import { RoutineBadge } from "./RoutineBadge";
 import { OPTION_STYLE, PRIORITIES, SELECT_CLASS } from "./selectStyles";
 import { StatusFilterTabs, type StatusFilter } from "./StatusFilterTabs";
+import { SubtaskProgressBadge } from "./SubtaskProgressBadge";
+import { subtaskProgress } from "./subtaskProgress";
 import { TimePicker } from "./TimePicker";
 import { useCompleteTask } from "./useCompleteTask";
 
@@ -57,12 +59,6 @@ function OverdueBadge() {
   );
 }
 
-// Progreso de subtareas — se calcula acá, no se guarda en ningún lado.
-function subtaskProgress(subtasks: Subtask[]) {
-  if (subtasks.length === 0) return null;
-  const done = subtasks.filter((s) => s.done).length;
-  return { done, total: subtasks.length, percent: Math.round((done / subtasks.length) * 100) };
-}
 
 function StatCard({ valor, etiqueta }: { valor: number; etiqueta: string }) {
   return (
@@ -1006,11 +1002,7 @@ function CategoryTasksView({
                         <IconBellOff className="w-3.5 h-3.5 text-white/40" strokeWidth={1.75} />
                       </span>
                     )}
-                    {progress && (
-                      <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0 bg-green-500/10 text-green-400">
-                        {progress.done}/{progress.total} · {progress.percent}%
-                      </span>
-                    )}
+                    {progress && <SubtaskProgressBadge {...progress} />}
                   </div>
                   {task.notes && <p className="text-xs text-white/40 mt-0.5 truncate">{task.notes}</p>}
                   <p className="text-[11px] text-white/30 mt-0.5">
