@@ -5,6 +5,26 @@ No implementado todavía — este documento es la lista de trabajo, no un change
 
 ## 1. Bugs / correcciones
 
+- ~~**[MEDIO] En "Hoy", una ocurrencia de rutina se veía duplicada: una vez como evento y otra como
+  rutina.**~~ ✅ Resuelto (14-ago-2026, reportado por el usuario: "sacar la basura" aparecía dos veces
+  hoy — reportado junto con "si marco la tarea como hecha, el evento queda sin marcar"). Investigado
+  a fondo el reporte de asimetría marcar-tarea/marcar-evento: los tres puntos de la app que marcan una
+  tarea como hecha (`TodayPage.tsx`, `AgendaPage.tsx` — tabla, lista móvil y modal —, `TasksPage.tsx`)
+  usan el mismo hook compartido `useCompleteTask`, que llama al mismo `PATCH /tasks/:id` e invalida las
+  mismas queries (`tasks`, `events`, `reminders`, `routines`) sin importar por cuál entrada se marque;
+  un evento nunca tiene su propio estado "hecho", siempre se deriva de `task.status` de la tarea
+  vinculada. Se revisaron 10 pares tarea+evento recientes en producción y todos tenían estados
+  consistentes — no se encontró ninguna ruta de código donde marcar la tarea no se reflejara en el
+  evento. Lo que sí se confirmó como bug real es la duplicación: toda ocurrencia de rutina
+  (`createOccurrence` en `apps/api/src/services/routines.ts`) crea SIEMPRE tarea + evento juntos, igual
+  que una tarea-con-evento creada a mano — pero `TodayPage.tsx` mostraba "Eventos de hoy" y "Rutinas de
+  hoy" como secciones independientes sin cruzar `task_id`, así que la misma ocurrencia salía dos veces.
+  Fix en `TodayPage.tsx`: `routinesToday` ahora excluye una rutina si el `task_id` de su ocurrencia
+  actual ya está cubierto por un evento de hoy (mismo patrón `eventTaskIds` que ya usaba `tasksToday`).
+  De paso se cerró un hueco relacionado: `tasksOverdue` (la sección "Tareas atrasadas" agregada este
+  mismo día) no excluía `eventTaskIds` como sí lo hacía `tasksToday` — una tarea vencida cuyo evento se
+  reagendó para hoy también se habría visto duplicada.
+
 - ~~**[MEDIO] Una tarea vencida sin marcar como hecha quedaba invisible en "Hoy" — solo se veía
   entrando a su categoría.**~~ ✅ Resuelto (14-ago-2026, reportado por el usuario) — `TodayPage.tsx`
   solo mostraba tareas con `due_date` de exactamente hoy; una vez pasado el día, la tarea no vencida

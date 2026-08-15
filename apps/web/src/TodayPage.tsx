@@ -68,11 +68,22 @@ export function TodayPage() {
 
   // Tareas con fecha límite ya pasada (antes de hoy) y sin marcar como hechas
   // — antes solo se veían entrando a su categoría, quedaban "invisibles" acá.
+  // Igual que tasksToday: si la tarea tiene un evento hoy, ya se ve en
+  // "Eventos de hoy" — no duplicarla acá aunque su due_date sea de otro día
+  // (puede pasar si el evento se reagendó para hoy pero la tarea conserva su
+  // due_date original vencido).
   const tasksOverdue = (tasks ?? [])
-    .filter((t) => t.due_date && toCRDate(t.due_date) < todayCR && t.status !== "done")
+    .filter((t) => t.due_date && toCRDate(t.due_date) < todayCR && t.status !== "done" && !eventTaskIds.has(t.id))
     .sort((a, b) => new Date(a.due_date as string).getTime() - new Date(b.due_date as string).getTime());
 
-  const routinesToday = (routines ?? []).filter((r: Routine) => r.current_occurrence_date === todayCR);
+  // Toda ocurrencia de rutina crea SIEMPRE tarea + evento juntos (ver
+  // createOccurrence en apps/api/src/services/routines.ts) — si el evento de
+  // hoy ya se está mostrando en "Eventos de hoy", no repetir la rutina acá
+  // (ese era justo el bug: "sacar la basura" salía duplicado, una vez como
+  // evento y otra como rutina, siendo la misma ocurrencia).
+  const routinesToday = (routines ?? []).filter(
+    (r: Routine) => r.current_occurrence_date === todayCR && !(r.current_task_id && eventTaskIds.has(r.current_task_id)),
+  );
 
   const tasksById = new Map((tasks ?? []).map((t) => [t.id, t]));
   const isLoading = loadingTasks || loadingEvents || loadingRoutines;
