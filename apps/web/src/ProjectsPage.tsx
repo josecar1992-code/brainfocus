@@ -290,6 +290,17 @@ function ProjectDetail({ project, onBack }: { project: Project; onBack: () => vo
           onClose={() => setOpenEvent(null)}
         />
       )}
+
+      {completeTask.pendingTask && (
+        <ConfirmDialog
+          message={`¿Marcar "${completeTask.pendingTask.title}" como hecha?`}
+          variant="success"
+          confirmLabel="Marcar hecha"
+          pending={completeTask.isPending}
+          onCancel={completeTask.cancel}
+          onConfirm={completeTask.confirm}
+        />
+      )}
     </div>
   );
 }

@@ -5,6 +5,14 @@ No implementado todavía — este documento es la lista de trabajo, no un change
 
 ## 1. Bugs / correcciones
 
+- ~~**[ALTO] No se podía marcar una tarea como hecha desde el detalle de un proyecto.**~~ ✅ Resuelto
+  (14-ago-2026, reportado por el usuario). Causa: el checkbox de completar en `ProjectsPage.tsx` llamaba a
+  `completeTask.request(task)` (el mismo hook `useCompleteTask` de siempre), pero ese hook no marca directo
+  — para tareas no hechas guarda un "pendiente" y espera que la pantalla renderice el `ConfirmDialog` de
+  confirmación; ese `ConfirmDialog` nunca se agregó a `ProjectsPage.tsx` cuando se armó la vista de detalle,
+  así que el click quedaba en un estado pendiente invisible y no pasaba nada. Se agregó el mismo
+  `ConfirmDialog` que ya tienen Hoy/Agenda/Tareas al final de `ProjectDetail`.
+
 - ~~**[MEDIO] En "Hoy", una ocurrencia de rutina se veía duplicada: una vez como evento y otra como
   rutina.**~~ ✅ Resuelto (14-ago-2026, reportado por el usuario: "sacar la basura" aparecía dos veces
   hoy — reportado junto con "si marco la tarea como hecha, el evento queda sin marcar"). Investigado
