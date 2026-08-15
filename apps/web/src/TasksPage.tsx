@@ -295,7 +295,7 @@ export function NewTaskModal({
   );
 }
 
-function TaskDetail({
+export function TaskDetail({
   task,
   lists,
   projects,

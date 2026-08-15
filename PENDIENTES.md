@@ -187,6 +187,12 @@ No implementado todavía — este documento es la lista de trabajo, no un change
   exportados de sus archivos originales con un `defaultProjectId` nuevo) ya preasignados a ese proyecto —
   no se duplicó el formulario, se reusó el existente. Ícono nuevo `IconArrowLeft` en `icons.tsx` para el
   botón de volver.
+  **Mismo día, ampliado:** pedido "que se puedan abrir las tareas editar, etc desde la pantalla de
+  proyectos" — antes la lista de tareas/eventos del detalle de proyecto era de solo lectura (aparte del
+  checkbox). Ahora hacer click en una tarea o evento abre el mismo modal de detalle/edición/borrado que ya
+  existe en Tareas y Agenda (`TaskDetail` de `TasksPage.tsx`, `EventDetail` de `AgendaPage.tsx`, ambos
+  exportados — otra vez reusando el componente existente en vez de duplicarlo). El checkbox de completar
+  hace `stopPropagation` para no abrir el modal sin querer al tildar.
 - ~~**Indicador en la UI cuando un recordatorio quedó "sin aviso real".**~~ ✅ Resuelto — `ReminderBadge.tsx`
   extraído de `AgendaPage.tsx` a componente compartido; ahora también se muestra en `TaskDetail`
   (`TasksPage.tsx`) para el recordatorio propio de la tarea o de su evento ligado, y un ícono en la vista

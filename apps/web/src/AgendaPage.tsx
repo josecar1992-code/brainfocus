@@ -200,7 +200,7 @@ export function NewEventForm({
   );
 }
 
-function EventDetail({
+export function EventDetail({
   event,
   reminder,
   task,

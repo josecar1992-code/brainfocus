@@ -1,10 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { api, type Event, type Project } from "./api";
+import { api, type Event, type Project, type Task } from "./api";
 import { ConfirmDialog } from "./ConfirmDialog";
-import { NewEventForm } from "./AgendaPage";
+import { EventDetail, NewEventForm } from "./AgendaPage";
 import { IconArrowLeft, IconCalendar, IconCheckSquare, IconNote, IconPlus, IconX } from "./icons";
-import { NewTaskModal } from "./TasksPage";
+import { NewTaskModal, TaskDetail } from "./TasksPage";
 import { PriorityBadge } from "./PriorityBadge";
 import { QuickBadge } from "./QuickBadge";
 import { useCompleteTask } from "./useCompleteTask";
@@ -45,10 +45,15 @@ function ProjectDetail({ project, onBack }: { project: Project; onBack: () => vo
   const { data: tasks } = useQuery({ queryKey: ["tasks"], queryFn: api.listTasks });
   const { data: events } = useQuery({ queryKey: ["events"], queryFn: api.listEvents });
   const { data: notes } = useQuery({ queryKey: ["notes"], queryFn: api.listNotes });
+  const { data: reminders } = useQuery({ queryKey: ["reminders"], queryFn: api.listReminders });
   const completeTask = useCompleteTask();
   const [showNewTask, setShowNewTask] = useState(false);
   const [showNewEvent, setShowNewEvent] = useState(false);
   const [eventToDelete, setEventToDelete] = useState<Event | null>(null);
+  const [openTask, setOpenTask] = useState<Task | null>(null);
+  const [openEvent, setOpenEvent] = useState<Event | null>(null);
+
+  const remindersByEvent = new Map((reminders ?? []).filter((r) => r.event_id).map((r) => [r.event_id as string, r]));
 
   const deleteEvent = useMutation({
     mutationFn: api.deleteEvent,
@@ -138,13 +143,18 @@ function ProjectDetail({ project, onBack }: { project: Project; onBack: () => vo
               return (
                 <li
                   key={event.id}
-                  className="px-5 py-3 border-t border-white/8 first:border-t-0 flex items-center gap-3 group"
+                  className="px-5 py-3 border-t border-white/8 first:border-t-0 flex items-center gap-3 group cursor-pointer"
+                  onClick={() => setOpenEvent(event)}
                 >
                   {linkedTask && (
                     <input
                       type="checkbox"
                       checked={linkedTask.status === "done"}
-                      onChange={() => completeTask.request(linkedTask)}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        completeTask.request(linkedTask);
+                      }}
+                      onClick={(e) => e.stopPropagation()}
                       className="accent-electric-cyan w-4 h-4 flex-shrink-0"
                     />
                   )}
@@ -162,7 +172,10 @@ function ProjectDetail({ project, onBack }: { project: Project; onBack: () => vo
                   </div>
                   <button
                     type="button"
-                    onClick={() => setEventToDelete(event)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEventToDelete(event);
+                    }}
                     aria-label="Borrar evento"
                     className="text-white/20 hover:text-red-400 transition-colors p-1 opacity-0 group-hover:opacity-100"
                   >
@@ -185,11 +198,19 @@ function ProjectDetail({ project, onBack }: { project: Project; onBack: () => vo
         {projectTasks.length > 0 && (
           <ul>
             {projectTasks.map((task) => (
-              <li key={task.id} className="px-5 py-3 border-t border-white/8 first:border-t-0 flex items-center gap-3">
+              <li
+                key={task.id}
+                className="px-5 py-3 border-t border-white/8 first:border-t-0 flex items-center gap-3 cursor-pointer hover:bg-white/5 transition-colors"
+                onClick={() => setOpenTask(task)}
+              >
                 <input
                   type="checkbox"
                   checked={task.status === "done"}
-                  onChange={() => completeTask.request(task)}
+                  onChange={(e) => {
+                    e.stopPropagation();
+                    completeTask.request(task);
+                  }}
+                  onClick={(e) => e.stopPropagation()}
                   className="accent-electric-cyan w-4 h-4 flex-shrink-0"
                 />
                 <div className="min-w-0 flex-1">
@@ -249,6 +270,24 @@ function ProjectDetail({ project, onBack }: { project: Project; onBack: () => vo
           pending={deleteEvent.isPending}
           onCancel={() => setEventToDelete(null)}
           onConfirm={() => deleteEvent.mutate(eventToDelete.id)}
+        />
+      )}
+
+      {openTask && (
+        <TaskDetail
+          task={tasksById.get(openTask.id) ?? openTask}
+          lists={lists ?? []}
+          projects={projects ?? []}
+          onClose={() => setOpenTask(null)}
+        />
+      )}
+      {openEvent && (
+        <EventDetail
+          event={openEvent}
+          reminder={remindersByEvent.get(openEvent.id)}
+          task={openEvent.task_id ? tasksById.get(openEvent.task_id) : undefined}
+          onToggleDone={(task) => completeTask.request(task)}
+          onClose={() => setOpenEvent(null)}
         />
       )}
     </div>
