@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { api, type Routine, type Task } from "./api";
 import { ConfirmDialog } from "./ConfirmDialog";
-import { IconCalendar, IconCheckSquare, IconRepeat } from "./icons";
+import { IconAlertTriangle, IconCalendar, IconCheckSquare, IconRepeat } from "./icons";
 import { PriorityBadge } from "./PriorityBadge";
 import { QuickBadge } from "./QuickBadge";
 import { useCompleteTask } from "./useCompleteTask";
@@ -17,10 +17,27 @@ function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString("es-CR", { hour: "2-digit", minute: "2-digit" });
 }
 
-function SectionHeader({ icon: Icon, title, count }: { icon: typeof IconCalendar; title: string; count: number }) {
+function formatOverdueDate(iso: string) {
+  return new Date(iso).toLocaleDateString("es-CR", { day: "2-digit", month: "short", timeZone: "America/Costa_Rica" });
+}
+
+function SectionHeader({
+  icon: Icon,
+  title,
+  count,
+  tone = "cyan",
+}: {
+  icon: typeof IconCalendar;
+  title: string;
+  count: number;
+  tone?: "cyan" | "amber";
+}) {
   return (
     <div className="flex items-center gap-2 px-5 pt-5 pb-2">
-      <Icon className="w-4 h-4 text-electric-cyan/70 flex-shrink-0" strokeWidth={1.75} />
+      <Icon
+        className={`w-4 h-4 flex-shrink-0 ${tone === "amber" ? "text-amber-400/80" : "text-electric-cyan/70"}`}
+        strokeWidth={1.75}
+      />
       <p className="text-xs font-semibold uppercase tracking-wide text-white/40">{title}</p>
       <span className="text-[11px] text-white/30">({count})</span>
     </div>
@@ -49,11 +66,18 @@ export function TodayPage() {
     .filter((t) => t.due_date && toCRDate(t.due_date) === todayCR && t.status !== "done" && !eventTaskIds.has(t.id))
     .sort((a, b) => new Date(a.due_date as string).getTime() - new Date(b.due_date as string).getTime());
 
+  // Tareas con fecha límite ya pasada (antes de hoy) y sin marcar como hechas
+  // — antes solo se veían entrando a su categoría, quedaban "invisibles" acá.
+  const tasksOverdue = (tasks ?? [])
+    .filter((t) => t.due_date && toCRDate(t.due_date) < todayCR && t.status !== "done")
+    .sort((a, b) => new Date(a.due_date as string).getTime() - new Date(b.due_date as string).getTime());
+
   const routinesToday = (routines ?? []).filter((r: Routine) => r.current_occurrence_date === todayCR);
 
   const tasksById = new Map((tasks ?? []).map((t) => [t.id, t]));
   const isLoading = loadingTasks || loadingEvents || loadingRoutines;
-  const nothingToday = eventsToday.length === 0 && tasksToday.length === 0 && routinesToday.length === 0;
+  const nothingToday =
+    eventsToday.length === 0 && tasksToday.length === 0 && routinesToday.length === 0 && tasksOverdue.length === 0;
 
   return (
     <div className="space-y-5">
@@ -74,6 +98,34 @@ export function TodayPage() {
       {!isLoading && nothingToday && (
         <div className="bg-night-blue/40 backdrop-blur-md rounded-2xl border border-electric-cyan/10 shadow-[0_0_40px_-24px_rgba(0,210,255,0.35)] p-6 text-center">
           <p className="text-white/50 text-sm">Nada pendiente para hoy.</p>
+        </div>
+      )}
+
+      {tasksOverdue.length > 0 && (
+        <div className="bg-night-blue/40 backdrop-blur-md rounded-2xl border border-amber-400/20 shadow-[0_0_40px_-24px_rgba(251,191,36,0.35)] overflow-hidden">
+          <SectionHeader icon={IconAlertTriangle} title="Tareas atrasadas" count={tasksOverdue.length} tone="amber" />
+          <ul>
+            {tasksOverdue.map((task: Task) => (
+              <li key={task.id} className="px-5 py-3 border-t border-white/8 first:border-t-0 flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  checked={task.status === "done"}
+                  onChange={() => completeTask.request(task)}
+                  className="accent-electric-cyan w-4 h-4 flex-shrink-0"
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm text-white/90">{task.title}</span>
+                    <PriorityBadge priority={task.priority} />
+                    {task.created_by === "agent" && <QuickBadge iconOnly />}
+                  </div>
+                  <p className="text-[11px] text-amber-400/80 mt-0.5">
+                    Venció el {formatOverdueDate(task.due_date as string)}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 

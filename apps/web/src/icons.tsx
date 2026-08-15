@@ -99,6 +99,16 @@ export function IconCheckCircle(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+export function IconAlertTriangle(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <path d="M12 3.5 21.5 20h-19L12 3.5Z" />
+      <path d="M12 9.5v4.5" />
+      <path d="M12 17.25h.01" />
+    </Icon>
+  );
+}
+
 export function IconBell(props: SVGProps<SVGSVGElement>) {
   return (
     <Icon {...props}>

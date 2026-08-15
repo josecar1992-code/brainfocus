@@ -5,6 +5,14 @@ No implementado todavía — este documento es la lista de trabajo, no un change
 
 ## 1. Bugs / correcciones
 
+- ~~**[MEDIO] Una tarea vencida sin marcar como hecha quedaba invisible en "Hoy" — solo se veía
+  entrando a su categoría.**~~ ✅ Resuelto (14-ago-2026, reportado por el usuario) — `TodayPage.tsx`
+  solo mostraba tareas con `due_date` de exactamente hoy; una vez pasado el día, la tarea no vencida
+  desaparecía de la vista principal sin ningún aviso. Se agregó una sección "Tareas atrasadas" (tono
+  ámbar, arriba de "Eventos de hoy") con toda tarea `due_date < hoy` (comparado en fecha calendario de
+  Costa Rica, mismo criterio `toCRDate` que el resto de la página) y `status !== "done"`, mostrando la
+  fecha en que venció. Ícono nuevo `IconAlertTriangle` en `icons.tsx`.
+
 - ~~**[ALTO] El MCP no tenía forma de editar una tarea ya creada — solo crear y completar.**~~ ✅
   Resuelto (12-ago-2026, encontrado al intentar corregir la categoría de una tarea que Quicks acababa
   de crear sin ella) — `editar_tarea` nueva en `apps/mcp/src/index.ts`, PATCH parcial sobre
