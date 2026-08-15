@@ -1,8 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { api, type Routine, type Task } from "./api";
+import { CategoryBadge } from "./CategoryBadge";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { IconAlertTriangle, IconCalendar, IconCheckSquare, IconRepeat } from "./icons";
 import { PriorityBadge } from "./PriorityBadge";
+import { ProjectBadge } from "./ProjectBadge";
 import { QuickBadge } from "./QuickBadge";
 import { useCompleteTask } from "./useCompleteTask";
 
@@ -51,7 +53,12 @@ export function TodayPage() {
     queryKey: ["routines"],
     queryFn: api.listRoutines,
   });
+  const { data: lists } = useQuery({ queryKey: ["lists"], queryFn: api.listLists });
+  const { data: projects } = useQuery({ queryKey: ["projects"], queryFn: api.listProjects });
   const completeTask = useCompleteTask();
+
+  const listsById = new Map((lists ?? []).map((l) => [l.id, l]));
+  const projectsById = new Map((projects ?? []).map((p) => [p.id, p]));
 
   const todayCR = new Date().toLocaleDateString("en-CA", { timeZone: "America/Costa_Rica" });
 
@@ -127,6 +134,10 @@ export function TodayPage() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-sm text-white/90">{task.title}</span>
+                    {task.list_id && listsById.get(task.list_id) && <CategoryBadge list={listsById.get(task.list_id)!} />}
+                    {task.project_id && projectsById.get(task.project_id) && (
+                      <ProjectBadge project={projectsById.get(task.project_id)!} />
+                    )}
                     <PriorityBadge priority={task.priority} />
                     {task.created_by === "agent" && <QuickBadge iconOnly />}
                   </div>
@@ -193,6 +204,10 @@ export function TodayPage() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-sm text-white/90">{task.title}</span>
+                    {task.list_id && listsById.get(task.list_id) && <CategoryBadge list={listsById.get(task.list_id)!} />}
+                    {task.project_id && projectsById.get(task.project_id) && (
+                      <ProjectBadge project={projectsById.get(task.project_id)!} />
+                    )}
                     <PriorityBadge priority={task.priority} />
                     {task.created_by === "agent" && <QuickBadge iconOnly />}
                   </div>

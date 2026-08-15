@@ -194,6 +194,10 @@ No implementado todavía — este documento es la lista de trabajo, no un change
 - ~~**Vista "Hoy" consolidada.**~~ ✅ Resuelto — `TodayPage.tsx` nuevo, primer módulo del nav: eventos de
   hoy + tareas que vencen hoy + ocurrencia de rutina de hoy, con el mismo checkbox de completar
   (`useCompleteTask`) que Tareas/Agenda/Rutinas.
+  **14-ago-2026:** pedido por el usuario — las tareas de "Tareas atrasadas" y "Tareas que vencen hoy" ahora
+  muestran de qué categoría y de qué proyecto vienen (badges nuevos, junto a la prioridad). `CategoryBadge.tsx`
+  se extrajo del pill que ya existía en el detalle de tarea (`TasksPage.tsx`) a componente compartido;
+  `ProjectBadge.tsx` es nuevo (ícono `IconFolder` + nombre del proyecto).
 - ~~**Recordatorios recurrentes independientes de rutinas.**~~ ✅ Resuelto (09-ago-2026) — tabla
   `recurring_reminders` nueva (frequency: every_n_hours/daily/weekly, `active` para pausar sin borrar).
   Reusa `scheduleRecurringCron` (mismo mecanismo del aviso mensual de kilometraje) — puro aviso periódico,
