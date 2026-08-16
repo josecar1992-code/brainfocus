@@ -375,6 +375,36 @@ alter table public.tasks
   add column if not exists routine_id uuid references public.routines(id) on delete set null;
 
 -- ============================================================
+-- Consumos — gasto real por proveedor (IA, mensajería, hosting, ...),
+-- agregado 15-ago-2026 para dar visibilidad de costo operativo. Esquema
+-- genérico a propósito (categoria abierta, detalle jsonb libre) para poder
+-- sumar proveedores nuevos (dominios, otros modelos, etc.) sin migrar de
+-- nuevo. `costo_usd` puede ser estimado (ej. Qwen, calculado desde uso de
+-- tokens, no la factura real de Alibaba) u obtenido manualmente (ej.
+-- Meta/WhatsApp vía Kapso si no hay API de billing confiable) — `origen`
+-- distingue el caso, y la UI debe dejarlo visible en vez de aparentar que
+-- todo está en vivo. `fecha` es la fecha calendario de Costa Rica del gasto
+-- (día local CR, corte 06:00Z-06:00Z, igual que OpenClaw) — quien alimenta
+-- este endpoint calcula esa fecha explícitamente, no confía en la zona
+-- horaria del proceso que hace el POST (ver CLAUDE.md).
+-- ============================================================
+create table if not exists public.consumos (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  fecha date not null,
+  proveedor text not null, -- "qwen", "kapso-whatsapp", "brave-search", ...
+  categoria text not null check (categoria in ('ia','mensajeria','hosting','otro')),
+  cantidad numeric, -- tokens, conversaciones, etc. — unidad libre, ver `unidad`
+  unidad text, -- "tokens" | "conversaciones" | "USD" | ...
+  costo_usd numeric not null,
+  detalle jsonb not null default '{}'::jsonb, -- breakdown libre: input/output/cache, categoría de plantilla Meta, etc.
+  origen text not null check (origen in ('openclaw-export','kapso-api','manual')),
+  created_by text not null default 'agent' check (created_by in ('user','agent')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- ============================================================
 -- Índices
 -- ============================================================
 create index if not exists idx_projects_user on public.projects(user_id);
@@ -403,6 +433,8 @@ create index if not exists idx_vehicle_mileage_logs_user on public.vehicle_milea
 create index if not exists idx_routines_user on public.routines(user_id);
 create index if not exists idx_routine_completions_routine on public.routine_completions(routine_id, completed_at);
 create index if not exists idx_tasks_routine on public.tasks(routine_id);
+create index if not exists idx_consumos_user_fecha on public.consumos(user_id, fecha);
+create index if not exists idx_consumos_proveedor on public.consumos(proveedor);
 
 -- ============================================================
 -- RLS — activo en todas las tablas de datos
@@ -426,6 +458,7 @@ alter table public.vehicle_maintenance enable row level security;
 alter table public.vehicle_mileage_logs enable row level security;
 alter table public.routines enable row level security;
 alter table public.routine_completions enable row level security;
+alter table public.consumos enable row level security;
 
 create policy "owner_select_profiles" on public.profiles for select using (id = auth.uid());
 create policy "owner_modify_profiles" on public.profiles for all using (id = auth.uid()) with check (id = auth.uid());
@@ -437,7 +470,7 @@ begin
   for t in select unnest(array[
     'api_keys','agent_actions','lists','projects','tasks','subtasks',
     'reminders','recurring_reminders','events','notes','documents','nutrition_logs','exercise_logs',
-    'vehicles','vehicle_maintenance','vehicle_mileage_logs','routines','routine_completions'
+    'vehicles','vehicle_maintenance','vehicle_mileage_logs','routines','routine_completions','consumos'
   ])
   loop
     execute format(

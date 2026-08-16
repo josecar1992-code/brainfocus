@@ -3,6 +3,7 @@ import type { ComponentType, SVGProps } from "react";
 import {
   IconCalendar,
   IconCar,
+  IconChartBar,
   IconCheckSquare,
   IconFile,
   IconFolder,
@@ -25,6 +26,7 @@ export type ModuleKey =
   | "notas"
   | "documentos"
   | "vehiculos"
+  | "consumos"
   | "asistente"
   | "configuracion";
 
@@ -38,6 +40,7 @@ export const MODULES: { key: ModuleKey; label: string; icon: ComponentType<SVGPr
   { key: "notas", label: "Notas y memorias", icon: IconNote },
   { key: "documentos", label: "Documentos", icon: IconFile },
   { key: "vehiculos", label: "Vehículos", icon: IconCar },
+  { key: "consumos", label: "Consumos", icon: IconChartBar },
   { key: "configuracion", label: "Configuración", icon: IconSettings },
 ];
 

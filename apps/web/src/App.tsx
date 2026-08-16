@@ -3,6 +3,7 @@ import type { Session } from "@supabase/supabase-js";
 import { AgendaPage } from "./AgendaPage";
 import { AsistentePage } from "./AsistentePage";
 import { ApiError, api } from "./api";
+import { ConsumosPage } from "./ConsumosPage";
 import { DocumentsPage } from "./DocumentsPage";
 import { Header } from "./Header";
 import { Login } from "./Login";
@@ -109,6 +110,7 @@ export function App() {
             {activeModule === "notas" && <NotesPage />}
             {activeModule === "documentos" && <DocumentsPage />}
             {activeModule === "vehiculos" && <VehiclesPage />}
+            {activeModule === "consumos" && <ConsumosPage />}
             {activeModule === "asistente" && <AsistentePage />}
             {activeModule === "configuracion" && <SettingsPage />}
           </div>

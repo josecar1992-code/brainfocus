@@ -6,6 +6,7 @@ import { env } from "./env.js";
 import { authenticate } from "./middleware/auth.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { apiKeysRouter } from "./routes/apiKeys.js";
+import { consumosRouter } from "./routes/consumos.js";
 import { documentsRouter } from "./routes/documents.js";
 import { eventsRouter } from "./routes/events.js";
 import { exerciseRouter } from "./routes/exercise.js";
@@ -61,6 +62,7 @@ app.use("/vehicle-mileage", vehicleMileageRouter);
 app.use("/routines", routinesRouter);
 app.use("/routine-completions", routineCompletionsRouter);
 app.use("/settings", settingsRouter);
+app.use("/consumos", consumosRouter);
 
 app.use(errorHandler);
 

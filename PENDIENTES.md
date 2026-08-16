@@ -309,6 +309,36 @@ No implementado todavía — este documento es la lista de trabajo, no un change
   nuevo).
 - Búsqueda global (Ctrl+K) — hoy `q` solo existe en notas/documentos.
 - Multiusuario/compartido — `supabase/schema.sql` ya insinúa "single-user hoy, multi-tenant mañana".
+- ~~**Módulo de Consumos** (gasto real por proveedor: IA, mensajería, hosting, ...).~~ ✅ Completo
+  (15-ago-2026) — pedido por el usuario para tener visibilidad de gasto real, empezando por IA (Qwen) y
+  Meta/WhatsApp (Kapso), con esquema abierto a más proveedores después sin rediseñar. Tabla nueva
+  `consumos` (`supabase/schema.sql`): `fecha` (date, día calendario Costa Rica — quien alimenta el
+  endpoint calcula esa fecha explícito, el corte es el mismo 06:00Z-06:00Z que ya usa OpenClaw, ver
+  `CLAUDE.md`), `proveedor`, `categoria` (`ia`/`mensajeria`/`hosting`/`otro`), `cantidad`/`unidad` libres
+  (tokens, conversaciones, etc.), `costo_usd`, `detalle` jsonb libre, `origen`
+  (`openclaw-export`/`kapso-api`/`manual`) — RLS igual al resto de tablas por `user_id`.
+  API nueva `apps/api/src/routes/consumos.ts` (no usa el `createResourceRouter` genérico porque el
+  contrato de query pedido es `?desde=&hasta=&proveedor=`, no el `_gte/_lte` genérico): `GET /consumos`
+  (scope `consumos:read`), `POST /consumos` (scope `consumos:write`, para el cron de reporte de uso),
+  `DELETE /consumos/:id`. Scopes nuevos — hay que otorgar `consumos:write` (y `consumos:read` si Quicks
+  va a poder consultarlo) a la API key de `quicks-agent`/OpenClaw desde `POST /internal/api-keys` o
+  editando la key existente antes de que el cron pueda empezar a mandar datos.
+  MCP: tool de solo lectura `consultar_consumos` (`desde`/`hasta`/`proveedor` opcionales) para que Quicks
+  pueda responder "cuánto llevamos gastado en X" desde el chat — la descripción de la tool le recuerda
+  revisar `origen` antes de presentar el costo como dato definitivo (puede ser estimado o manual).
+  Web: módulo nuevo "Consumos" en el sidebar (`ConsumosPage.tsx`, ícono `IconChartBar` nuevo) — gasto
+  total del mes (rango calculado con `timeZone: "America/Costa_Rica"` explícito, no la hora del
+  navegador), desglose por proveedor, tendencia diaria (barras CSS simples, sin librería de gráficos —
+  no había ninguna en el repo y no ameritaba sumar una dependencia para esto) y detalle expandible. Si
+  hay algún registro con `origen: "manual"` (caso esperado de Meta/WhatsApp — no se encontró API de
+  billing confiable de Kapso/Meta Business Manager para conversaciones facturables por categoría al
+  momento de este cambio, así que ese dato se carga a mano) se muestra un aviso con la fecha del último
+  registro manual en vez de aparentar que el total está actualizado en vivo.
+  Alertas de gasto anómalo: no implementadas (opcionales, no bloqueantes según lo pedido).
+  Pendiente del lado del usuario: correr la migración de `consumos` en el SQL Editor de Supabase (no
+  automatizable desde la API, mismo motivo que las rutinas mensuales del 14-ago-2026) antes de que el
+  endpoint de ingesta funcione en producción, y adaptar el script de reporte de uso al contrato de
+  `POST /consumos` una vez desplegado.
 
 ## 4. Deuda técnica / limpieza
 

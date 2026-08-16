@@ -208,6 +208,14 @@ export function IconPencil(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+export function IconChartBar(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <path d="M4 20V10M10 20V4M16 20v-7M4 20h16" />
+    </Icon>
+  );
+}
+
 export function IconGripVertical(props: SVGProps<SVGSVGElement>) {
   return (
     <Icon {...props}>

@@ -231,6 +231,20 @@ export interface RoutineCompletion {
   completed_at: string;
 }
 
+export interface Consumo {
+  id: string;
+  fecha: string; // YYYY-MM-DD, día calendario de Costa Rica
+  proveedor: string;
+  categoria: "ia" | "mensajeria" | "hosting" | "otro";
+  cantidad: number | null;
+  unidad: string | null;
+  costo_usd: number;
+  detalle: Record<string, unknown>;
+  origen: "openclaw-export" | "kapso-api" | "manual";
+  created_by: "user" | "agent";
+  created_at: string;
+}
+
 export interface Document {
   id: string;
   name: string;
@@ -463,6 +477,14 @@ export const api = {
   deleteRoutine: (id: string) => request<void>(`/routines/${id}`, { method: "DELETE" }),
   listRoutineCompletions: (routineId: string) =>
     request<RoutineCompletion[]>(`/routine-completions?routine_id=${routineId}&limit=100`),
+
+  listConsumos: (params?: { desde?: string; hasta?: string; proveedor?: string }) => {
+    const qs = new URLSearchParams({ limit: "500" });
+    if (params?.desde) qs.set("desde", params.desde);
+    if (params?.hasta) qs.set("hasta", params.hasta);
+    if (params?.proveedor) qs.set("proveedor", params.proveedor);
+    return request<Consumo[]>(`/consumos?${qs.toString()}`);
+  },
 
   // Todo evento tiene obligatoriamente una tarea asociada (misma categoría), simétrico
   // al flujo inverso (tarea -> evento) en createTask.

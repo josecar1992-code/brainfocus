@@ -65,6 +65,17 @@ interface VehicleMileageLog {
   logged_at: string;
 }
 
+interface Consumo {
+  id: string;
+  fecha: string;
+  proveedor: string;
+  categoria: "ia" | "mensajeria" | "hosting" | "otro";
+  cantidad: number | null;
+  unidad: string | null;
+  costo_usd: number;
+  origen: "openclaw-export" | "kapso-api" | "manual";
+}
+
 interface Category {
   id: string;
   name: string;
@@ -589,6 +600,34 @@ const tools = {
       const params = new URLSearchParams({ limit: "20" });
       if (args.busqueda) params.set("q", args.busqueda);
       return apiRequest<Note[]>(`/notes?${params.toString()}`);
+    },
+  },
+
+  consultar_consumos: {
+    description:
+      "Consulta el gasto real registrado por proveedor (IA, mensajería, hosting, etc.), ej. 'cuánto " +
+      "llevamos gastado en Qwen este mes' o 'cuánto costó WhatsApp la semana pasada'. `costo_usd` puede " +
+      "ser estimado (no la factura exacta del proveedor) u origen manual — revisar el campo `origen` de " +
+      `cada registro antes de presentar el dato como definitivo. ${AHORA_CR}`,
+    inputSchema: {
+      type: "object",
+      properties: {
+        desde: { type: "string", description: "Fecha YYYY-MM-DD (Costa Rica), inclusive. Opcional." },
+        hasta: { type: "string", description: "Fecha YYYY-MM-DD (Costa Rica), inclusive. Opcional." },
+        proveedor: { type: "string", description: "Filtra por proveedor exacto, ej. 'qwen'. Opcional." },
+      },
+    },
+    argsSchema: z.object({
+      desde: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+      hasta: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+      proveedor: z.string().optional(),
+    }),
+    handler: (args: { desde?: string; hasta?: string; proveedor?: string }) => {
+      const params = new URLSearchParams({ limit: "500" });
+      if (args.desde) params.set("desde", args.desde);
+      if (args.hasta) params.set("hasta", args.hasta);
+      if (args.proveedor) params.set("proveedor", args.proveedor);
+      return apiRequest<Consumo[]>(`/consumos?${params.toString()}`);
     },
   },
 
