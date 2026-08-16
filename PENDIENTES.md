@@ -329,16 +329,25 @@ No implementado todavía — este documento es la lista de trabajo, no un change
   Web: módulo nuevo "Consumos" en el sidebar (`ConsumosPage.tsx`, ícono `IconChartBar` nuevo) — gasto
   total del mes (rango calculado con `timeZone: "America/Costa_Rica"` explícito, no la hora del
   navegador), desglose por proveedor, tendencia diaria (barras CSS simples, sin librería de gráficos —
-  no había ninguna en el repo y no ameritaba sumar una dependencia para esto) y detalle expandible. Si
-  hay algún registro con `origen: "manual"` (caso esperado de Meta/WhatsApp — no se encontró API de
-  billing confiable de Kapso/Meta Business Manager para conversaciones facturables por categoría al
-  momento de este cambio, así que ese dato se carga a mano) se muestra un aviso con la fecha del último
-  registro manual en vez de aparentar que el total está actualizado en vivo.
+  no había ninguna en el repo y no ameritaba sumar una dependencia para esto) y detalle expandible. La
+  UI deja `origen: "manual"` visible con la fecha del último registro cuando aplique, en vez de
+  aparentar que el total está actualizado en vivo (previsto para el caso en que Meta/WhatsApp no
+  tuviera API confiable — ver corrección más abajo, al final no hizo falta).
   Alertas de gasto anómalo: no implementadas (opcionales, no bloqueantes según lo pedido).
-  Pendiente del lado del usuario: correr la migración de `consumos` en el SQL Editor de Supabase (no
-  automatizable desde la API, mismo motivo que las rutinas mensuales del 14-ago-2026) antes de que el
-  endpoint de ingesta funcione en producción, y adaptar el script de reporte de uso al contrato de
-  `POST /consumos` una vez desplegado.
+  **15-ago-2026, en producción:** el usuario conectó ambas fuentes vía cron en OpenClaw (fuera de este
+  repo, no hay código que tocar acá): `usage-weekly.js` corre diario a las 00:12 CR con el gasto real
+  de Qwen (estimado desde logs internos de tokens, `origen: "openclaw-export"`) y un cron nuevo
+  `consumos_meta_diario` corre diario a las 00:18 CR contra el `pricing_analytics` del Graph API de
+  Meta sobre la WABA (`origen: "kapso-api"`, `categoria: "mensajeria"`) — ambos con reemplazo idempotente
+  si corren dos veces. Scopes `consumos:write`/`consumos:read` otorgados a la key `quicks-agent`.
+  **Corrección a lo dicho arriba sobre Meta/Kapso:** al investigarlo en vivo sí existe una API de
+  billing real — Meta descontinuó el pricing por conversación (24h) el 1-jul-2025 y pasó a cobrar por
+  plantilla entregada, con el campo `pricing_analytics` del Graph API sobre el WABA dando el desglose
+  exacto por categoría (`marketing`/`utility`/`authentication`/`service`) — el dato es real, no
+  estimado. El truco está en el parámetro: la documentación menciona `category` pero no filtra nada,
+  hay que usar `dimensions=["PRICING_TYPE","COUNTRY"]`. Kapso en sí no expone esto (son un wrapper para
+  enviar/recibir mensajes, no de billing — los cargos de Meta "se pasan por separado"), así que se
+  consulta el Graph API de Meta directo. No quedó como carga manual.
 
 ## 4. Deuda técnica / limpieza
 
