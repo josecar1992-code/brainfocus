@@ -14,6 +14,7 @@ export interface Task {
   status: "pending" | "in_progress" | "done";
   priority: "low" | "normal" | "high";
   due_date: string | null;
+  completed_at: string | null;
   created_at: string;
   routine_id: string | null;
   created_by: "user" | "agent";
@@ -331,6 +332,14 @@ export const api = {
   // — con más de 50 tareas históricas (rutinas generan una por ocurrencia)
   // Agenda/Tareas dejaban de mostrar las pendientes reales.
   listTasks: () => request<Task[]>("/tasks?limit=200"),
+  // Para el módulo Resumen: tareas marcadas como hechas dentro de un rango de
+  // instantes — `desdeIso`/`hastaIso` ya vienen calculados por el caller con
+  // el offset explícito de Costa Rica (ver ResumenPage.tsx), acá solo se
+  // arma el query genérico `_gte`/`_lte` que ya soporta el backend.
+  listCompletedTasks: (params: { desdeIso: string; hastaIso: string }) =>
+    request<Task[]>(
+      `/tasks?status=done&completed_at_gte=${encodeURIComponent(params.desdeIso)}&completed_at_lte=${encodeURIComponent(params.hastaIso)}&limit=200`,
+    ),
   toggleTask: (task: Task) =>
     request<Task>(`/tasks/${task.id}`, {
       method: "PATCH",

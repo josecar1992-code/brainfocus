@@ -5,6 +5,7 @@ import { AsistentePage } from "./AsistentePage";
 import { ApiError, api } from "./api";
 import { ConsumosPage } from "./ConsumosPage";
 import { DocumentsPage } from "./DocumentsPage";
+import { ResumenPage } from "./ResumenPage";
 import { Header } from "./Header";
 import { Login } from "./Login";
 import { NeuronBackground } from "./NeuronBackground";
@@ -111,6 +112,7 @@ export function App() {
             {activeModule === "documentos" && <DocumentsPage />}
             {activeModule === "vehiculos" && <VehiclesPage />}
             {activeModule === "consumos" && <ConsumosPage />}
+            {activeModule === "resumen" && <ResumenPage />}
             {activeModule === "asistente" && <AsistentePage />}
             {activeModule === "configuracion" && <SettingsPage />}
           </div>

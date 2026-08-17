@@ -31,6 +31,12 @@ interface ResourceConfig {
     // de diferencia — dos POST /reminders reales, no un retry de red).
     beforeCreate?: (userId: string, input: any) => Promise<string | void>;
     afterCreate?: (userId: string, row: any) => Promise<void>;
+    // A diferencia de beforeCreate, no bloquea — devolver un objeto lo
+    // mezcla en el patch antes de escribir (para completar columnas que no
+    // debería mandar el caller, ej. tasks.completed_at: ver tasks.ts, se
+    // llena sola al pasar a "done" sin importar quién mande el PATCH — web,
+    // MCP, o un PATCH directo).
+    beforeUpdate?: (userId: string, before: any, input: any) => Promise<Record<string, any> | void>;
     afterUpdate?: (userId: string, before: any, after: any) => Promise<void>;
     beforeDelete?: (userId: string, row: any) => Promise<void>;
   };
@@ -171,9 +177,11 @@ export function createResourceRouter(config: ResourceConfig): Router {
       if (beforeError) throw beforeError;
       if (!before) return res.status(404).json({ error: "No encontrado" });
 
+      const extra = hooks?.beforeUpdate ? await hooks.beforeUpdate(req.auth!.userId, before, parsed.data) : undefined;
+
       const { data, error } = await supabaseAdmin
         .from(table)
-        .update({ ...parsed.data, updated_at: new Date().toISOString() })
+        .update({ ...parsed.data, ...extra, updated_at: new Date().toISOString() })
         .eq("user_id", req.auth!.userId)
         .eq("id", req.params.id)
         .select()

@@ -359,6 +359,25 @@ No implementado todavía — este documento es la lista de trabajo, no un change
   hay que usar `dimensions=["PRICING_TYPE","COUNTRY"]`. Kapso en sí no expone esto (son un wrapper para
   enviar/recibir mensajes, no de billing — los cargos de Meta "se pasan por separado"), así que se
   consulta el Graph API de Meta directo. No quedó como carga manual.
+- ~~**Módulo de Resumen** (tareas completadas por día, ej. "qué marqué como hecha ayer").~~ ✅ Completo
+  (16-ago-2026) — pedido por el usuario. `ResumenPage.tsx` nuevo en el sidebar (ícono `IconCheckCircle`
+  reusado, sin ícono nuevo): filtros rápidos Hoy/Ayer/Últimos 7 días + rango manual de fechas, listando
+  las tareas con `status: "done"` cuyo `completed_at` cae dentro del día/rango elegido (día calendario
+  de Costa Rica, `${fecha}T00:00:00-06:00` a `${fecha}T23:59:59.999-06:00` — offset explícito, nunca la
+  hora del navegador, ver [CLAUDE.md](CLAUDE.md)). Cada fila muestra categoría/proyecto/prioridad y la
+  hora en que se completó; click abre el mismo `TaskDetail` que Tareas/Agenda/Proyectos (reusado, no
+  duplicado). `GET /tasks` ya soportaba `completed_at_gte`/`completed_at_lte` genérico (mismo mecanismo
+  `_gte`/`_lte` de `resourceRouter.ts` usado en otros módulos) — no hizo falta endpoint nuevo.
+  **Bug de fondo encontrado y corregido en el camino:** `tasks.completed_at` existía en el schema desde
+  antes pero **nunca se llenaba** al completar una tarea desde el checkbox compartido de la web
+  (`useCompleteTask` → `PATCH /tasks/:id` solo mandaba `status`) — sin este fix, Resumen se hubiera
+  quedado vacío para toda tarea completada desde la app, que es el caso normal (solo `completar_tarea`
+  del MCP lo mandaba a mano). Se resolvió del lado del servidor, no del cliente, para que valga sin
+  importar quién complete la tarea: `resourceRouter.ts` gana un hook nuevo `beforeUpdate` (mezcla un
+  patch en la escritura antes de guardar, distinto de `afterUpdate` que corre después) y
+  `tasks.ts` lo usa para llenar `completed_at` al pasar a "done" y limpiarlo al despasar, sin pisar un
+  valor si el caller ya lo manda explícito. El tool `completar_tarea` del MCP se simplificó para ya no
+  mandarlo a mano (lo llena la API sola ahora).
 
 ## 4. Deuda técnica / limpieza
 

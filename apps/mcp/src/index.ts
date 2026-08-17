@@ -237,11 +237,10 @@ const tools = {
       required: ["id"],
     },
     argsSchema: z.object({ id: z.string().uuid() }),
+    // `completed_at` la llena sola la API al pasar a "done" (ver
+    // beforeUpdate en apps/api/src/routes/tasks.ts) — no hace falta mandarla.
     handler: (args: { id: string }) =>
-      apiRequest<Task>(`/tasks/${args.id}`, {
-        method: "PATCH",
-        body: JSON.stringify({ status: "done", completed_at: new Date().toISOString() }),
-      }),
+      apiRequest<Task>(`/tasks/${args.id}`, { method: "PATCH", body: JSON.stringify({ status: "done" }) }),
   },
 
   editar_tarea: {

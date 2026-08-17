@@ -4,6 +4,7 @@ import {
   IconCalendar,
   IconCar,
   IconChartBar,
+  IconCheckCircle,
   IconCheckSquare,
   IconFile,
   IconFolder,
@@ -27,6 +28,7 @@ export type ModuleKey =
   | "documentos"
   | "vehiculos"
   | "consumos"
+  | "resumen"
   | "asistente"
   | "configuracion";
 
@@ -41,6 +43,7 @@ export const MODULES: { key: ModuleKey; label: string; icon: ComponentType<SVGPr
   { key: "documentos", label: "Documentos", icon: IconFile },
   { key: "vehiculos", label: "Vehículos", icon: IconCar },
   { key: "consumos", label: "Consumos", icon: IconChartBar },
+  { key: "resumen", label: "Resumen", icon: IconCheckCircle },
   { key: "configuracion", label: "Configuración", icon: IconSettings },
 ];
 

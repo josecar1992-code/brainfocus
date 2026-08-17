@@ -27,6 +27,18 @@ export const tasksRouter = createResourceRouter({
   orderBy: { column: "due_date", ascending: true },
   trackCreatedBy: true,
   hooks: {
+    // `completed_at` se llena/limpia sola al cruzar el status "done" — antes
+    // solo la ponía el tool `completar_tarea` del MCP a mano; el checkbox
+    // compartido de la web (`useCompleteTask`) nunca la mandaba, así que el
+    // módulo Resumen (16-ago-2026, filtra tareas por día en que se
+    // completaron) se hubiera quedado vacío para cualquier tarea marcada
+    // desde la app. `input.completed_at !== undefined` respeta un valor
+    // explícito si algún caller ya lo manda (no lo pisa).
+    async beforeUpdate(_userId, before, input) {
+      if (input.completed_at !== undefined) return;
+      if (input.status === "done" && before.status !== "done") return { completed_at: new Date().toISOString() };
+      if (input.status && input.status !== "done" && before.status === "done") return { completed_at: null };
+    },
     async afterUpdate(userId, before, after) {
       if (after.status === "done" && before.status !== "done") {
         await cancelPendingRemindersFor(userId, "task_id", after.id);
