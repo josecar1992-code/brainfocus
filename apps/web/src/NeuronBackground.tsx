@@ -10,11 +10,22 @@ interface Node {
 const LINK_DISTANCE = 130;
 const NODE_COLOR = "rgba(0, 210, 255, 0.55)";
 const LINK_COLOR = "0, 210, 255";
+const MOBILE_BREAKPOINT = 768;
+// En móvil no se apaga más (pedido 15-ago-2026), pero corre bastante más
+// liviano que en escritorio: menos nodos (el costo de las conexiones es
+// O(n²), así que esto es lo que más importa), menos opacidad (más sutil,
+// menos protagonismo detrás del contenido en una pantalla chica) y throttle
+// de framerate (~20fps en vez de sin límite) para no repintar un canvas de
+// pantalla completa 60 veces por segundo en un dispositivo sensible a
+// batería/CPU.
+const MOBILE_NODE_COUNT = 22;
+const MOBILE_OPACITY_FACTOR = 0.55;
+const MOBILE_FRAME_INTERVAL_MS = 1000 / 20;
 
 interface NeuronBackgroundProps {
-  /** Cantidad de nodos — menos nodos = fondo más discreto detrás de pantallas con datos. */
+  /** Cantidad de nodos en escritorio — menos nodos = fondo más discreto detrás de pantallas con datos. */
   nodeCount?: number;
-  /** Opacidad del canvas completo (className `opacity-*` no acepta valores dinámicos). */
+  /** Opacidad del canvas completo en escritorio (className `opacity-*` no acepta valores dinámicos). */
   opacity?: number;
 }
 
@@ -33,10 +44,11 @@ export function NeuronBackground({ nodeCount = 70, opacity = 0.7 }: NeuronBackgr
     let height = 0;
     let nodes: Node[] = [];
     let rafId = 0;
-    // Se re-evalúa en cada resize: en pantallas chicas (celular) apaga la
-    // animación — ahí el fondo casi no se ve detrás del contenido y son
-    // justo los dispositivos más sensibles a gasto de batería/CPU por un
-    // canvas repintándose sin parar. `prefers-reduced-motion` también la apaga.
+    let lastFrameTime = 0;
+    let isMobile = false;
+    // `prefers-reduced-motion` sigue apagando la animación por completo (es
+    // una preferencia de accesibilidad, no de rendimiento) — lo demás en
+    // móvil ahora es "más liviano", no "apagado".
     let animating = true;
 
     function resize() {
@@ -45,15 +57,24 @@ export function NeuronBackground({ nodeCount = 70, opacity = 0.7 }: NeuronBackgr
       canvas!.width = width;
       canvas!.height = height;
       const wasAnimating = animating;
-      animating = width >= 768 && !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const wasMobile = isMobile;
+      isMobile = width < MOBILE_BREAKPOINT;
+      canvas!.style.opacity = String(isMobile ? opacity * MOBILE_OPACITY_FACTOR : opacity);
+      animating = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       if (!animating) ctx!.clearRect(0, 0, width, height);
+      // El breakpoint móvil/escritorio cambia la cantidad de nodos —
+      // reinicializar para no arrastrar de más o de menos al cruzar el
+      // breakpoint (ej. rotar el celular o achicar la ventana).
+      if (isMobile !== wasMobile) initNodes();
       // Se apagó el loop de rAF al desactivar (ver step()) — si vuelve a
-      // activarse (ej. se agranda la ventana), hay que relanzarlo a mano.
-      if (animating && !wasAnimating) step();
+      // activarse (ej. cambia la preferencia de reduced-motion), hay que
+      // relanzarlo a mano.
+      if (animating && !wasAnimating) step(performance.now());
     }
 
     function initNodes() {
-      nodes = Array.from({ length: nodeCount }, () => ({
+      const count = isMobile ? Math.min(nodeCount, MOBILE_NODE_COUNT) : nodeCount;
+      nodes = Array.from({ length: count }, () => ({
         x: Math.random() * width,
         y: Math.random() * height,
         vx: (Math.random() - 0.5) * 0.25,
@@ -61,7 +82,7 @@ export function NeuronBackground({ nodeCount = 70, opacity = 0.7 }: NeuronBackgr
       }));
     }
 
-    function step() {
+    function step(now: number) {
       // Defensivo: si el layout aún no estaba listo cuando corrió resize()
       // (carrera en el primer paint), el canvas quedaría en 0x0 para siempre
       // ya que solo re-medimos en el evento "resize" de la ventana.
@@ -71,6 +92,13 @@ export function NeuronBackground({ nodeCount = 70, opacity = 0.7 }: NeuronBackgr
       }
 
       if (!animating) return; // el loop se relanza desde resize() si vuelve a activarse
+
+      // Throttle solo en móvil — en escritorio sigue sin límite (rAF ~60fps).
+      if (isMobile && now - lastFrameTime < MOBILE_FRAME_INTERVAL_MS) {
+        rafId = requestAnimationFrame(step);
+        return;
+      }
+      lastFrameTime = now;
 
       ctx!.clearRect(0, 0, width, height);
 
@@ -111,7 +139,7 @@ export function NeuronBackground({ nodeCount = 70, opacity = 0.7 }: NeuronBackgr
 
     resize();
     initNodes();
-    step();
+    step(performance.now());
 
     window.addEventListener("resize", resize);
     return () => {

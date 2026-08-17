@@ -178,6 +178,17 @@ No implementado todavía — este documento es la lista de trabajo, no un change
   Descartado tras investigar — no es un bug: `docker-compose.yml` confirma que OpenClaw invoca el MCP con
   `docker compose run --rm` por cada tool call, un proceso nuevo cada vez, así que calcularlo una vez al
   cargar el módulo es correcto en este diseño.
+- ~~**Animación de fondo (`NeuronBackground.tsx`) apagada por completo en móvil.**~~ ✅ Resuelto (15-ago-2026,
+  pedido del usuario: "devolvé la animación en móvil pero sutil y optimizada"). Antes el breakpoint de
+  768px apagaba el `requestAnimationFrame` entero por debajo de esa medida (comentario original: "los
+  dispositivos más sensibles a batería/CPU"). Ahora corre en móvil pero bastante más liviana en vez de
+  apagada: menos nodos (22 en vez de los 70 de escritorio — el costo real es la doble iteración de
+  conexiones por cercanía, O(n²), así que la cantidad de nodos es lo que más pesa), menos opacidad (factor
+  0.55 sobre la que ya trae cada pantalla, para que quede sutil detrás del contenido) y framerate
+  limitado a ~20fps (en vez de sin límite/~60fps) comparando el timestamp de `requestAnimationFrame` contra
+  el del último frame dibujado. `prefers-reduced-motion` sigue apagándola del todo (es preferencia de
+  accesibilidad, no de rendimiento, no se toca). Al cruzar el breakpoint en vivo (rotar el celular, achicar
+  la ventana) reinicializa los nodos para no arrastrar la cantidad del modo anterior.
 
 ## 3. Funciones nuevas sugeridas
 
