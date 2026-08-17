@@ -236,6 +236,10 @@ No implementado todavía — este documento es la lista de trabajo, no un change
   mismo pill verde "2/5 · 40%" que ya existía en la vista compacta de Tareas — se extrajo a
   `subtaskProgress.ts` + `SubtaskProgressBadge.tsx` compartidos (antes la función vivía duplicada solo
   dentro de `TasksPage.tsx`) para poder reusarlo acá sin copiar el cálculo.
+  **16-ago-2026, orden de secciones:** pedido "que muestre primero lo que vence hoy y después lo
+  vencido" — orden anterior era Tareas atrasadas → Eventos de hoy → Tareas que vencen hoy → Rutinas de
+  hoy; ahora es Eventos de hoy → Tareas que vencen hoy → Tareas atrasadas → Rutinas de hoy. Solo cambió
+  el orden de renderizado en `TodayPage.tsx`, ninguna lógica de qué tareas entran en cada sección.
 
 - ~~**Rutinas con fecha específica del mes ("el 15 de cada mes").**~~ ✅ Resuelto (14-ago-2026, pedido por
   el usuario) — antes `routines` solo soportaba `daily`/`weekly`. Se agregó `frequency: "monthly"` +
