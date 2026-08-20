@@ -13,12 +13,18 @@ No implementado todavía — este documento es la lista de trabajo, no un change
   huérfana. Se agregó el mismo patrón a `events.ts`: su `beforeDelete` ahora cancela los recordatorios de
   la tarea ligada (`task_id`) y la borra directo por `supabaseAdmin` (no vía `tasksRouter`, para no
   reintentar borrar este mismo evento a mitad de su propio borrado).
-  **Pendiente relacionado, no resuelto en este cambio:** el usuario también mencionó "o se mueve" —
-  cambiar la fecha de un evento no sincroniza el `due_date` de su tarea espejo (ni al revés), y tampoco
-  reprograma los recordatorios ya creados para la fecha vieja del evento (`updateEvent` en `api.ts` solo
-  manda `starts_at`, sin tocar `tasks` ni `reminders`). Es un problema real pero de alcance más grande
-  (sync bidireccional de fecha + reprogramar cron en OpenClaw) — queda abierto para cuando el usuario lo
-  confirme como pedido aparte, ver sección 3.
+  **Mismo día, resuelto el caso de mover la fecha:** confirmado por el usuario como pedido aparte. Ahora
+  `events.ts` gana `afterUpdate`: si cambió `starts_at`, sincroniza `tasks.due_date` de la tarea ligada y
+  reprograma (`rescheduleRemindersForEvent`, nuevo en `reminderCascade.ts`) cada recordatorio pendiente de
+  ese evento — conservando su offset respecto al horario original (el que estaba "2h antes" sigue 2h antes,
+  ahora de la hora nueva; no hay columna que diga qué tipo de recordatorio es cada fila, así que el offset
+  se recalcula desde `oldStartsAt`/`remind_at` de cada uno). Simétrico en `tasks.ts`: si cambia `due_date`
+  y la tarea tiene un evento ligado, sincroniza `events.starts_at` y reprograma igual (esto último cubre
+  sobre todo ediciones vía MCP/`editar_tarea` — la UI web hoy solo deja editar la fecha "sin evento" desde
+  `TaskDetail`, para una tarea con evento la fecha se edita desde el evento en Agenda). Si el nuevo horario
+  calculado ya quedó en el pasado, no se fuerza (no se puede programar un cron para el pasado): se cancela
+  el cron viejo y el recordatorio queda sin cron programado, mismo estado que ya mostraba `ReminderBadge`
+  como "sin aviso" en otros casos, en vez de romper el PATCH del evento/tarea por esto.
 
 - ~~**[ALTO] No se podía marcar una tarea como hecha desde el detalle de un proyecto.**~~ ✅ Resuelto
   (14-ago-2026, reportado por el usuario). Causa: el checkbox de completar en `ProjectsPage.tsx` llamaba a

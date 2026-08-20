@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { createResourceRouter } from "./resourceRouter.js";
-import { cancelPendingRemindersFor } from "../services/reminderCascade.js";
+import { cancelPendingRemindersFor, rescheduleRemindersForEvent } from "../services/reminderCascade.js";
 import { supabaseAdmin } from "../supabaseClient.js";
 
 const createSchema = z.object({
@@ -22,6 +22,24 @@ export const eventsRouter = createResourceRouter({
   orderBy: { column: "starts_at", ascending: true },
   trackCreatedBy: true,
   hooks: {
+    // Mover la fecha de un evento (edición manual, no la que dispara el
+    // cascade de tasks.ts de abajo) tiene que arrastrar la tarea espejo y
+    // reprogramar los recordatorios ya creados — si no, quedan apuntando a
+    // la hora vieja. Reportado por el usuario 17-ago-2026.
+    async afterUpdate(userId, before, after) {
+      if (after.starts_at === before.starts_at) return;
+
+      if (after.task_id) {
+        const { error } = await supabaseAdmin
+          .from("tasks")
+          .update({ due_date: after.starts_at })
+          .eq("user_id", userId)
+          .eq("id", after.task_id);
+        if (error) console.error(`[events] no se pudo sincronizar due_date de la tarea ${after.task_id}:`, error.message);
+      }
+
+      await rescheduleRemindersForEvent(userId, after.id, before.starts_at, after.starts_at);
+    },
     // El FK reminders.event_id tiene "on delete cascade" en la BD, así que hay
     // que cancelar el cron en OpenClaw ANTES de borrar el evento (beforeDelete
     // corre antes del delete real) — si no, Postgres borra la fila y perdemos

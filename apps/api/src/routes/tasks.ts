@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { createResourceRouter } from "./resourceRouter.js";
 import { supabaseAdmin } from "../supabaseClient.js";
-import { cancelPendingRemindersFor } from "../services/reminderCascade.js";
+import { cancelPendingRemindersFor, rescheduleRemindersForEvent } from "../services/reminderCascade.js";
 import { advanceRoutine } from "../services/routines.js";
 
 const createSchema = z.object({
@@ -40,6 +40,35 @@ export const tasksRouter = createResourceRouter({
       if (input.status && input.status !== "done" && before.status === "done") return { completed_at: null };
     },
     async afterUpdate(userId, before, after) {
+      // Mover el due_date de una tarea que tiene evento ligado tiene que
+      // arrastrar el evento (y sus recordatorios) al revés del cascade de
+      // events.ts — si no, la tarea y su propio evento quedan mostrando
+      // fechas distintas. Solo si de verdad cambió y no se limpió (null):
+      // limpiar el due_date no borra el evento, eso es un caso aparte.
+      // Reportado por el usuario 17-ago-2026.
+      if (after.due_date && after.due_date !== before.due_date) {
+        const { data: linkedEvent, error } = await supabaseAdmin
+          .from("events")
+          .select("id, starts_at")
+          .eq("user_id", userId)
+          .eq("task_id", after.id)
+          .maybeSingle();
+        if (error) {
+          console.error(`[tasks] no se pudo buscar el evento ligado a ${after.id}:`, error.message);
+        } else if (linkedEvent && linkedEvent.starts_at !== after.due_date) {
+          const { error: updateError } = await supabaseAdmin
+            .from("events")
+            .update({ starts_at: after.due_date })
+            .eq("user_id", userId)
+            .eq("id", linkedEvent.id);
+          if (updateError) {
+            console.error(`[tasks] no se pudo sincronizar starts_at del evento ${linkedEvent.id}:`, updateError.message);
+          } else {
+            await rescheduleRemindersForEvent(userId, linkedEvent.id, linkedEvent.starts_at, after.due_date);
+          }
+        }
+      }
+
       if (after.status === "done" && before.status !== "done") {
         await cancelPendingRemindersFor(userId, "task_id", after.id);
         if (after.routine_id) {
