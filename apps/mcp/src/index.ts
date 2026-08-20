@@ -19,6 +19,16 @@ interface Event {
   starts_at: string;
 }
 
+interface Reminder {
+  id: string;
+  title: string;
+  task_id: string | null;
+  event_id: string | null;
+  remind_at: string;
+  channel: "telegram" | "whatsapp" | "email" | null;
+  sent_at: string | null;
+}
+
 interface Note {
   id: string;
   title: string | null;
@@ -334,6 +344,55 @@ const tools = {
         method: "POST",
         body: JSON.stringify({ title: args.titulo, remind_at: args.recordar_en, task_id: args.tarea_id }),
       }),
+  },
+
+  listar_recordatorios: {
+    description:
+      "Lista los recordatorios pendientes (sin enviar todavía) — usar esto primero para obtener el " +
+      "`id` de un recordatorio antes de editarlo o borrarlo con `editar_recordatorio`/`borrar_recordatorio`.",
+    inputSchema: { type: "object", properties: {} },
+    argsSchema: z.object({}),
+    handler: () => apiRequest<Reminder[]>("/reminders?limit=100"),
+  },
+
+  editar_recordatorio: {
+    description:
+      "Edita un recordatorio ya existente (título u hora) — solo mandá los campos que cambian. Si " +
+      "cambia `recordar_en`, la API reprograma sola el cron real en OpenClaw (cancela el viejo, crea " +
+      "uno nuevo). Necesita el `id` — usar `listar_recordatorios` primero si no se conoce. " +
+      `${AHORA_CR} Calculá "recordar_en" a partir de esta hora, no de tu propia estimación.`,
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "id del recordatorio" },
+        titulo: { type: "string" },
+        recordar_en: { type: "string", description: "ISO 8601 con offset -06:00 (Costa Rica)." },
+      },
+      required: ["id"],
+    },
+    argsSchema: z.object({
+      id: z.string().uuid(),
+      titulo: z.string().min(1).optional(),
+      recordar_en: z.string().datetime({ offset: true }).optional(),
+    }),
+    handler: (args: { id: string; titulo?: string; recordar_en?: string }) =>
+      apiRequest<Reminder>(`/reminders/${args.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ title: args.titulo, remind_at: args.recordar_en }),
+      }),
+  },
+
+  borrar_recordatorio: {
+    description:
+      "Borra un recordatorio y cancela su cron real en OpenClaw. Necesita el `id` — usar " +
+      "`listar_recordatorios` primero si no se conoce.",
+    inputSchema: {
+      type: "object",
+      properties: { id: { type: "string", description: "id del recordatorio" } },
+      required: ["id"],
+    },
+    argsSchema: z.object({ id: z.string().uuid() }),
+    handler: (args: { id: string }) => apiRequest(`/reminders/${args.id}`, { method: "DELETE" }),
   },
 
   crear_aviso_asistente: {

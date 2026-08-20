@@ -176,6 +176,12 @@ No implementado todavía — este documento es la lista de trabajo, no un change
 
 ## 2. Mejoras a funciones existentes
 
+- ~~**Quicks solo podía crear recordatorios, no editarlos ni borrarlos.**~~ ✅ Resuelto (17-ago-2026,
+  pedido por el usuario). Tools nuevas en `apps/mcp/src/index.ts`: `listar_recordatorios` (para obtener
+  el `id`), `editar_recordatorio` (título y/o `recordar_en` — si cambia la hora, la API ya reprograma
+  sola el cron real vía el `afterUpdate` que existía en `reminders.ts` desde antes, no hizo falta tocar
+  el backend), `borrar_recordatorio` (cancela el cron real en OpenClaw vía el `beforeDelete` que ya
+  existía). Sin cambios de scope — `quicks-agent` ya tenía `reminders:read`/`reminders:write`.
 - **[MEDIO]** Editar una rutina no reprograma la ocurrencia pendiente actual
   (`apps/web/src/RoutinesPage.tsx`) — falta opción "aplicar también a hoy". _(decisión del usuario
   09-ago-2026: mantener el comportamiento actual — si se quiere cambiar la ocurrencia de hoy, se edita esa
