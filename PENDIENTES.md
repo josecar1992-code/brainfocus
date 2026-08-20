@@ -5,6 +5,21 @@ No implementado todavía — este documento es la lista de trabajo, no un change
 
 ## 1. Bugs / correcciones
 
+- ~~**[ALTO] Borrar un evento no borraba su tarea espejo.**~~ ✅ Resuelto (17-ago-2026, reportado por el
+  usuario: creó un evento de prueba "cita dentista" el 29 de agosto, lo borró porque lo hizo mal, y la
+  tarea espejo se quedó viva en Tareas). Causa: `tasks.ts` ya tenía el cascade correcto en un sentido —
+  borrar una tarea borraba su(s) evento(s) ligado(s) (`beforeDelete`, con cancelación de recordatorios) —
+  pero `events.ts` nunca tuvo el cascade inverso, borrar un evento dejaba `task_id` intacto y la tarea
+  huérfana. Se agregó el mismo patrón a `events.ts`: su `beforeDelete` ahora cancela los recordatorios de
+  la tarea ligada (`task_id`) y la borra directo por `supabaseAdmin` (no vía `tasksRouter`, para no
+  reintentar borrar este mismo evento a mitad de su propio borrado).
+  **Pendiente relacionado, no resuelto en este cambio:** el usuario también mencionó "o se mueve" —
+  cambiar la fecha de un evento no sincroniza el `due_date` de su tarea espejo (ni al revés), y tampoco
+  reprograma los recordatorios ya creados para la fecha vieja del evento (`updateEvent` en `api.ts` solo
+  manda `starts_at`, sin tocar `tasks` ni `reminders`). Es un problema real pero de alcance más grande
+  (sync bidireccional de fecha + reprogramar cron en OpenClaw) — queda abierto para cuando el usuario lo
+  confirme como pedido aparte, ver sección 3.
+
 - ~~**[ALTO] No se podía marcar una tarea como hecha desde el detalle de un proyecto.**~~ ✅ Resuelto
   (14-ago-2026, reportado por el usuario). Causa: el checkbox de completar en `ProjectsPage.tsx` llamaba a
   `completeTask.request(task)` (el mismo hook `useCompleteTask` de siempre), pero ese hook no marca directo
