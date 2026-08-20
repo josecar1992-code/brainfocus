@@ -1,13 +1,196 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { api, type Event, type Project, type Task } from "./api";
+import { api, type Document, type Event, type Note, type Project, type Task } from "./api";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { CornerBrackets } from "./CornerBrackets";
 import { EventDetail, NewEventForm } from "./AgendaPage";
-import { IconArrowLeft, IconCalendar, IconCheckSquare, IconNote, IconPlus, IconX } from "./icons";
+import {
+  IconArrowLeft,
+  IconCalendar,
+  IconCheckSquare,
+  IconDownload,
+  IconFile,
+  IconNote,
+  IconPlus,
+  IconX,
+} from "./icons";
 import { NewTaskModal, TaskDetail } from "./TasksPage";
+import { ProjectSelect } from "./ProjectSelect";
 import { PriorityBadge } from "./PriorityBadge";
 import { QuickBadge } from "./QuickBadge";
 import { useCompleteTask } from "./useCompleteTask";
+
+function formatDateTime(iso: string) {
+  return new Date(iso).toLocaleDateString("es-CR", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function formatSize(bytes: number | null) {
+  if (!bytes) return "";
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/**
+ * Ver/editar/borrar una nota abierta desde el detalle de un proyecto — antes
+ * las notas del proyecto solo mostraban un preview truncado (line-clamp-2)
+ * sin forma de abrirlas ni ver el contenido completo. Reportado por el
+ * usuario 20-ago-2026.
+ */
+function NoteDetail({
+  note,
+  projects,
+  onClose,
+}: {
+  note: Note;
+  projects: Project[];
+  onClose: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const [editing, setEditing] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [title, setTitle] = useState(note.title ?? "");
+  const [content, setContent] = useState(note.content ?? "");
+  const [projectId, setProjectId] = useState(note.project_id ?? "");
+  const [error, setError] = useState<string | null>(null);
+
+  const updateNote = useMutation({
+    mutationFn: () =>
+      api.updateNote(note.id, {
+        title: title.trim() || undefined,
+        content: content.trim(),
+        project_id: projectId || null,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["notes"] });
+      onClose();
+    },
+    onError: (err) => setError(err instanceof Error ? err.message : "No se pudo guardar la nota"),
+  });
+
+  const deleteNote = useMutation({
+    mutationFn: () => api.deleteNote(note.id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["notes"] });
+      onClose();
+    },
+  });
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    if (!content.trim()) {
+      setError("Escribí algo en el contenido.");
+      return;
+    }
+    updateNote.mutate();
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center px-4 z-20">
+      <div className="relative w-full max-w-sm border border-electric-cyan/20 bg-night-blue rounded-2xl p-6 flex flex-col gap-3 shadow-[0_0_60px_-15px_rgba(0,210,255,0.25)]">
+        <CornerBrackets />
+        {editing ? (
+          <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+            <h2 className="text-lg font-medium mb-1">Editar nota</h2>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs text-white/50">Nombre</label>
+              <input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Nombre (opcional)"
+                className="border border-deep-blue/40 bg-black/20 rounded-lg px-3 py-2 placeholder:text-white/30 focus:outline-none focus:border-electric-cyan/70"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs text-white/50">Contenido</label>
+              <textarea
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                rows={5}
+                autoFocus
+                className="border border-deep-blue/40 bg-black/20 rounded-lg px-3 py-2 focus:outline-none focus:border-electric-cyan/70 resize-none"
+              />
+            </div>
+            {projects.length > 0 && (
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-white/50">Proyecto (opcional)</label>
+                <ProjectSelect projects={projects} value={projectId} onChange={setProjectId} />
+              </div>
+            )}
+            {error && <p className="text-sm text-red-400">{error}</p>}
+            <div className="flex gap-2 mt-2">
+              <button
+                type="button"
+                onClick={() => setEditing(false)}
+                className="flex-1 border border-white/10 rounded-lg px-3 py-2 text-white/70 hover:bg-white/5"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={updateNote.isPending}
+                className="flex-1 bg-gradient-to-br from-deep-blue via-electric-cyan to-electric-cyan text-night-blue font-semibold rounded-lg shadow-[0_0_18px_-4px_rgba(0,210,255,0.55)] px-3 py-2 disabled:opacity-50 hover:brightness-110 transition"
+              >
+                {updateNote.isPending ? "Guardando..." : "Guardar"}
+              </button>
+            </div>
+          </form>
+        ) : (
+          <>
+            {note.title && <h2 className="text-lg font-medium mb-1 text-white">{note.title}</h2>}
+            {note.created_by === "agent" && (
+              <div className="mb-1">
+                <QuickBadge />
+              </div>
+            )}
+            <p className="text-sm text-white/70 whitespace-pre-wrap">{note.content}</p>
+            <p className="text-[11px] text-white/30">{formatDateTime(note.created_at)}</p>
+            {error && <p className="text-sm text-red-400">{error}</p>}
+            <div className="grid grid-cols-3 gap-2 mt-3">
+              <button
+                type="button"
+                onClick={onClose}
+                className="border border-white/10 rounded-lg px-2 py-2 text-sm text-white/70 hover:bg-white/5"
+              >
+                Cerrar
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditing(true)}
+                className="border border-electric-cyan/40 text-electric-cyan rounded-lg px-2 py-2 text-sm hover:bg-electric-cyan/10 transition"
+              >
+                Editar
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmingDelete(true)}
+                disabled={deleteNote.isPending}
+                className="border border-red-400/40 text-red-400 rounded-lg px-2 py-2 text-sm hover:bg-red-400/10 transition disabled:opacity-50"
+              >
+                {deleteNote.isPending ? "..." : "Borrar"}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+
+      {confirmingDelete && (
+        <ConfirmDialog
+          message={`¿Borrar la nota "${note.title || note.content?.slice(0, 40) || "sin título"}"?`}
+          pending={deleteNote.isPending}
+          onCancel={() => setConfirmingDelete(false)}
+          onConfirm={() => deleteNote.mutate()}
+        />
+      )}
+    </div>
+  );
+}
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("es-CR", { day: "2-digit", month: "short", year: "numeric" });
@@ -45,6 +228,7 @@ function ProjectDetail({ project, onBack }: { project: Project; onBack: () => vo
   const { data: tasks } = useQuery({ queryKey: ["tasks"], queryFn: api.listTasks });
   const { data: events } = useQuery({ queryKey: ["events"], queryFn: api.listEvents });
   const { data: notes } = useQuery({ queryKey: ["notes"], queryFn: api.listNotes });
+  const { data: documents } = useQuery({ queryKey: ["documents"], queryFn: () => api.listDocuments() });
   const { data: reminders } = useQuery({ queryKey: ["reminders"], queryFn: api.listReminders });
   const completeTask = useCompleteTask();
   const [showNewTask, setShowNewTask] = useState(false);
@@ -52,6 +236,7 @@ function ProjectDetail({ project, onBack }: { project: Project; onBack: () => vo
   const [eventToDelete, setEventToDelete] = useState<Event | null>(null);
   const [openTask, setOpenTask] = useState<Task | null>(null);
   const [openEvent, setOpenEvent] = useState<Event | null>(null);
+  const [openNote, setOpenNote] = useState<Note | null>(null);
 
   const remindersByEvent = new Map((reminders ?? []).filter((r) => r.event_id).map((r) => [r.event_id as string, r]));
 
@@ -76,8 +261,14 @@ function ProjectDetail({ project, onBack }: { project: Project; onBack: () => vo
     .sort((a, b) => (a.status === "done" ? 1 : 0) - (b.status === "done" ? 1 : 0));
 
   const projectNotes = (notes ?? []).filter((n) => n.project_id === project.id);
+  const projectDocuments = (documents ?? []).filter((d) => d.project_id === project.id);
   const tasksById = new Map((tasks ?? []).map((t) => [t.id, t]));
   const progress = projectProgress((tasks ?? []).filter((t) => t.project_id === project.id).map((t) => t.status));
+
+  async function handleOpenDocument(doc: Document) {
+    const { url } = await api.getDocumentDownloadUrl(doc.id);
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
 
   return (
     <div className="space-y-5">
@@ -238,9 +429,45 @@ function ProjectDetail({ project, onBack }: { project: Project; onBack: () => vo
           </div>
           <ul>
             {projectNotes.map((note) => (
-              <li key={note.id} className="px-5 py-3 border-t border-white/8 first:border-t-0">
+              <li
+                key={note.id}
+                className="px-5 py-3 border-t border-white/8 first:border-t-0 cursor-pointer hover:bg-white/5 transition-colors"
+                onClick={() => setOpenNote(note)}
+              >
                 {note.title && <p className="text-sm text-white/90">{note.title}</p>}
                 {note.content && <p className="text-sm text-white/50 whitespace-pre-wrap line-clamp-2 mt-0.5">{note.content}</p>}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {projectDocuments.length > 0 && (
+        <div className="bg-night-blue/40 backdrop-blur-md rounded-2xl border border-electric-cyan/10 shadow-[0_0_40px_-24px_rgba(0,210,255,0.35)] overflow-hidden">
+          <div className="flex items-center gap-2 px-5 pt-5 pb-2">
+            <IconFile className="w-4 h-4 flex-shrink-0 text-electric-cyan/70" strokeWidth={1.75} />
+            <p className="text-xs font-semibold uppercase tracking-wide text-white/40">Documentos</p>
+            <span className="text-[11px] text-white/30">({projectDocuments.length})</span>
+          </div>
+          <ul>
+            {projectDocuments.map((doc) => (
+              <li
+                key={doc.id}
+                className="px-5 py-3 border-t border-white/8 first:border-t-0 flex items-center gap-3 cursor-pointer hover:bg-white/5 transition-colors group"
+                onClick={() => handleOpenDocument(doc)}
+              >
+                <IconFile className="w-5 h-5 text-electric-cyan/70 flex-shrink-0" strokeWidth={1.75} />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm text-white/90 truncate">{doc.name}</p>
+                  <p className="text-[11px] text-white/30 mt-0.5">
+                    {formatDateTime(doc.created_at)}
+                    {doc.size ? ` · ${formatSize(doc.size)}` : ""}
+                  </p>
+                </div>
+                <IconDownload
+                  className="w-4 h-4 text-white/20 group-hover:text-electric-cyan transition-colors flex-shrink-0"
+                  strokeWidth={1.75}
+                />
               </li>
             ))}
           </ul>
@@ -290,6 +517,7 @@ function ProjectDetail({ project, onBack }: { project: Project; onBack: () => vo
           onClose={() => setOpenEvent(null)}
         />
       )}
+      {openNote && <NoteDetail note={openNote} projects={projects ?? []} onClose={() => setOpenNote(null)} />}
 
       {completeTask.pendingTask && (
         <ConfirmDialog

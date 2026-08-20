@@ -189,6 +189,16 @@ No implementado todavía — este documento es la lista de trabajo, no un change
 
 ## 2. Mejoras a funciones existentes
 
+- ~~**En el detalle de un proyecto (`apps/web/src/ProjectsPage.tsx`), las notas del proyecto solo
+  mostraban un preview truncado (2 líneas) sin forma de abrirlas, y los documentos ligados al proyecto
+  no se mostraban ahí en absoluto — había que ir al módulo Documentos y buscarlos a mano.**~~ ✅ Resuelto
+  (20-ago-2026, pedido por el usuario). Las notas ahora son clickeables: abren un modal nuevo
+  (`NoteDetail`, en el mismo archivo, calcado del patrón de `EventDetail` en `AgendaPage.tsx`) con el
+  contenido completo y edición/borrado in place — mismo comportamiento que ya existía en el módulo Notas
+  standalone, ahora también accesible desde el proyecto. Se agregó además una sección "Documentos" nueva
+  al detalle del proyecto (antes no existía ahí para nada), filtrando `api.listDocuments()` por
+  `project_id`; cada fila es clickeable y abre el archivo en pestaña nueva vía
+  `api.getDocumentDownloadUrl(doc.id)` (mismo mecanismo que el botón de descarga en `DocumentsPage.tsx`).
 - ~~**Quicks solo podía crear recordatorios, no editarlos ni borrarlos.**~~ ✅ Resuelto (17-ago-2026,
   pedido por el usuario). Tools nuevas en `apps/mcp/src/index.ts`: `listar_recordatorios` (para obtener
   el `id`), `editar_recordatorio` (título y/o `recordar_en` — si cambia la hora, la API ya reprograma
