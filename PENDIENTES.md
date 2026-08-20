@@ -199,6 +199,12 @@ No implementado todavía — este documento es la lista de trabajo, no un change
   al detalle del proyecto (antes no existía ahí para nada), filtrando `api.listDocuments()` por
   `project_id`; cada fila es clickeable y abre el archivo en pestaña nueva vía
   `api.getDocumentDownloadUrl(doc.id)` (mismo mecanismo que el botón de descarga en `DocumentsPage.tsx`).
+  **Mismo día, fix de scroll:** el modal `NoteDetail` se armó copiando el wrapper de `EventDetail`
+  (`fixed inset-0 ... items-center justify-center`, sin `overflow-y-auto`), que asume que el contenido
+  siempre entra en pantalla — una nota larga quedaba cortada arriba/abajo sin forma de hacer scroll para
+  leerla completa. Reportado por el usuario apenas probó la función nueva. Fix: mismo patrón que ya usan
+  los modales de `TasksPage.tsx` (`NewTaskModal`/`TaskDetail`) para este mismo problema —
+  `overflow-y-auto py-8` en el wrapper exterior + `max-h-full overflow-y-auto` en la tarjeta interior.
 - ~~**Quicks solo podía crear recordatorios, no editarlos ni borrarlos.**~~ ✅ Resuelto (17-ago-2026,
   pedido por el usuario). Tools nuevas en `apps/mcp/src/index.ts`: `listar_recordatorios` (para obtener
   el `id`), `editar_recordatorio` (título y/o `recordar_en` — si cambia la hora, la API ya reprograma

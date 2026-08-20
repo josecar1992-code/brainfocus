@@ -92,8 +92,8 @@ function NoteDetail({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center px-4 z-20">
-      <div className="relative w-full max-w-sm border border-electric-cyan/20 bg-night-blue rounded-2xl p-6 flex flex-col gap-3 shadow-[0_0_60px_-15px_rgba(0,210,255,0.25)]">
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center px-4 z-20 overflow-y-auto py-8">
+      <div className="relative w-full max-w-sm max-h-full overflow-y-auto border border-electric-cyan/20 bg-night-blue rounded-2xl p-6 flex flex-col gap-3 shadow-[0_0_60px_-15px_rgba(0,210,255,0.25)]">
         <CornerBrackets />
         {editing ? (
           <form onSubmit={handleSubmit} className="flex flex-col gap-3">
