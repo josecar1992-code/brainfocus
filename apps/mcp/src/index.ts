@@ -1114,7 +1114,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = await (tool.handler as any)(parsed.data);
-    return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    // Un DELETE que responde 204 (sin body) hace que apiRequest devuelva
+    // `undefined` — JSON.stringify(undefined) da el valor `undefined`, no el
+    // string "undefined", así que el content block quedaba con `text:
+    // undefined` (rompe el schema de MCP: text tiene que ser string). Bug
+    // real confirmado 20-ago-2026: borrar_recordatorio (y borrar_aviso_asistente,
+    // mismo patrón) le devolvían a Quicks un "error técnico" pese a que el
+    // DELETE ya había salido bien en la API (verificado con 204 en los logs).
+    return { content: [{ type: "text", text: JSON.stringify(result ?? { ok: true }, null, 2) }] };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return { isError: true, content: [{ type: "text", text: message }] };

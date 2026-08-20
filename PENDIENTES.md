@@ -5,6 +5,19 @@ No implementado todavía — este documento es la lista de trabajo, no un change
 
 ## 1. Bugs / correcciones
 
+- ~~**[ALTO] `borrar_recordatorio` (y cualquier tool de borrado con DELETE→204) le devolvía a Quicks un
+  "error técnico" aunque el borrado ya hubiera salido bien en la API.**~~ ✅ Resuelto (20-ago-2026,
+  reportado por el usuario justo después de agregarse `borrar_recordatorio`). Investigado con los logs
+  de producción: el `DELETE /reminders/:id` sí llegaba a la API y respondía `204` normal — el error no
+  era del backend. Causa real en `apps/mcp/src/index.ts`: el despachador de tools hacía
+  `JSON.stringify(result, null, 2)` sobre lo que devuelve el handler; un `DELETE` con `204` (sin body)
+  hace que `apiRequest` devuelva `undefined`, y `JSON.stringify(undefined)` da el valor `undefined` (no
+  el string `"undefined"`) — el content block del tool quedaba `{ type: "text", text: undefined }`, que
+  rompe el schema de MCP (`text` tiene que ser string) y OpenClaw lo reportaba como error interno. Mismo
+  patrón afectaba a `borrar_aviso_asistente` (ya existente) — probablemente el mismo bug latente sin que
+  nadie lo hubiera pegado antes. Fix: `JSON.stringify(result ?? { ok: true }, null, 2)`, un solo lugar
+  que arregla todos los tools de borrado a la vez.
+
 - ~~**[ALTO] Borrar un evento no borraba su tarea espejo.**~~ ✅ Resuelto (17-ago-2026, reportado por el
   usuario: creó un evento de prueba "cita dentista" el 29 de agosto, lo borró porque lo hizo mal, y la
   tarea espejo se quedó viva en Tareas). Causa: `tasks.ts` ya tenía el cascade correcto en un sentido —
