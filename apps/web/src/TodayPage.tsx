@@ -142,10 +142,22 @@ export function TodayPage() {
     (r: Routine) => r.current_occurrence_date === todayCR && !(r.current_task_id && eventTaskIds.has(r.current_task_id)),
   );
 
+  // Tareas sin fecha límite: no vencen hoy ni nunca, así que no aparecían en
+  // ninguna sección de Hoy y quedaban totalmente fuera de vista — solo se
+  // veían entrando a Tareas. Van al final, aparte, para no competir con lo
+  // que sí tiene urgencia real. Pedido por el usuario 23-ago-2026.
+  const tasksNoDueDate = (tasks ?? [])
+    .filter((t) => !t.due_date && t.status !== "done" && !eventTaskIds.has(t.id))
+    .sort((a, b) => a.title.localeCompare(b.title));
+
   const tasksById = new Map((tasks ?? []).map((t) => [t.id, t]));
   const isLoading = loadingTasks || loadingEvents || loadingRoutines;
   const nothingToday =
-    eventsToday.length === 0 && tasksToday.length === 0 && routinesToday.length === 0 && tasksOverdue.length === 0;
+    eventsToday.length === 0 &&
+    tasksToday.length === 0 &&
+    routinesToday.length === 0 &&
+    tasksOverdue.length === 0 &&
+    tasksNoDueDate.length === 0;
 
   return (
     <div className="space-y-5">
@@ -329,6 +341,51 @@ export function TodayPage() {
               );
             })}
           </ul>
+        </div>
+      )}
+
+      {tasksNoDueDate.length > 0 && (
+        <div className="bg-night-blue/40 backdrop-blur-md rounded-2xl border border-electric-cyan/10 shadow-[0_0_40px_-24px_rgba(0,210,255,0.35)] overflow-hidden">
+          <SectionHeader icon={IconCheckSquare} title="Sin fecha límite" count={tasksNoDueDate.length} />
+          {groupByCategory(tasksNoDueDate, listsById).map((group) => (
+            <div key={group.list?.id ?? "sin-categoria"}>
+              <CategoryGroupHeader list={group.list} />
+              <ul>
+                {group.tasks.map((task: Task) => {
+                  const progress = subtaskProgress(subtasksByTask.get(task.id) ?? []);
+                  return (
+                    <li
+                      key={task.id}
+                      className="px-5 py-3 border-t border-white/8 first:border-t-0 flex items-center gap-3 cursor-pointer hover:bg-white/5 transition-colors"
+                      onClick={() => setOpenTask(task)}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={task.status === "done"}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          completeTask.request(task);
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        className="accent-electric-cyan w-4 h-4 flex-shrink-0"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm text-white/90">{task.title}</span>
+                          {task.project_id && projectsById.get(task.project_id) && (
+                            <ProjectBadge project={projectsById.get(task.project_id)!} />
+                          )}
+                          <PriorityBadge priority={task.priority} />
+                          {progress && <SubtaskProgressBadge {...progress} />}
+                          {task.created_by === "agent" && <QuickBadge iconOnly />}
+                        </div>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
         </div>
       )}
 
