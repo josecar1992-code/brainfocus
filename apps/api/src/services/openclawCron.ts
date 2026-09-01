@@ -24,20 +24,40 @@ import { env } from "../env.js";
 //   (Kapso/Meta) falla si el usuario no interactúa con Quicks dentro de una
 //   ventana de 24h — sin eso, la plantilla de reapertura de conversación no
 //   se puede mandar y el envío se pierde en silencio. Todo `cron.add` de
-//   recordatorios manda `failureAlert` a nivel de job para que el propio
+//   recordatorios manda `delivery.failureDestination` para que el propio
 //   gateway avise por Telegram si la entrega falla del todo — ver
-//   `buildFailureAlert`. (Retirado 13-ago-2026: pedirle a Quicks que
+//   `buildFailureDestination` (nombre de campo corregido 01-sep-2026, ver el
+//   comentario ahí — antes vivía en el campo equivocado y nunca se disparaba).
+//   (Retirado 13-ago-2026: pedirle a Quicks que
 //   reintentara por Telegram con la tool `message` dentro del mismo mensaje
 //   — el gateway bloquea ese reintento en todos los casos, ver
 //   `withTelegramFallback` para el detalle.)
 
 const TELEGRAM_FALLBACK_TO = "7843485332";
 
-// `failureAlert`: mecanismo del gateway (no de Quicks) — si la entrega vía
-// `delivery` falla, el gateway mismo avisa por este canal, sin depender de
-// que el agente razone sobre el fallo. `accountId: "default"` es el shape
-// confirmado por el usuario para este campo.
-function buildFailureAlert() {
+// `delivery.failureDestination`: mecanismo del gateway (no de Quicks) — si la
+// entrega vía `delivery` falla, el gateway mismo avisa por este canal, sin
+// depender de que el agente razone sobre el fallo. `accountId: "default"` es
+// el shape confirmado por el usuario para este campo.
+//
+// [CORREGIDO 01-sep-2026] Este objeto se mandaba como campo `failureAlert` a
+// nivel de job (sibling de `delivery`), no como `delivery.failureDestination`
+// — confirmado en el fuente del gateway instalado
+// (`cron-DOnNmbFN.js`/`delivery-plan-DKK9kKBx.js`, VPS 169.58.62.116) que son
+// DOS campos distintos con rutas de código separadas: `job.failureAlert` solo
+// se valida al crear el job (`assertValidCronFailureAlert`, pensado para el
+// flag `--failure-alert-channel` del CLI), pero la notificación real de falla
+// en tiempo de ejecución (`dispatchCronFailureDestinationNotifications` en
+// `server-cron-CU_Xcc9_.js`) lee únicamente `job.delivery.failureDestination`
+// — `failureAlert` a nivel de job nunca se lee ahí. Resultado: el job se
+// creaba sin error (el shape se valida igual) pero el fallback a Telegram
+// jamás se disparaba — confirmado con `grep failureAlert` sobre los logs de
+// OpenClaw en producción, cero apariciones en ningún día. Detectado porque el
+// recordatorio de las 8:30am (01-sep-2026) falló por ventana de WhatsApp
+// cerrada (`OutboundDeliveryError: Cannot send non-template messages outside
+// the 24-hour window`, job deshabilitado permanentemente tras el error) y no
+// llegó ni por WhatsApp ni por el supuesto fallback de Telegram.
+function buildFailureDestination() {
   return { channel: "telegram", to: TELEGRAM_FALLBACK_TO, accountId: "default" };
 }
 
@@ -182,8 +202,7 @@ export async function scheduleReminderCron(reminder: ReminderForCron): Promise<s
         // Solo relaya texto, no necesita llamar ninguna tool de brainfocus-api.
         toolsAllow: buildToolsAllow(),
       },
-      delivery: { mode: "announce", channel: gatewayChannel, to },
-      failureAlert: buildFailureAlert(),
+      delivery: { mode: "announce", channel: gatewayChannel, to, failureDestination: buildFailureDestination() },
     },
   });
 
@@ -222,8 +241,7 @@ export async function scheduleRecurringCron(input: RecurringCronInput): Promise<
         message: withTelegramFallback(input.message),
         toolsAllow: buildToolsAllow(input.brainfocusTools),
       },
-      delivery: { mode: "announce", channel: gatewayChannel, to },
-      failureAlert: buildFailureAlert(),
+      delivery: { mode: "announce", channel: gatewayChannel, to, failureDestination: buildFailureDestination() },
     },
   });
 
@@ -260,8 +278,7 @@ export async function scheduleOnceCron(input: OnceCronInput): Promise<string | n
         message: withTelegramFallback(input.message),
         toolsAllow: buildToolsAllow(input.brainfocusTools),
       },
-      delivery: { mode: "announce", channel: gatewayChannel, to },
-      failureAlert: buildFailureAlert(),
+      delivery: { mode: "announce", channel: gatewayChannel, to, failureDestination: buildFailureDestination() },
     },
   });
 

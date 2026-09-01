@@ -5,6 +5,39 @@ No implementado todavía — este documento es la lista de trabajo, no un change
 
 ## 1. Bugs / correcciones
 
+- ~~**[ALTO] El fallback a Telegram por falla de WhatsApp (agregado 10-ago-2026) nunca funcionó — el
+  campo que se mandaba al gateway de OpenClaw no era el que dispara la notificación real.**~~ ✅
+  Resuelto (01-sep-2026, reportado por el usuario: recordatorio de las 8:30am no llegó, sospechó
+  correctamente que era la ventana de WhatsApp cerrada por no haberle escrito a Quicks). Confirmado con
+  los logs de producción: el job (`9ec03096-...`) sí corrió a las 8:31am y falló con
+  `OutboundDeliveryError: Cannot send non-template messages outside the 24-hour window` — al no haber
+  interacción del usuario en 24h, WhatsApp/Kapso no puede reabrir la conversación con un mensaje libre
+  (hace falta plantilla aprobada), y el gateway deshabilita el job one-shot tras el primer error
+  ("permanent error", no reintenta). Hasta ahí, esperado. El problema real: el fallback a Telegram
+  agregado para cubrir exactamente este caso tampoco se disparó — `grep failureAlert` sobre los logs de
+  OpenClaw de producción no encontró ninguna aparición, en ningún día desde que se agregó. Causa: se
+  mandaba como campo `failureAlert` a nivel de job (sibling de `delivery`), pero revisando el fuente
+  real del gateway instalado en el VPS (`/usr/lib/node_modules/openclaw/dist/cron-DOnNmbFN.js` y
+  `delivery-plan-DKK9kKBx.js`) son dos campos completamente distintos con rutas de código separadas —
+  el propio comentario del código del gateway lo dice explícito: *"failureAlert is a distinct field from
+  delivery.failureDestination (its own store columns and delivery path)"*. `job.failureAlert` solo se
+  usa para validar el shape al crear el job (pensado para el flag `--failure-alert-channel` del CLI,
+  no para `cron.add` vía API); la notificación real de falla en tiempo de ejecución
+  (`dispatchCronFailureDestinationNotifications` en `server-cron-CU_Xcc9_.js`) lee únicamente
+  `job.delivery.failureDestination` — `failureAlert` a nivel de job nunca se lee ahí. El job se creaba
+  sin error (el shape se valida igual, así que nunca hubo ninguna señal de que algo estuviera mal) pero
+  el aviso de respaldo jamás se armaba. Fix en `apps/api/src/services/openclawCron.ts`: mover el objeto
+  de `job.failureAlert` a `job.delivery.failureDestination` en los tres builders de cron
+  (`scheduleReminderCron`, `scheduleRecurringCron`, `scheduleOnceCron`) — mismo shape
+  `{channel, to, accountId}`, solo cambia dónde vive. **Pendiente de verificar en vivo**: la próxima vez
+  que un recordatorio de WhatsApp falle por ventana cerrada, confirmar que el Telegram sí llega ahora.
+  **No resuelto en este cambio**: el recordatorio real de hoy (`d763ca0f-...`, "Recordarle a doña Alison
+  las armas y el MEP") quedó con `cron_job_id` apuntando a un job ya deshabilitado por el gateway —
+  Focusbrain no tiene forma de enterarse de que un cron se deshabilitó (no hay webhook de vuelta), así
+  que `ReminderBadge` lo sigue mostrando como "Programado" aunque ya no vaya a sonar. No se tocó porque
+  es un problema aparte (falta un mecanismo de notificación de fallo hacia la API) — queda para decidir
+  si vale la pena resolverlo o si alcanza con que el usuario reintente creándolo de nuevo cuando pase.
+
 - ~~**[ALTO] `borrar_recordatorio` (y cualquier tool de borrado con DELETE→204) le devolvía a Quicks un
   "error técnico" aunque el borrado ya hubiera salido bien en la API.**~~ ✅ Resuelto (20-ago-2026,
   reportado por el usuario justo después de agregarse `borrar_recordatorio`). Investigado con los logs
