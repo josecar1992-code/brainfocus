@@ -2,7 +2,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api, type Note } from "./api";
 import { ConfirmDialog } from "./ConfirmDialog";
-import { IconPencil, IconX } from "./icons";
+import { NoteDetail } from "./NoteDetail";
+import { IconX } from "./icons";
 import { ProjectSelect } from "./ProjectSelect";
 import { QuickBadge } from "./QuickBadge";
 
@@ -23,11 +24,7 @@ export function NotesPage() {
   const [projectId, setProjectId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [noteToDelete, setNoteToDelete] = useState<Note | null>(null);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editTitle, setEditTitle] = useState("");
-  const [editContent, setEditContent] = useState("");
-  const [editProjectId, setEditProjectId] = useState("");
-  const [editError, setEditError] = useState<string | null>(null);
+  const [openNote, setOpenNote] = useState<Note | null>(null);
 
   const { data: notes, isLoading } = useQuery({ queryKey: ["notes"], queryFn: api.listNotes });
   const { data: projects } = useQuery({ queryKey: ["projects"], queryFn: api.listProjects });
@@ -43,16 +40,6 @@ export function NotesPage() {
     onError: (err) => setError(err instanceof Error ? err.message : "No se pudo guardar la nota"),
   });
 
-  const updateNote = useMutation({
-    mutationFn: (input: { id: string; title?: string; content: string; project_id?: string | null }) =>
-      api.updateNote(input.id, { title: input.title, content: input.content, project_id: input.project_id }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["notes"] });
-      setEditingId(null);
-    },
-    onError: (err) => setEditError(err instanceof Error ? err.message : "No se pudo guardar la nota"),
-  });
-
   const deleteNote = useMutation({
     mutationFn: api.deleteNote,
     onSuccess: () => {
@@ -60,29 +47,6 @@ export function NotesPage() {
       setNoteToDelete(null);
     },
   });
-
-  function startEditing(note: Note) {
-    setEditingId(note.id);
-    setEditTitle(note.title ?? "");
-    setEditContent(note.content ?? "");
-    setEditProjectId(note.project_id ?? "");
-    setEditError(null);
-  }
-
-  function handleEditSubmit(e: React.FormEvent, noteId: string) {
-    e.preventDefault();
-    setEditError(null);
-    if (!editContent.trim()) {
-      setEditError("Escribí algo en el contenido.");
-      return;
-    }
-    updateNote.mutate({
-      id: noteId,
-      title: editTitle.trim() || undefined,
-      content: editContent.trim(),
-      project_id: editProjectId || null,
-    });
-  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -142,81 +106,40 @@ export function NotesPage() {
 
         {notes && notes.length > 0 && (
           <ul>
-            {notes.map((note: Note) =>
-              editingId === note.id ? (
-                <li key={note.id} className="px-5 py-4 border-t border-white/8 first:border-t-0">
-                  <form onSubmit={(e) => handleEditSubmit(e, note.id)} className="flex flex-col gap-2">
-                    <input
-                      value={editTitle}
-                      onChange={(e) => setEditTitle(e.target.value)}
-                      placeholder="Nombre (opcional)"
-                      className="border border-deep-blue/40 bg-black/20 rounded-lg px-3 py-2 text-sm placeholder:text-white/30 focus:outline-none focus:border-electric-cyan/70 transition"
-                    />
-                    <textarea
-                      value={editContent}
-                      onChange={(e) => setEditContent(e.target.value)}
-                      rows={3}
-                      autoFocus
-                      className="border border-deep-blue/40 bg-black/20 rounded-lg px-3 py-2 text-sm placeholder:text-white/30 focus:outline-none focus:border-electric-cyan/70 resize-none transition"
-                    />
-                    {projects && projects.length > 0 && (
-                      <ProjectSelect projects={projects} value={editProjectId} onChange={setEditProjectId} />
-                    )}
-                    {editError && <p className="text-sm text-red-400">{editError}</p>}
-                    <div className="flex gap-2 self-end">
-                      <button
-                        type="button"
-                        onClick={() => setEditingId(null)}
-                        className="border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white/70 hover:bg-white/5"
-                      >
-                        Cancelar
-                      </button>
-                      <button
-                        type="submit"
-                        disabled={updateNote.isPending}
-                        className="bg-gradient-to-br from-deep-blue via-electric-cyan to-electric-cyan text-night-blue font-semibold rounded-lg shadow-[0_0_18px_-4px_rgba(0,210,255,0.55)] px-3 py-1.5 text-sm disabled:opacity-50 hover:brightness-110 transition"
-                      >
-                        {updateNote.isPending ? "Guardando..." : "Guardar"}
-                      </button>
+            {notes.map((note: Note) => (
+              <li
+                key={note.id}
+                className="px-5 py-4 border-t border-white/8 first:border-t-0 hover:bg-white/5 transition-colors group cursor-pointer"
+                onClick={() => setOpenNote(note)}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      {note.title && <p className="text-sm font-semibold text-white/90">{note.title}</p>}
+                      {note.created_by === "agent" && <QuickBadge iconOnly />}
                     </div>
-                  </form>
-                </li>
-              ) : (
-                <li key={note.id} className="px-5 py-4 border-t border-white/8 first:border-t-0 hover:bg-white/5 transition-colors group">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        {note.title && <p className="text-sm font-semibold text-white/90">{note.title}</p>}
-                        {note.created_by === "agent" && <QuickBadge iconOnly />}
-                      </div>
-                      <p className="text-sm text-white/60 whitespace-pre-wrap mt-0.5">{note.content}</p>
-                      <p className="text-[11px] text-white/30 mt-1.5">{formatDateTime(note.created_at)}</p>
-                    </div>
-                    <div className="flex items-center gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button
-                        type="button"
-                        onClick={() => startEditing(note)}
-                        aria-label="Editar nota"
-                        className="text-white/20 hover:text-electric-cyan transition-colors p-1"
-                      >
-                        <IconPencil className="w-4 h-4" strokeWidth={1.75} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setNoteToDelete(note)}
-                        aria-label="Borrar nota"
-                        className="text-white/20 hover:text-red-400 transition-colors p-1"
-                      >
-                        <IconX className="w-4 h-4" strokeWidth={1.75} />
-                      </button>
-                    </div>
+                    <p className="text-sm text-white/60 whitespace-pre-wrap line-clamp-2 mt-0.5">{note.content}</p>
+                    <p className="text-[11px] text-white/30 mt-1.5">{formatDateTime(note.created_at)}</p>
                   </div>
-                </li>
-              ),
-            )}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setNoteToDelete(note);
+                    }}
+                    aria-label="Borrar nota"
+                    className="text-white/20 hover:text-red-400 transition-colors p-1 flex-shrink-0 opacity-0 group-hover:opacity-100"
+                  >
+                    <IconX className="w-4 h-4" strokeWidth={1.75} />
+                  </button>
+                </div>
+              </li>
+            ))}
           </ul>
         )}
       </div>
+
+      {openNote && <NoteDetail note={openNote} projects={projects ?? []} onClose={() => setOpenNote(null)} />}
 
       {noteToDelete && (
         <ConfirmDialog
