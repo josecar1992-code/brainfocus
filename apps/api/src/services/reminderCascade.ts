@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "../supabaseClient.js";
-import { cancelReminderCron, scheduleReminderCron } from "./openclawCron.js";
+import { cancelReminderCron, scheduleReminderCron, scheduleReminderBackupCron } from "./openclawCron.js";
 
 // Si una tarea/evento se completa o se borra antes de que suene su
 // recordatorio, el aviso ya no tiene sentido — se cancela el cron y se borra
@@ -7,7 +7,7 @@ import { cancelReminderCron, scheduleReminderCron } from "./openclawCron.js";
 export async function cancelPendingRemindersFor(userId: string, column: "task_id" | "event_id" | "vehicle_id", id: string) {
   const { data: pending, error } = await supabaseAdmin
     .from("reminders")
-    .select("id, cron_job_id")
+    .select("id, cron_job_id, backup_cron_job_id")
     .eq("user_id", userId)
     .eq(column, id)
     .is("sent_at", null);
@@ -15,6 +15,7 @@ export async function cancelPendingRemindersFor(userId: string, column: "task_id
   if (!pending?.length) return;
 
   await Promise.all(pending.map((r) => cancelReminderCron(r.cron_job_id)));
+  await Promise.all(pending.map((r) => cancelReminderCron(r.backup_cron_job_id)));
   await supabaseAdmin
     .from("reminders")
     .delete()
@@ -46,7 +47,7 @@ export async function rescheduleRemindersForEvent(
 ) {
   const { data: pending, error } = await supabaseAdmin
     .from("reminders")
-    .select("id, title, remind_at, channel, cron_job_id")
+    .select("id, title, remind_at, channel, cron_job_id, backup_cron_job_id")
     .eq("user_id", userId)
     .eq("event_id", eventId)
     .is("sent_at", null);
@@ -61,16 +62,27 @@ export async function rescheduleRemindersForEvent(
     const newRemindAt = new Date(newStartMs + offsetMs).toISOString();
 
     await cancelReminderCron(r.cron_job_id);
+    await cancelReminderCron(r.backup_cron_job_id);
 
     if (new Date(newRemindAt).getTime() <= Date.now()) {
-      await supabaseAdmin.from("reminders").update({ remind_at: newRemindAt, cron_job_id: null }).eq("id", r.id);
+      await supabaseAdmin
+        .from("reminders")
+        .update({ remind_at: newRemindAt, cron_job_id: null, backup_cron_job_id: null })
+        .eq("id", r.id);
       continue;
     }
 
-    const jobId = await scheduleReminderCron({ id: r.id, title: r.title, remind_at: newRemindAt, channel: r.channel });
+    const reminderForCron = { id: r.id, title: r.title, remind_at: newRemindAt, channel: r.channel };
+    const jobId = await scheduleReminderCron(reminderForCron);
+    let backupJobId: string | null = null;
+    try {
+      backupJobId = await scheduleReminderBackupCron(reminderForCron);
+    } catch (err) {
+      console.error(`[reminderCascade] no se pudo reprogramar el respaldo por Telegram de ${r.id}:`, err);
+    }
     const { error: updateError } = await supabaseAdmin
       .from("reminders")
-      .update({ remind_at: newRemindAt, cron_job_id: jobId })
+      .update({ remind_at: newRemindAt, cron_job_id: jobId, backup_cron_job_id: backupJobId })
       .eq("id", r.id);
     if (updateError) console.error(`[reminderCascade] recordatorio ${r.id} reprogramado pero no se pudo guardar:`, updateError.message);
   }

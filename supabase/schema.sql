@@ -133,6 +133,15 @@ create table if not exists public.reminders (
   -- después (action `remove`); el displayName no alcanza para eso. Null =
   -- OpenClaw no está configurado en este entorno, o ya se canceló.
   cron_job_id text,
+  -- jobId del cron de respaldo por Telegram, programado unos minutos después
+  -- del principal (ver BACKUP_DELAY_MINUTES en openclawCron.ts) — reemplaza a
+  -- delivery.failureDestination (01-sep-2026, resultó ser una vía muerta para
+  -- jobs agentTurn: el gateway downgradea el status del job de vuelta a "ok"
+  -- cuando la entrega falla, así que failureDestination nunca se dispara). Se
+  -- manda siempre, incondicional, no depende de detectar el fallo. Null si el
+  -- canal principal ya es Telegram (el respaldo sería el mismo canal) o si
+  -- OpenClaw no está configurado.
+  backup_cron_job_id text,
   created_by text not null default 'user' check (created_by in ('user','agent')), -- 'agent' = lo creó Quicks
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()

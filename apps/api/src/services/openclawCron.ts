@@ -209,6 +209,64 @@ export async function scheduleReminderCron(reminder: ReminderForCron): Promise<s
   return extractJobId(result);
 }
 
+// Minutos después de la hora del recordatorio en que se manda el respaldo.
+const BACKUP_DELAY_MINUTES = 4;
+
+/**
+ * Respaldo incondicional por Telegram, unos minutos después del recordatorio
+ * real — NO es una verificación (no existe ninguna señal real de si el
+ * WhatsApp llegó: `reminders.sent_at` nunca se llena en la práctica, y el
+ * gateway de OpenClaw no expone estado de entrega consultable). Se manda
+ * siempre, incondicional, igual que el patrón que ya funciona en la
+ * automatización de n8n del Poder Judicial (dos canales en paralelo, no una
+ * cadena de fallback que dependa de que algo detecte el error).
+ *
+ * Reemplaza a `delivery.failureDestination` como mecanismo real de respaldo
+ * (01-sep-2026, primer intento) — que resultó ser una vía muerta para este
+ * caso: confirmado leyendo el fuente del gateway instalado
+ * (`isolated-agent-*.js`) que para jobs `payload.kind:"agentTurn"` (los que
+ * usan los recordatorios) el gateway DOWNGRADEA a propósito el `status` del
+ * job de vuelta a `"ok"` cuando la entrega falla mientras el turno del
+ * agente en sí no falló (`errorKind !== "delivery-target"`, es decir,
+ * cualquier falla que no sea una config inválida del destino) — así que
+ * `failureDestination` (que solo se dispara con `status:"error"`)
+ * estructuralmente nunca se activa para una falla real de entrega como la
+ * ventana de WhatsApp cerrada. Detectado el 02-sep-2026: un segundo
+ * recordatorio (`Rutina: Hacerme la barba`, 8pm) no llegó por ningún canal,
+ * y el job no quedó marcado como error pese a que la entrega sí falló. Solo
+ * se programa cuando el canal principal no es ya Telegram (si el usuario
+ * pidió Telegram como canal, el respaldo sería el mismo canal, sin sentido).
+ */
+export async function scheduleReminderBackupCron(reminder: ReminderForCron): Promise<string | null> {
+  if (!isConfigured()) return null;
+  const { gatewayChannel } = resolveDelivery(reminder.channel);
+  if (gatewayChannel === "telegram") return null;
+  const telegramTo = env.openclawReminderToTelegram;
+  if (!telegramTo) return null;
+
+  const backupAt = new Date(new Date(reminder.remind_at).getTime() + BACKUP_DELAY_MINUTES * 60_000).toISOString();
+
+  const result = await invoke("cron", "add", {
+    job: {
+      displayName: `brainfocus:reminder-backup:${reminder.id}`,
+      sessionTarget: "isolated",
+      schedule: { at: backupAt },
+      payload: {
+        kind: "agentTurn",
+        message:
+          `Avisale esto al usuario por Telegram, como respaldo (puede que ya le haya llegado por ` +
+          `WhatsApp, no pasa nada si es repetido): "${reminder.title}". Podés redactarlo con tus ` +
+          `palabras, pero la hora que aparece ahí tiene que quedar sí o sí en el mensaje final, textual, ` +
+          `sin cambiarla ni omitirla. Aclará que es un respaldo por si no le llegó el de WhatsApp.`,
+        toolsAllow: buildToolsAllow(),
+      },
+      delivery: { mode: "announce", channel: "telegram", to: telegramTo },
+    },
+  });
+
+  return extractJobId(result);
+}
+
 interface RecurringCronInput {
   displayName: string;
   // 5 o 6 campos (con segundos), formato estándar de cron.

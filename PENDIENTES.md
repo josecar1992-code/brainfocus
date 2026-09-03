@@ -29,14 +29,39 @@ No implementado todavía — este documento es la lista de trabajo, no un change
   el aviso de respaldo jamás se armaba. Fix en `apps/api/src/services/openclawCron.ts`: mover el objeto
   de `job.failureAlert` a `job.delivery.failureDestination` en los tres builders de cron
   (`scheduleReminderCron`, `scheduleRecurringCron`, `scheduleOnceCron`) — mismo shape
-  `{channel, to, accountId}`, solo cambia dónde vive. **Pendiente de verificar en vivo**: la próxima vez
-  que un recordatorio de WhatsApp falle por ventana cerrada, confirmar que el Telegram sí llega ahora.
+  `{channel, to, accountId}`, solo cambia dónde vive.
   **No resuelto en este cambio**: el recordatorio real de hoy (`d763ca0f-...`, "Recordarle a doña Alison
   las armas y el MEP") quedó con `cron_job_id` apuntando a un job ya deshabilitado por el gateway —
   Focusbrain no tiene forma de enterarse de que un cron se deshabilitó (no hay webhook de vuelta), así
   que `ReminderBadge` lo sigue mostrando como "Programado" aunque ya no vaya a sonar. No se tocó porque
   es un problema aparte (falta un mecanismo de notificación de fallo hacia la API) — queda para decidir
   si vale la pena resolverlo o si alcanza con que el usuario reintente creándolo de nuevo cuando pase.
+  **02-sep-2026, `delivery.failureDestination` resultó ser una vía muerta también:** un segundo
+  recordatorio ("Rutina: Hacerme la barba", 8pm) no llegó por ningún canal, pese al fix de arriba.
+  Investigando el fuente del gateway instalado en el VPS más a fondo
+  (`isolated-agent-Dq8gcJO1.js`), se confirmó que para jobs `payload.kind:"agentTurn"` (los que usan
+  los recordatorios) el gateway **downgradea a propósito** el `status` del job de vuelta a `"ok"` cuando
+  la entrega falla pero el turno del agente en sí no falló (`errorKind !== "delivery-target"`, o sea,
+  cualquier falla que no sea config inválida del destino — la ventana de WhatsApp cerrada cae acá). Como
+  `dispatchCronFailureDestinationNotifications` solo se dispara con `status:"error"`,
+  `delivery.failureDestination` **estructuralmente nunca puede activarse** para una falla real de
+  entrega en este tipo de job — es una decisión de diseño del gateway, no un bug de configuración
+  nuestro, y no se puede arreglar con otro campo. **Fix real:** se abandonó por completo la idea de
+  "detectar la falla y avisar" (no existe ninguna señal confiable — tampoco `reminders.sent_at`, que
+  nunca se llena en la práctica, confirmado con una consulta directa a producción: cero filas con
+  `sent_at` no nulo en toda la tabla, histórico completo). En su lugar, `scheduleReminderBackupCron`
+  (nuevo en `openclawCron.ts`) programa un segundo cron, `BACKUP_DELAY_MINUTES = 4` minutos después del
+  principal, que manda el mismo recordatorio por Telegram **siempre, incondicional** — mismo patrón que
+  ya funciona en la automatización de n8n del Poder Judicial (dos canales en paralelo, no una cadena de
+  fallback que dependa de que algo detecte el error). Solo se omite si el canal principal ya es
+  Telegram. Nueva columna `reminders.backup_cron_job_id` (migración manual pendiente, ver abajo) para
+  poder cancelar/reprogramar el respaldo igual que el principal — wireado en los mismos puntos:
+  `reminders.ts` (`afterCreate`/`afterUpdate`/`beforeDelete`) y `reminderCascade.ts`
+  (`cancelPendingRemindersFor`/`rescheduleRemindersForEvent`). **Migración pendiente de correr a mano en
+  el SQL Editor de Supabase:**
+  ```sql
+  alter table public.reminders add column if not exists backup_cron_job_id text;
+  ```
 
 - ~~**[ALTO] `borrar_recordatorio` (y cualquier tool de borrado con DELETE→204) le devolvía a Quicks un
   "error técnico" aunque el borrado ya hubiera salido bien en la API.**~~ ✅ Resuelto (20-ago-2026,

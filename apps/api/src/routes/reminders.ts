@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { createResourceRouter } from "./resourceRouter.js";
 import { supabaseAdmin } from "../supabaseClient.js";
-import { scheduleReminderCron, cancelReminderCron } from "../services/openclawCron.js";
+import { scheduleReminderCron, scheduleReminderBackupCron, cancelReminderCron } from "../services/openclawCron.js";
 
 const baseSchema = z.object({
   title: z.string().min(1),
@@ -66,8 +66,20 @@ export const remindersRouter = createResourceRouter({
         await supabaseAdmin.from("reminders").delete().eq("id", row.id);
         throw err;
       }
-      if (jobId) {
-        const { error } = await supabaseAdmin.from("reminders").update({ cron_job_id: jobId }).eq("id", row.id);
+      // Respaldo por Telegram best-effort: si falla programarlo, no se aborta
+      // la creación del recordatorio (el aviso principal ya quedó agendado) —
+      // solo se pierde el respaldo, se loguea y sigue.
+      let backupJobId: string | null = null;
+      try {
+        backupJobId = await scheduleReminderBackupCron(row);
+      } catch (err) {
+        console.error(`[reminders] no se pudo programar el respaldo por Telegram de ${row.id}:`, err);
+      }
+      if (jobId || backupJobId) {
+        const patch: Record<string, string> = {};
+        if (jobId) patch.cron_job_id = jobId;
+        if (backupJobId) patch.backup_cron_job_id = backupJobId;
+        const { error } = await supabaseAdmin.from("reminders").update(patch).eq("id", row.id);
         // El cron ya quedó creado en OpenClaw — si no se puede guardar el jobId acá,
         // no hay forma de cancelarlo después (task/evento completado antes, etc.).
         // Mejor decírselo a quien creó el recordatorio que dejarlo huérfano en silencio.
@@ -80,19 +92,31 @@ export const remindersRouter = createResourceRouter({
       // contrato de OpenClaw es add/remove, no un upsert por id).
       if (after.sent_at && !before.sent_at) {
         await cancelReminderCron(before.cron_job_id);
+        await cancelReminderCron(before.backup_cron_job_id);
         return;
       }
       if (!after.sent_at && after.remind_at !== before.remind_at) {
         await cancelReminderCron(before.cron_job_id);
+        await cancelReminderCron(before.backup_cron_job_id);
         const jobId = await scheduleReminderCron(after);
-        if (jobId) {
-          const { error } = await supabaseAdmin.from("reminders").update({ cron_job_id: jobId }).eq("id", after.id);
+        let backupJobId: string | null = null;
+        try {
+          backupJobId = await scheduleReminderBackupCron(after);
+        } catch (err) {
+          console.error(`[reminders] no se pudo reprogramar el respaldo por Telegram de ${after.id}:`, err);
+        }
+        if (jobId || backupJobId) {
+          const patch: Record<string, string> = {};
+          if (jobId) patch.cron_job_id = jobId;
+          if (backupJobId) patch.backup_cron_job_id = backupJobId;
+          const { error } = await supabaseAdmin.from("reminders").update(patch).eq("id", after.id);
           if (error) console.error(`[reminders] cron reprogramado (${jobId}) pero no se pudo guardar:`, error.message);
         }
       }
     },
     async beforeDelete(_userId, row) {
       await cancelReminderCron(row.cron_job_id);
+      await cancelReminderCron(row.backup_cron_job_id);
     },
   },
 });
