@@ -245,6 +245,24 @@ No implementado todavía — este documento es la lista de trabajo, no un change
   server sirva `index.html` para cualquier ruta (ya estaba: `apps/web/nginx.conf` tiene
   `try_files $uri $uri/ /index.html`).
 
+- ~~**[MEDIO] Un fallo transitorio de Supabase en el middleware de auth se reportaba como "API key
+  inválida", sin serlo.**~~ ✅ Resuelto (04-sep-2026, reportado por el usuario: Quicks le avisó por
+  WhatsApp el 03-sep a las 9am que "la API key de Focusbrain es inválida" al intentar listar vehículos
+  para el aviso de kilometraje, pidiéndole revisar/rehabilitarla). Investigando los logs de producción
+  (`docker compose logs api`), se encontró la llamada exacta: `GET /vehicles?limit=100` → 401 a las
+  15:00:19 UTC — y la llamada inmediatamente siguiente, un segundo después, con la misma API key
+  (`GET /tasks?...`) devolvió 200 sin problema. Confirmado además que la key nunca fue revocada
+  (`api_keys.revoked_at` sigue `null`, `last_used_at` se sigue actualizando con normalidad). Causa
+  real en `apps/api/src/middleware/auth.ts`: `authenticate()` trataba `error` (la consulta a
+  `api_keys` en Supabase falló, ej. timeout transitorio de red) y `!data` (la consulta funcionó pero no
+  hay fila para esa key — key genuinamente inválida/revocada) como el mismo caso, devolviendo 401 "API
+  key inválida" para ambos. Un fallo de consulta no dice nada sobre si la key es válida, así que
+  reportarlo como key inválida es engañoso — le hizo creer a Quicks (y de rebote, al usuario) que había
+  que rotar/rehabilitar una key que en realidad nunca tuvo ningún problema. Fix: separar los dos casos
+  — `error` ahora devuelve 503 ("Error temporal validando la API key, reintentá") y se loguea el detalle
+  del error de Supabase para poder diagnosticar si vuelve a pasar; `!data` sin error sigue siendo el 401
+  real.
+
 ## 2. Mejoras a funciones existentes
 
 - ~~**En el detalle de un proyecto (`apps/web/src/ProjectsPage.tsx`), las notas del proyecto solo

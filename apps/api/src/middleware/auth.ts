@@ -39,7 +39,20 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
         .is("revoked_at", null)
         .maybeSingle();
 
-      if (error || !data) return res.status(401).json({ error: "API key inválida" });
+      // `error` (la consulta a Supabase falló) y `!data` (la consulta funcionó
+      // pero no hay fila para esa key) son casos muy distintos — antes se
+      // devolvían los dos como el mismo 401 "API key inválida", lo cual le
+      // hizo creer a Quicks que su key había sido revocada cuando en
+      // realidad fue un fallo transitorio de la consulta (confirmado
+      // 03-sep-2026: la misma key, en la llamada inmediatamente siguiente un
+      // segundo después, funcionó sin problema — ver PENDIENTES.md). Un
+      // error real de consulta no dice nada sobre si la key es válida, así
+      // que no debe reportarse como 401.
+      if (error) {
+        console.error("[auth] fallo consultando api_keys (posible error transitorio, no confundir con key inválida):", error.message);
+        return res.status(503).json({ error: "Error temporal validando la API key, reintentá" });
+      }
+      if (!data) return res.status(401).json({ error: "API key inválida" });
 
       await supabaseAdmin.from("api_keys").update({ last_used_at: new Date().toISOString() }).eq("id", data.id);
 
