@@ -241,7 +241,7 @@ export interface Consumo {
   unidad: string | null;
   costo_usd: number;
   detalle: Record<string, unknown>;
-  origen: "openclaw-export" | "kapso-api" | "manual";
+  origen: "openclaw-export" | "kapso-api" | "manual" | "aliyun-billing-api";
   created_by: "user" | "agent";
   created_at: string;
 }

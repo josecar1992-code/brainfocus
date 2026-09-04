@@ -495,6 +495,32 @@ No implementado todavía — este documento es la lista de trabajo, no un change
   hay que usar `dimensions=["PRICING_TYPE","COUNTRY"]`. Kapso en sí no expone esto (son un wrapper para
   enviar/recibir mensajes, no de billing — los cargos de Meta "se pasan por separado"), así que se
   consulta el Graph API de Meta directo. No quedó como carga manual.
+  **04-sep-2026, el estimado de Qwen (`openclaw-export`) se reemplaza por gasto real:** el usuario
+  reportó que el módulo de Consumos siempre mostraba un número distinto al gasto real de Qwen. Al
+  investigar se encontraron dos problemas: (1) el estimado calculaba costo desde tokens con una tabla
+  de precios fija en el script (`/root/.openclaw/usage-to-consumos.js`), que se desactualiza cada vez
+  que Alibaba cambia tarifas o el modelo default cambia; (2) más grave — ese script (y también
+  `meta-usage-to-consumos.js`) **no tenían ningún cron programándolos** — sin `crontab`, sin timer de
+  systemd, sin cron de OpenClaw con ese nombre — así que probablemente ninguno de los dos venía
+  corriendo hacía tiempo, pese a lo documentado arriba (15-ago-2026). Fix: Alibaba Cloud (dueño de
+  Qwen/DashScope) sí tiene una API de billing real, `BssOpenApi.DescribeInstanceBill` — mismo enfoque
+  que ya se usaba para Meta. Requiere un AccessKey RAM separado (no la API key de DashScope que usa
+  OpenClaw para llamar al modelo) con la política de solo lectura `AliyunBSSReadOnlyAccess`, y el
+  endpoint internacional `business.ap-southeast-1.aliyuncs.com` (el genérico `business.aliyuncs.com` da
+  error `NotApplicable` para cuentas internacionales). `ProductCode: "sfm"` = Alibaba Cloud Model
+  Studio, confirmado consultando la factura real sin filtro. Cambios en este repo: nuevo valor de
+  `origen`, `'aliyun-billing-api'` (`supabase/schema.sql` — migración manual abajo —,
+  `apps/api/src/routes/consumos.ts`, `apps/web/src/api.ts`, `apps/web/src/ConsumosPage.tsx`). El script
+  nuevo vive fuera de este repo, en `/root/.openclaw/scripts/consumos-qwen-billing/` (VPS), con su
+  propio `.env` (AccessKey, no en git) y systemd timer diario — reemplaza a `usage-to-consumos.js`
+  (que queda sin usarse, no se borró). El estimado sigue existiendo como valor de `origen` válido
+  (`openclaw-export`) por los registros históricos, solo no se sigue generando.
+  Migración manual (Supabase SQL Editor):
+  ```sql
+  alter table public.consumos drop constraint if exists consumos_origen_check;
+  alter table public.consumos add constraint consumos_origen_check
+    check (origen in ('openclaw-export','kapso-api','manual','aliyun-billing-api'));
+  ```
 - ~~**Módulo de Resumen** (tareas completadas por día, ej. "qué marqué como hecha ayer").~~ ✅ Completo
   (16-ago-2026) — pedido por el usuario. `ResumenPage.tsx` nuevo en el sidebar (ícono `IconCheckCircle`
   reusado, sin ícono nuevo): filtros rápidos Hoy/Ayer/Últimos 7 días + rango manual de fechas, listando

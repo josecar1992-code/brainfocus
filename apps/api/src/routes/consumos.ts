@@ -23,7 +23,7 @@ const createSchema = z.object({
   unidad: z.string().optional(),
   costo_usd: z.number(),
   detalle: z.record(z.any()).optional(),
-  origen: z.enum(["openclaw-export", "kapso-api", "manual"]),
+  origen: z.enum(["openclaw-export", "kapso-api", "manual", "aliyun-billing-api"]),
 });
 
 export const consumosRouter = Router();

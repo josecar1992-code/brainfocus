@@ -388,14 +388,23 @@ alter table public.tasks
 -- agregado 15-ago-2026 para dar visibilidad de costo operativo. Esquema
 -- genérico a propósito (categoria abierta, detalle jsonb libre) para poder
 -- sumar proveedores nuevos (dominios, otros modelos, etc.) sin migrar de
--- nuevo. `costo_usd` puede ser estimado (ej. Qwen, calculado desde uso de
--- tokens, no la factura real de Alibaba) u obtenido manualmente (ej.
--- Meta/WhatsApp vía Kapso si no hay API de billing confiable) — `origen`
--- distingue el caso, y la UI debe dejarlo visible en vez de aparentar que
--- todo está en vivo. `fecha` es la fecha calendario de Costa Rica del gasto
--- (día local CR, corte 06:00Z-06:00Z, igual que OpenClaw) — quien alimenta
--- este endpoint calcula esa fecha explícitamente, no confía en la zona
--- horaria del proceso que hace el POST (ver CLAUDE.md).
+-- nuevo. `costo_usd` puede ser estimado (ej. Qwen antes del 04-sep-2026,
+-- calculado desde uso de tokens, no la factura real de Alibaba) u obtenido
+-- manualmente (ej. Meta/WhatsApp vía Kapso si no hay API de billing
+-- confiable) — `origen` distingue el caso, y la UI debe dejarlo visible en
+-- vez de aparentar que todo está en vivo. `fecha` es la fecha calendario de
+-- Costa Rica del gasto (día local CR, corte 06:00Z-06:00Z, igual que
+-- OpenClaw) — quien alimenta este endpoint calcula esa fecha explícitamente,
+-- no confía en la zona horaria del proceso que hace el POST (ver CLAUDE.md).
+--
+-- `origen` 'aliyun-billing-api' agregado 04-sep-2026: reemplaza la estimación
+-- de Qwen (`openclaw-export`, que divergía del gasto real reportado por el
+-- usuario) por el gasto real de Alibaba Cloud, vía su API de billing
+-- (`BssOpenApi.DescribeInstanceBill`, endpoint internacional
+-- `business.ap-southeast-1.aliyuncs.com`, `ProductCode: "sfm"` = Model
+-- Studio/DashScope) — mismo enfoque que ya se usaba para Meta/Kapso
+-- (`kapso-api`). Ver `/root/.openclaw/scripts/consumos-qwen-billing/` en el
+-- VPS (fuera de este repo).
 -- ============================================================
 create table if not exists public.consumos (
   id uuid primary key default uuid_generate_v4(),
@@ -407,7 +416,7 @@ create table if not exists public.consumos (
   unidad text, -- "tokens" | "conversaciones" | "USD" | ...
   costo_usd numeric not null,
   detalle jsonb not null default '{}'::jsonb, -- breakdown libre: input/output/cache, categoría de plantilla Meta, etc.
-  origen text not null check (origen in ('openclaw-export','kapso-api','manual')),
+  origen text not null check (origen in ('openclaw-export','kapso-api','manual','aliyun-billing-api')),
   created_by text not null default 'agent' check (created_by in ('user','agent')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()

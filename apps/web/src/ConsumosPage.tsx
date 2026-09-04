@@ -11,8 +11,9 @@ const CATEGORIA_LABEL: Record<Consumo["categoria"], string> = {
 };
 
 const ORIGEN_LABEL: Record<Consumo["origen"], string> = {
-  "openclaw-export": "Automático (OpenClaw)",
+  "openclaw-export": "Automático (estimado, OpenClaw)",
   "kapso-api": "Automático (Kapso)",
+  "aliyun-billing-api": "Automático (Alibaba Cloud)",
   manual: "Manual",
 };
 
