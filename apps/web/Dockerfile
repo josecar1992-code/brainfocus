@@ -7,7 +7,9 @@ COPY packages/shared-time ./packages/shared-time
 RUN npm --prefix packages/shared-time install && npm --prefix packages/shared-time run build
 
 COPY apps/web/package.json ./apps/web/package.json
-RUN npm --prefix apps/web install
+# --legacy-peer-deps: ver apps/api/Dockerfile, mismo bug de npm 10.x
+# resolviendo peers de devDependencies (vitest y su cadena @vitejs/devtools-*).
+RUN npm --prefix apps/web install --legacy-peer-deps
 COPY apps/web ./apps/web
 # Vite hornea las VITE_* en build time, no en runtime — por eso van como build args.
 ARG VITE_SUPABASE_URL
