@@ -78,3 +78,19 @@ export function canRemindTwoHoursBefore(fecha: string, hora: string): boolean {
   const startsAt = new Date(`${fecha}T${hora}:00${CR_OFFSET}`).getTime();
   return startsAt - TWO_HOURS_MS > Date.now();
 }
+
+/**
+ * "YYYY-MM-DD" del día de hoy en Costa Rica — no `new Date().toISOString().
+ * slice(0, 10)`, que da el día calendario en UTC. Entre las 18:00 y las
+ * 23:59 hora CR (00:00-05:59 UTC del día siguiente), esos dos difieren: el
+ * día UTC ya es "mañana" para CR. Detectado 10-sep-2026 en
+ * `advanceRoutine()`/`firstOccurrenceDate()` (apps/api/src/services/
+ * routines.ts): al completar la tarea de una rutina de noche (hora CR), el
+ * `today` inflado por UTC hacía que el chequeo "¿ya pasó la próxima
+ * ocurrencia calculada?" tratara como vencida una ocurrencia que en
+ * Costa Rica todavía era HOY o incluso estaba en el futuro — saltándose una
+ * ocurrencia real de la rutina (ver PENDIENTES.md).
+ */
+export function hoyEnCR(): string {
+  return new Date().toLocaleDateString("en-CA", { timeZone: CR_TIMEZONE });
+}

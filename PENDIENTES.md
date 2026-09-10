@@ -5,6 +5,26 @@ No implementado todavía — este documento es la lista de trabajo, no un change
 
 ## 1. Bugs / correcciones
 
+- ~~**[ALTO] Las rutinas semanales (ej. "Rutina Gimnasio", martes/jueves) podían saltarse una
+  ocurrencia real — el jueves 10-sep-2026 no se generó.**~~ ✅ Resuelto (10-sep-2026, reportado por el
+  usuario: "por qué no se generó la rutina de ejercicio de los jueves"). Causa raíz: `advanceRoutine()`
+  y `firstOccurrenceDate()` (`apps/api/src/services/routines.ts`) calculaban "hoy" con
+  `new Date().toISOString().slice(0, 10)` — el día calendario en **UTC**, no en Costa Rica — violando
+  la regla de este mismo archivo (`CLAUDE.md`, sección de fechas). Entre las 6pm y medianoche hora CR
+  (00:00-05:59 UTC del día siguiente), ese "hoy" queda inflado un día respecto al calendario real de
+  Costa Rica. El chequeo de `advanceRoutine()` que descarta ocurrencias "ya vencidas"
+  (`while (next < today) next = nextOccurrenceDate(...)`) usaba ese "hoy" inflado, así que en un avance
+  que corría de noche podía tratar como vencida una ocurrencia que en Costa Rica todavía era hoy (o
+  futura), saltándosela — la rutina "Rutina Gimnasio" (martes/jueves) quedó con su próxima ocurrencia en
+  martes 15-sep, sin ninguna tarea generada para el jueves 10-sep. Fix: nuevo helper `hoyEnCR()` en
+  `packages/shared-time` (`Intl`/`toLocaleDateString` con `timeZone: "America/Costa_Rica"`, formato
+  `YYYY-MM-DD`), usado en ambas funciones en vez de `new Date().toISOString()`.
+  Nota aparte, sin resolver: se encontró en los logs de producción que hay llamadas `PATCH /tasks/:id`
+  con user-agent `"node"` (no navegador) editando directamente el `due_date` de tareas de rutina poco
+  después de creadas — probablemente Quicks/MCP reprogramando la tarea a pedido del usuario por
+  WhatsApp/Telegram. Esto puede seguir corriendo la fecha visible de una ocurrencia por fuera del
+  cálculo determinístico de la rutina; no se tocó, solo se documenta como posible causa adicional de
+  drift si vuelve a pasar.
 - ~~**[ALTO] El fallback a Telegram por falla de WhatsApp (agregado 10-ago-2026) nunca funcionó — el
   campo que se mandaba al gateway de OpenClaw no era el que dispara la notificación real.**~~ ✅
   Resuelto (01-sep-2026, reportado por el usuario: recordatorio de las 8:30am no llegó, sospechó

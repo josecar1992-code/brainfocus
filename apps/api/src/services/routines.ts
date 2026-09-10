@@ -1,4 +1,4 @@
-import { CR_OFFSET } from "@brainfocus/shared-time";
+import { CR_OFFSET, hoyEnCR } from "@brainfocus/shared-time";
 import { supabaseAdmin } from "../supabaseClient.js";
 import { scheduleReminderCron } from "./openclawCron.js";
 import { firstOccurrenceDate, nextOccurrenceDate, type RecurrenceRule } from "./routineSchedule.js";
@@ -99,8 +99,7 @@ async function createOccurrence(routine: RoutineRow, occurrenceDate: string): Pr
 
 /** Se llama al crear una rutina nueva: genera su primera ocurrencia. */
 export async function createFirstOccurrence(routine: RoutineRow): Promise<void> {
-  const today = new Date().toISOString().slice(0, 10);
-  const date = firstOccurrenceDate(ruleOf(routine), today);
+  const date = firstOccurrenceDate(ruleOf(routine), hoyEnCR());
   await createOccurrence(routine, date);
 }
 
@@ -130,7 +129,7 @@ export async function advanceRoutine(userId: string, routineId: string): Promise
   // generamos las fechas ya vencidas: avanzamos hasta la próxima ocurrencia
   // igual o posterior a hoy. La cadena "se rompe" — no se recuperan los días
   // saltados, solo se retoma desde el día que toca.
-  const today = new Date().toISOString().slice(0, 10);
+  const today = hoyEnCR();
   const rule = ruleOf(routine);
   let next = nextOccurrenceDate(rule, routine.current_occurrence_date ?? routine.start_date);
   while (next < today) {
