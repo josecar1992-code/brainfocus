@@ -5,6 +5,7 @@ import { CategorySelect } from "./CategorySelect";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { CornerBrackets } from "./CornerBrackets";
 import { IconBellOff, IconGripVertical, IconTrash } from "./icons";
+import { LoadMoreButton } from "./LoadMoreButton";
 import { PriorityBadge } from "./PriorityBadge";
 import { ProjectSelect } from "./ProjectSelect";
 import { QuickBadge } from "./QuickBadge";
@@ -16,6 +17,7 @@ import { SubtaskProgressBadge } from "./SubtaskProgressBadge";
 import { subtaskProgress } from "./subtaskProgress";
 import { TimePicker } from "./TimePicker";
 import { useCompleteTask } from "./useCompleteTask";
+import { usePaginatedList } from "./usePaginatedList";
 
 const CR_OFFSET = "-06:00"; // Costa Rica, sin horario de verano — offset fijo
 
@@ -763,13 +765,11 @@ function CategoryTasksView({
   categoryId,
   categoryName,
   categoryColor,
-  tasks,
   onBack,
 }: {
   categoryId: string;
   categoryName: string;
   categoryColor: string | null;
-  tasks: Task[];
   onBack: () => void;
 }) {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -787,6 +787,24 @@ function CategoryTasksView({
   const { data: reminders } = useQuery({ queryKey: ["reminders"], queryFn: api.listReminders });
   const completeTask = useCompleteTask();
 
+  // Paginado de 20 en 20 (pedido por el usuario 24-sep-2026): esta es la
+  // lista que de verdad se scrollea y crece sin límite con el tiempo — a
+  // diferencia de las tarjetas de categoría (ver TasksPage/listTaskSummaries),
+  // que solo necesitan status. El queryKey incluye categoryId + statusFilter
+  // porque el backend ya filtra por ambos (list_id/status) — cambiar
+  // cualquiera de los dos arranca la paginación de cero sola.
+  const listIdFilter = categoryId === SIN_CATEGORIA ? null : categoryId;
+  const statusParam = statusFilter === "hechas" ? "done" : "pending";
+  const {
+    items: pagedTasks,
+    hasMore,
+    loadMore,
+    isLoadingMore,
+    isLoading: loadingTasks,
+  } = usePaginatedList<Task>(["tasks", "paged", "category", categoryId, statusFilter], (offset) =>
+    api.listTasksPaged({ offset, list_id: listIdFilter, status: statusParam }),
+  );
+
   // Solo el caso "sin aviso real" (cron falló o no se programó) — los demás
   // estados (programado/enviado) no aportan tanto en la vista compacta como
   // para justificar el ruido visual de un badge por tarea.
@@ -796,14 +814,25 @@ function CategoryTasksView({
 
   // Reordenar arrastra solo cambia sort_order de la tarea soltada — optimista
   // para que el drop se sienta instantáneo, igual que el toggle de subtareas.
+  // Bajo el prefijo ["tasks"] conviven dos formas de cache distintas: arrays
+  // planos (listTasks/listTaskSummaries/listPendingTasks) y el shape de
+  // useInfiniteQuery ({pages: Task[][], pageParams}) que usa la paginación
+  // de CategoryTasksView — hay que actualizar cada una a su manera, no
+  // asumir que todo es un array (eso rompía con "old.map is not a function").
   const reorderTask = useMutation({
     mutationFn: ({ id, sort_order }: { id: string; sort_order: number }) => api.reorderTask(id, sort_order),
     onMutate: async ({ id, sort_order }) => {
       await queryClient.cancelQueries({ queryKey: ["tasks"] });
-      const previous = queryClient.getQueriesData<Task[]>({ queryKey: ["tasks"] });
-      queryClient.setQueriesData<Task[]>({ queryKey: ["tasks"] }, (old) =>
-        old?.map((t) => (t.id === id ? { ...t, sort_order } : t)),
-      );
+      const previous = queryClient.getQueriesData({ queryKey: ["tasks"] });
+      const patch = (t: { id: string; sort_order?: number | null }) => (t.id === id ? { ...t, sort_order } : t);
+      queryClient.setQueriesData({ queryKey: ["tasks"] }, (old: unknown) => {
+        if (Array.isArray(old)) return (old as { id: string; sort_order?: number | null }[]).map(patch);
+        if (old && typeof old === "object" && Array.isArray((old as { pages?: unknown[] }).pages)) {
+          const infinite = old as { pages: { id: string; sort_order?: number | null }[][] };
+          return { ...infinite, pages: infinite.pages.map((page) => page.map(patch)) };
+        }
+        return old;
+      });
       return { previous };
     },
     onError: (_err, _vars, context) => {
@@ -828,10 +857,11 @@ function CategoryTasksView({
     },
   });
 
-  const visibleTasks = tasks
-    .filter((t) => (categoryId === SIN_CATEGORIA ? !t.list_id : t.list_id === categoryId))
+  // list_id y status ya vienen filtrados del backend (ver listTasksPaged
+  // arriba) — acá solo queda la prioridad, que sigue siendo client-side
+  // (dataset chico, una página a la vez, no vale la pena otro parámetro).
+  const visibleTasks = pagedTasks
     .filter((t) => !prioridadFilter || t.priority === prioridadFilter)
-    .filter((t) => (statusFilter === "hechas" ? t.status === "done" : t.status !== "done"))
     // Orden manual (drag & drop) en vez de por prioridad — sort_order es un
     // float que se reparte al arrastrar (ver reorderTask), así que el orden
     // que arma el usuario se respeta tal cual.
@@ -938,7 +968,10 @@ function CategoryTasksView({
       </div>
 
       <div className="bg-night-blue/40 backdrop-blur-md rounded-2xl border border-electric-cyan/10 shadow-[0_0_40px_-24px_rgba(0,210,255,0.35)] overflow-hidden">
-        {visibleTasks.length === 0 && <p className="text-white/40 text-sm px-5 py-5">No hay tareas para este filtro.</p>}
+        {loadingTasks && <p className="text-white/40 text-sm px-5 py-5">Cargando...</p>}
+        {!loadingTasks && visibleTasks.length === 0 && (
+          <p className="text-white/40 text-sm px-5 py-5">No hay tareas para este filtro.</p>
+        )}
 
         {visibleTasks.length > 0 && (
           <ul className="relative">
@@ -1026,6 +1059,7 @@ function CategoryTasksView({
             })}
           </ul>
         )}
+        {hasMore && <LoadMoreButton onClick={() => loadMore()} loading={isLoadingMore} />}
       </div>
 
       {selectedTask && (
@@ -1069,27 +1103,32 @@ function CategoryTasksView({
 export function TasksPage() {
   const [showForm, setShowForm] = useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
-  const { data: tasks, isLoading } = useQuery({ queryKey: ["tasks"], queryFn: api.listTasks });
+  // listTaskSummaries (no listTasks): acá solo hacen falta id/list_id/status
+  // para armar las tarjetas de categoría (total + pendientes) — traer las
+  // 233+ tareas completas (título, notas, due_date...) sería justo la "carga
+  // masiva en la primera carga" que se pidió evitar. La lista real de tareas
+  // de una categoría (con todos los campos) se pagina aparte dentro de
+  // CategoryTasksView, ver usePaginatedList.ts.
+  const { data: taskSummaries, isLoading } = useQuery({ queryKey: ["tasks", "summary"], queryFn: api.listTaskSummaries });
   const { data: lists } = useQuery({ queryKey: ["lists"], queryFn: api.listLists });
   const { data: projects } = useQuery({ queryKey: ["projects"], queryFn: api.listProjects });
 
-  const pendientes = tasks?.filter((t) => t.status !== "done").length ?? 0;
-  const completadas = tasks?.filter((t) => t.status === "done").length ?? 0;
+  const pendientes = taskSummaries?.filter((t) => t.status !== "done").length ?? 0;
+  const completadas = taskSummaries?.filter((t) => t.status === "done").length ?? 0;
 
-  if (selectedCategoryId && tasks) {
+  if (selectedCategoryId) {
     const category = (lists ?? []).find((l) => l.id === selectedCategoryId);
     return (
       <CategoryTasksView
         categoryId={selectedCategoryId}
         categoryName={category?.name ?? "Sin categoría"}
         categoryColor={category?.color ?? null}
-        tasks={tasks}
         onBack={() => setSelectedCategoryId(null)}
       />
     );
   }
 
-  const sinCategoriaCount = tasks?.filter((t) => !t.list_id).length ?? 0;
+  const sinCategoriaCount = taskSummaries?.filter((t) => !t.list_id).length ?? 0;
 
   return (
     <div className="space-y-5">
@@ -1114,10 +1153,10 @@ export function TasksPage() {
 
       {isLoading && <p className="text-white/40 text-sm">Cargando...</p>}
 
-      {tasks && (
+      {taskSummaries && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {(lists ?? []).map((l) => {
-            const catTasks = tasks.filter((t) => t.list_id === l.id);
+            const catTasks = taskSummaries.filter((t) => t.list_id === l.id);
             return (
               <CategoryCard
                 key={l.id}
@@ -1134,7 +1173,7 @@ export function TasksPage() {
               nombre="Sin categoría"
               color={null}
               total={sinCategoriaCount}
-              pendientes={tasks.filter((t) => !t.list_id && t.status !== "done").length}
+              pendientes={taskSummaries.filter((t) => !t.list_id && t.status !== "done").length}
               onClick={() => setSelectedCategoryId(SIN_CATEGORIA)}
             />
           )}

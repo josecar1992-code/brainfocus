@@ -478,21 +478,6 @@ export function AgendaPage() {
   const [rangeEnd, setRangeEnd] = useState(
     toDateInputValue(new Date(startOfWeek(now).getTime() + 6 * 24 * 60 * 60 * 1000)),
   );
-  const { data: allEvents, isLoading } = useQuery({ queryKey: ["events"], queryFn: api.listEvents });
-  const { data: reminders } = useQuery({ queryKey: ["reminders"], queryFn: api.listReminders });
-  const { data: tasks } = useQuery({ queryKey: ["tasks"], queryFn: api.listTasks });
-  const { data: lists } = useQuery({ queryKey: ["lists"], queryFn: api.listLists });
-  const { data: projects } = useQuery({ queryKey: ["projects"], queryFn: api.listProjects });
-  const completeTask = useCompleteTask();
-
-  const tasksById = new Map((tasks ?? []).map((t) => [t.id, t]));
-  const remindersByEvent = new Map<string, Reminder>();
-  const looseReminders: Reminder[] = [];
-  for (const reminder of reminders ?? []) {
-    if (reminder.event_id) remindersByEvent.set(reminder.event_id, reminder);
-    else looseReminders.push(reminder);
-  }
-
   let rangeFrom: Date;
   let rangeTo: Date;
   if (dateFilter === "hoy") {
@@ -514,6 +499,29 @@ export function AgendaPage() {
       : new Date(rangeFrom.getTime() + 24 * 60 * 60 * 1000);
   }
 
+  // Acotado al rango elegido, pedido al servidor (ver listEventsInRange en
+  // api.ts) — Agenda ya filtra por fecha en su propia UI, así que no tiene
+  // sentido traer TODOS los eventos (crecen sin tope con el tiempo) para
+  // luego quedarse solo con los del rango visible. El queryKey incluye el
+  // rango: cambiar de pestaña (hoy/semana/mes/rango) pide datos nuevos solo.
+  const { data: allEvents, isLoading } = useQuery({
+    queryKey: ["events", "range", rangeFrom.toISOString(), rangeTo.toISOString()],
+    queryFn: () => api.listEventsInRange(rangeFrom.toISOString(), new Date(rangeTo.getTime() - 1).toISOString()),
+  });
+  const { data: reminders } = useQuery({ queryKey: ["reminders"], queryFn: api.listReminders });
+  const { data: tasks } = useQuery({ queryKey: ["tasks"], queryFn: api.listTasks });
+  const { data: lists } = useQuery({ queryKey: ["lists"], queryFn: api.listLists });
+  const { data: projects } = useQuery({ queryKey: ["projects"], queryFn: api.listProjects });
+  const completeTask = useCompleteTask();
+
+  const tasksById = new Map((tasks ?? []).map((t) => [t.id, t]));
+  const remindersByEvent = new Map<string, Reminder>();
+  const looseReminders: Reminder[] = [];
+  for (const reminder of reminders ?? []) {
+    if (reminder.event_id) remindersByEvent.set(reminder.event_id, reminder);
+    else looseReminders.push(reminder);
+  }
+
   // Un recordatorio suelto (sin evento) no tiene un "hecho" que marcar como
   // las tareas — se considera vigente/pendiente mientras su hora todavía no
   // llega, y hecho en cuanto ya pasó (con o sin envío exitoso: lo que importa
@@ -525,11 +533,9 @@ export function AgendaPage() {
     })
     .sort((a, b) => new Date(a.remind_at).getTime() - new Date(b.remind_at).getTime());
 
+  // El filtro por rango ya lo hizo el servidor (allEvents ya viene acotado) —
+  // acá solo queda el filtro de estado (pendientes/hechas).
   const events = (allEvents ?? [])
-    .filter((e) => {
-      const t = new Date(e.starts_at).getTime();
-      return t >= rangeFrom.getTime() && t < rangeTo.getTime();
-    })
     .filter((e) => {
       // Sin tarea vinculada no hay "hecho" que mostrar — se cuenta como pendiente.
       const status = e.task_id ? tasksById.get(e.task_id)?.status : undefined;

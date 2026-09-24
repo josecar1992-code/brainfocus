@@ -344,6 +344,41 @@ export const api = {
   // filtro genérico ?campo=valor del backend) evita depender del límite en
   // primer lugar para esta vista.
   listPendingTasks: () => request<Task[]>("/tasks?limit=1000&status=pending"),
+  // Para badges/contadores (tarjetas de categoría en Tareas, progreso de
+  // proyecto) que necesitan status de TODAS las tareas (no solo pendientes)
+  // pero no el objeto completo — ?fields= (ya soportado por el backend) trae
+  // solo estas 4 columnas en vez de title/notes/due_date/etc., así que el
+  // peso real es mínimo aunque sean varios cientos de filas. La lista
+  // completa (con todos los campos) para lo que se scrollea de verdad va
+  // paginada con listTasksPaged (abajo), no acá.
+  listTaskSummaries: () =>
+    request<Pick<Task, "id" | "list_id" | "project_id" | "status">[]>(
+      "/tasks?limit=1000&fields=id,list_id,project_id,status",
+    ),
+  // Paginado real (offset/limit) para listas que se scrollean — Tareas por
+  // categoría, tareas de un proyecto. 20-sep-2026, pedido explícito del
+  // usuario ("que no haga una carga masiva en la primera carga"): en vez de
+  // traer todo hasta el tope (aunque el tope ya no truncaba mal, seguía
+  // siendo más de lo necesario para lo que se ve en pantalla), cada "página"
+  // trae solo `limit` filas — el llamador acumula páginas y pide la
+  // siguiente con `offset` al hacer click en "Cargar más" (ver
+  // usePaginatedList.ts). `list_id: null` filtra "Sin categoría" (el
+  // backend traduce el string "null" a IS NULL, no compara contra el string).
+  listTasksPaged: (params: {
+    offset: number;
+    limit?: number;
+    list_id?: string | null;
+    project_id?: string;
+    status?: "pending" | "done";
+  }) => {
+    const qs = new URLSearchParams();
+    qs.set("limit", String(params.limit ?? 20));
+    qs.set("offset", String(params.offset));
+    if (params.list_id !== undefined) qs.set("list_id", params.list_id === null ? "null" : params.list_id);
+    if (params.project_id) qs.set("project_id", params.project_id);
+    if (params.status) qs.set("status", params.status);
+    return request<Task[]>(`/tasks?${qs.toString()}`);
+  },
   // Para el módulo Resumen: tareas marcadas como hechas dentro de un rango de
   // instantes — `desdeIso`/`hastaIso` ya vienen calculados por el caller con
   // el offset explícito de Costa Rica (ver ResumenPage.tsx), acá solo se
@@ -446,6 +481,18 @@ export const api = {
   // orden ascendente por starts_at traía los eventos más viejos en vez de los
   // próximos.
   listEvents: () => request<Event[]>("/events?limit=1000"),
+  // Para Agenda: a diferencia de Tareas/Proyectos (listas que se scrollean,
+  // paginadas 20 en 20, ver usePaginatedList.ts), Agenda ya está armada
+  // alrededor de un rango de fechas elegido (hoy/semana/mes/rango manual) —
+  // no tiene sentido "cargar más" ahí, lo correcto es pedirle al backend
+  // solo los eventos de ESE rango (usando el filtro genérico _gte/_lte que
+  // ya soporta resourceRouter.ts) en vez de traer hasta 1000 eventos enteros
+  // y filtrar en el cliente. `fromIso`/`toIso` ya vienen con el offset de
+  // Costa Rica resuelto por el caller (AgendaPage.tsx).
+  listEventsInRange: (fromIso: string, toIso: string) =>
+    request<Event[]>(
+      `/events?starts_at_gte=${encodeURIComponent(fromIso)}&starts_at_lte=${encodeURIComponent(toIso)}&limit=1000`,
+    ),
   updateEvent: (id: string, input: { title: string; description?: string; starts_at: string }) =>
     request<Event>(`/events/${id}`, { method: "PATCH", body: JSON.stringify(input) }),
   deleteEvent: (id: string) => request<void>(`/events/${id}`, { method: "DELETE" }),

@@ -29,11 +29,31 @@ No implementado todavía — este documento es la lista de trabajo, no un change
      llegado al tope pero iban en la misma trayectoria. Fix aplicado como parche de capacidad (no la
      solución de fondo): `MAX_LIMIT` de `resourceRouter.ts` subido de 200 a 1000, y los `?limit=200`
      de `api.ts` (`listTasks`, `listEvents`, `listReminders`) subidos a 1000 — a ~4-5 tareas/día de
-     crecimiento actual, da varios meses de margen. La solución de fondo (que Agenda/Tareas/Proyectos
-     pidan datos acotados por fecha/estado en vez de "todo hasta el tope", como ya hace Hoy con
-     `listPendingTasks`) queda pendiente — no se tocó esta vez porque implica tocar varias pantallas
-     con lógica de rango de fechas ya existente (`AgendaPage.tsx` ya calcula `rangeFrom`/`rangeTo`
-     pero no los manda a la API).
+     crecimiento actual, da varios meses de margen.
+  4. **Solución de fondo (mismo día, pedida explícitamente: "crea una paginación de 20 y el botón de
+     cargar más")**: implementada — ya no depende de subir el tope cada vez que se llena.
+     - **Backend** (`resourceRouter.ts`): soporte nuevo de `?offset=` (con `.range()` en vez de
+       `.limit()`) para pedir páginas siguientes, y `?campo=null` → `IS NULL` (para "Sin categoría",
+       que no se puede filtrar con `.eq()`).
+     - **`Tareas` → categoría** (`CategoryTasksView`): ya no recibe todas las tareas de la app por
+       prop — pagina 20 en 20 filtrando por `list_id` + `status` (pendientes/hechas, el mismo toggle
+       que ya existía en la UI) directo en el servidor, con botón "Cargar más". Las tarjetas de
+       categoría (conteo total/pendientes) siguen necesitando el status de TODAS las tareas, pero
+       usan `listTaskSummaries()` — mismo endpoint con `?fields=id,list_id,project_id,status`, así
+       que el peso real es mínimo aunque sean cientos de filas (no son las tareas completas con
+       notas/due_date/etc., que es lo que sí se pagina).
+     - **`Proyectos` → detalle de proyecto**: mismo patrón — tareas sin evento vinculado paginadas por
+       `project_id`, tarjetas/progreso vía `listTaskSummaries()`.
+     - **`Agenda`**: no se le puso "cargar más" — ya está armada alrededor de un rango de fechas
+       elegido (hoy/semana/próxima semana/mes/rango manual), así que la solución que corresponde es
+       pedirle al servidor solo los eventos de ESE rango (`listEventsInRange`, usando el filtro
+       `starts_at_gte`/`starts_at_lte` que ya soportaba el backend) en vez de traer hasta 1000 eventos
+       enteros y filtrar en el cliente — mismo objetivo (nada de carga masiva al entrar), pero
+       encajando con cómo ya funciona esa pantalla en vez de forzar paginación por cantidad de ítems.
+     - Nuevo hook compartido `usePaginatedList.ts` (sobre `useInfiniteQuery`) y componente
+       `LoadMoreButton.tsx`, reusados entre Tareas y Proyectos.
+     - `MAX_LIMIT=1000` del punto anterior queda como red de seguridad general (Resumen,
+       exportaciones, etc.), no como la vía principal de estas tres pantallas.
   2. **Click sin efecto**: los `<li>` de "Eventos de hoy" y "Rutinas de hoy" nunca tuvieron `onClick`
      (a diferencia de "Tareas que vencen hoy"/"Tareas atrasadas", que sí abren `TaskDetail`) — no era
      un bug nuevo, nunca se implementó. Agregado: abre `TaskDetail` de la tarea vinculada al hacer click

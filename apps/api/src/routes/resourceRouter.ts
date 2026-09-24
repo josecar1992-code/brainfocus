@@ -77,11 +77,19 @@ export function createResourceRouter(config: ResourceConfig): Router {
   // a llenarse en unos meses.
   const MAX_LIMIT = 1000;
   const DEFAULT_LIMIT = 50;
-  const RESERVED_QUERY_PARAMS = new Set(["limit", "fields", "q"]);
+  const RESERVED_QUERY_PARAMS = new Set(["limit", "offset", "fields", "q"]);
 
   router.get("/", requireScope(`${resourceName}:read`), async (req, res, next) => {
     try {
       const limit = parseLimit(req.query.limit, { max: MAX_LIMIT, defaultValue: DEFAULT_LIMIT });
+      // ?offset= para "cargar más" paginado (24-sep-2026, ver PENDIENTES.md):
+      // antes solo existía `limit`, así que una vista con "cargar más" no
+      // tenía forma de pedir la página siguiente sin volver a traer todo
+      // desde el principio. `.range()` en vez de `.limit()` cuando hay
+      // offset > 0 — Supabase/PostgREST arma el rango como [offset, offset+
+      // limit-1] (inclusive en ambos extremos).
+      const rawOffset = Number(req.query.offset);
+      const offset = Number.isFinite(rawOffset) && rawOffset > 0 ? Math.floor(rawOffset) : 0;
 
       // Solo lista de columnas simples separadas por coma (ej. "id,title"). Sin
       // esto, supabase-js interpreta acá sintaxis de embeds/joins
@@ -105,6 +113,11 @@ export function createResourceRouter(config: ResourceConfig): Router {
           query = query.gte(key.slice(0, -"_gte".length), value);
         } else if (key.endsWith("_lte")) {
           query = query.lte(key.slice(0, -"_lte".length), value);
+        } else if (value === "null") {
+          // ?list_id=null → IS NULL (ej. "Sin categoría" en Tareas). .eq()
+          // no sirve para esto (compara contra el string literal "null", no
+          // contra NULL de la base).
+          query = query.is(key, null);
         } else {
           query = query.eq(key, value);
         }
@@ -115,9 +128,10 @@ export function createResourceRouter(config: ResourceConfig): Router {
         query = query.or(config.searchFields.map((f) => `${f}.ilike.%${q}%`).join(","));
       }
 
-      const { data, error } = await query
+      query = query
         .order(orderBy.column, { ascending: orderBy.ascending ?? false })
-        .limit(limit);
+        .range(offset, offset + limit - 1);
+      const { data, error } = await query;
       if (error) throw error;
       res.json(data);
     } catch (err) {

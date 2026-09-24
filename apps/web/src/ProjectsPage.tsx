@@ -4,11 +4,13 @@ import { api, type Document, type Event, type Note, type Project, type Task } fr
 import { ConfirmDialog } from "./ConfirmDialog";
 import { EventDetail, NewEventForm } from "./AgendaPage";
 import { IconArrowLeft, IconCalendar, IconCheckSquare, IconDownload, IconFile, IconNote, IconPlus, IconX } from "./icons";
+import { LoadMoreButton } from "./LoadMoreButton";
 import { NoteDetail } from "./NoteDetail";
 import { NewTaskModal, TaskDetail } from "./TasksPage";
 import { PriorityBadge } from "./PriorityBadge";
 import { QuickBadge } from "./QuickBadge";
 import { useCompleteTask } from "./useCompleteTask";
+import { usePaginatedList } from "./usePaginatedList";
 
 function formatDateTime(iso: string) {
   return new Date(iso).toLocaleDateString("es-CR", {
@@ -59,7 +61,19 @@ function ProjectDetail({ project, onBack }: { project: Project; onBack: () => vo
   const queryClient = useQueryClient();
   const { data: lists } = useQuery({ queryKey: ["lists"], queryFn: api.listLists });
   const { data: projects } = useQuery({ queryKey: ["projects"], queryFn: api.listProjects });
-  const { data: tasks } = useQuery({ queryKey: ["tasks"], queryFn: api.listTasks });
+  // listTaskSummaries (todas las tareas de la app, campos mínimos) solo para
+  // el % de progreso — necesita el status de TODAS las tareas del proyecto,
+  // no solo la página cargada. La lista de tareas en sí va acotada a este
+  // proyecto (project_id) y paginada, ver pagedProjectTasks más abajo.
+  const { data: taskSummaries } = useQuery({ queryKey: ["tasks", "summary"], queryFn: api.listTaskSummaries });
+  // Tareas de este proyecto CON evento vinculado: hace falta el objeto
+  // completo (status, prioridad) para el checkbox de "Eventos" de abajo.
+  // Acotado a project_id (normalmente pocas), no toda la app — no necesita
+  // paginación aparte, ya es chico por estar filtrado a un solo proyecto.
+  const { data: projectLinkedTasks } = useQuery({
+    queryKey: ["tasks", "project-linked", project.id],
+    queryFn: () => api.listTasksPaged({ offset: 0, limit: 1000, project_id: project.id }),
+  });
   const { data: events } = useQuery({ queryKey: ["events"], queryFn: api.listEvents });
   const { data: notes } = useQuery({ queryKey: ["notes"], queryFn: api.listNotes });
   const { data: documents } = useQuery({ queryKey: ["documents"], queryFn: () => api.listDocuments() });
@@ -88,16 +102,27 @@ function ProjectDetail({ project, onBack }: { project: Project; onBack: () => vo
     .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime());
   const eventTaskIds = new Set(projectEvents.map((e) => e.task_id).filter(Boolean));
 
-  // Toda tarea con evento ya se ve en la lista de eventos (con su checkbox) —
-  // mostrarla también acá sería la misma duplicación que se corrigió en Hoy.
-  const projectTasks = (tasks ?? [])
-    .filter((t) => t.project_id === project.id && !eventTaskIds.has(t.id))
+  // Tareas de este proyecto SIN evento vinculado — la lista que de verdad se
+  // puede scrollear con el tiempo, paginada 20 en 20 (pedido 24-sep-2026).
+  // Toda tarea CON evento ya se ve en la lista de eventos de arriba (con su
+  // checkbox) — mostrarla también acá sería la misma duplicación que se
+  // corrigió en Hoy.
+  const {
+    items: pagedProjectTasks,
+    hasMore: hasMoreProjectTasks,
+    loadMore: loadMoreProjectTasks,
+    isLoadingMore: isLoadingMoreProjectTasks,
+  } = usePaginatedList<Task>(["tasks", "paged", "project", project.id], (offset) =>
+    api.listTasksPaged({ offset, project_id: project.id }),
+  );
+  const projectTasks = pagedProjectTasks
+    .filter((t) => !eventTaskIds.has(t.id))
     .sort((a, b) => (a.status === "done" ? 1 : 0) - (b.status === "done" ? 1 : 0));
 
   const projectNotes = (notes ?? []).filter((n) => n.project_id === project.id);
   const projectDocuments = (documents ?? []).filter((d) => d.project_id === project.id);
-  const tasksById = new Map((tasks ?? []).map((t) => [t.id, t]));
-  const progress = projectProgress((tasks ?? []).filter((t) => t.project_id === project.id).map((t) => t.status));
+  const tasksById = new Map((projectLinkedTasks ?? []).map((t) => [t.id, t]));
+  const progress = projectProgress((taskSummaries ?? []).filter((t) => t.project_id === project.id).map((t) => t.status));
 
   async function handleOpenDocument(doc: Document) {
     const { url } = await api.getDocumentDownloadUrl(doc.id);
@@ -252,6 +277,9 @@ function ProjectDetail({ project, onBack }: { project: Project; onBack: () => vo
             ))}
           </ul>
         )}
+        {hasMoreProjectTasks && (
+          <LoadMoreButton onClick={() => loadMoreProjectTasks()} loading={isLoadingMoreProjectTasks} />
+        )}
       </div>
 
       {projectNotes.length > 0 && (
@@ -377,7 +405,10 @@ export function ProjectsPage() {
   const [openProject, setOpenProject] = useState<Project | null>(null);
 
   const { data: projects, isLoading } = useQuery({ queryKey: ["projects"], queryFn: api.listProjects });
-  const { data: tasks } = useQuery({ queryKey: ["tasks"], queryFn: api.listTasks });
+  // listTaskSummaries (no listTasks): acá solo hace falta el status de cada
+  // tarea para calcular el % de progreso de cada proyecto, no el objeto
+  // completo — ver el mismo comentario en TasksPage.tsx.
+  const { data: taskSummaries } = useQuery({ queryKey: ["tasks", "summary"], queryFn: api.listTaskSummaries });
 
   const createProject = useMutation({
     mutationFn: api.createProject,
@@ -489,7 +520,7 @@ export function ProjectsPage() {
         {visibleProjects.length > 0 && (
           <ul>
             {visibleProjects.map((project) => {
-              const linkedStatuses = (tasks ?? []).filter((t) => t.project_id === project.id).map((t) => t.status);
+              const linkedStatuses = (taskSummaries ?? []).filter((t) => t.project_id === project.id).map((t) => t.status);
               const progress = projectProgress(linkedStatuses);
               return (
                 <li
