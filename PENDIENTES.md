@@ -5,6 +5,24 @@ No implementado todavía — este documento es la lista de trabajo, no un change
 
 ## 1. Bugs / correcciones
 
+- ~~**[MEDIO] En Hoy, los eventos de rutina (ej. "Rutina Gimnasio", "Hacerme la barba") a veces se
+  veían sin checkbox de marcar hecho, y hacerles click no abría nada.**~~ ✅ Resuelto (24-sep-2026,
+  reportado por el usuario). Dos causas en `TodayPage.tsx`:
+  1. **Checkbox ausente**: `api.listTasks()` (`/tasks?limit=200`) trae TODAS las tareas (hechas y
+     pendientes) ordenadas ascendente por `due_date`, tope 200. Con 7 semanas de rutinas generando
+     tareas cada pocos días, ya hay más de 200 tareas totales — las ~200 más viejas (casi todas ya
+     "done") llenaban el cupo completo y las tareas de hoy quedaban afuera del `tasksById` armado en
+     el cliente, así que el evento de hoy no encontraba su tarea vinculada y no mostraba checkbox.
+     Fix: nuevo `api.listPendingTasks()` (`/tasks?limit=200&status=pending`, usando el filtro genérico
+     `?campo=valor` que ya soporta `resourceRouter.ts`) — con las tareas "done" fuera, el conteo real
+     baja muy por debajo de 200 (33 al momento del fix). Usado solo en `TodayPage.tsx` (Agenda/Tareas
+     siguen con `listTasks()` normal porque sí necesitan ver las hechas). Nota: `Agenda` tiene el mismo
+     riesgo de fondo con `listEvents()`/`listTasks()` sin filtrar — no tocado ahora, no reportado
+     todavía, pero puede repetirse.
+  2. **Click sin efecto**: los `<li>` de "Eventos de hoy" y "Rutinas de hoy" nunca tuvieron `onClick`
+     (a diferencia de "Tareas que vencen hoy"/"Tareas atrasadas", que sí abren `TaskDetail`) — no era
+     un bug nuevo, nunca se implementó. Agregado: abre `TaskDetail` de la tarea vinculada al hacer click
+     en la fila (con `stopPropagation` en el checkbox para no disparar los dos a la vez).
 - ~~**[ALTO] Las rutinas semanales (ej. "Rutina Gimnasio", martes/jueves) podían saltarse una
   ocurrencia real — el jueves 10-sep-2026 no se generó.**~~ ✅ Resuelto (10-sep-2026, reportado por el
   usuario: "por qué no se generó la rutina de ejercicio de los jueves"). Causa raíz: `advanceRoutine()`

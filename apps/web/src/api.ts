@@ -332,6 +332,19 @@ export const api = {
   // — con más de 50 tareas históricas (rutinas generan una por ocurrencia)
   // Agenda/Tareas dejaban de mostrar las pendientes reales.
   listTasks: () => request<Task[]>("/tasks?limit=200"),
+  // Para Hoy: listTasks() (arriba) trae TODAS las tareas (hechas y
+  // pendientes) hasta el límite de 200, ordenadas ascendente por due_date —
+  // con >200 tareas totales (24-sep-2026: rutinas semanales llevan 7
+  // semanas generando una tarea tras otra, casi todas ya marcadas "done"),
+  // las 200 más viejas llenaban el cupo entero y las de hoy/futuras quedaban
+  // afuera. En Hoy eso se vio como: el checkbox de un evento de rutina de
+  // hoy no aparecía (su tarea vinculada no estaba en el mapa por id) y, para
+  // las tareas normales, ni siquiera se mostraban en "Tareas que vencen
+  // hoy". Filtrar por status=pending server-side (soportado ya por el
+  // filtro genérico ?campo=valor del backend) baja el conteo real muy por
+  // debajo del límite, sin tener que subir el límite (que solo pospondría
+  // el mismo problema).
+  listPendingTasks: () => request<Task[]>("/tasks?limit=200&status=pending"),
   // Para el módulo Resumen: tareas marcadas como hechas dentro de un rango de
   // instantes — `desdeIso`/`hastaIso` ya vienen calculados por el caller con
   // el offset explícito de Costa Rica (ver ResumenPage.tsx), acá solo se

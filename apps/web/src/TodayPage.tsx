@@ -89,7 +89,13 @@ function SectionHeader({
 }
 
 export function TodayPage() {
-  const { data: tasks, isLoading: loadingTasks } = useQuery({ queryKey: ["tasks"], queryFn: api.listTasks });
+  // listPendingTasks (no listTasks): ver el comentario en api.ts — con
+  // suficientes tareas históricas "done" (rutinas semanales acumulando),
+  // listTasks() (sin filtro de estado) se llenaba con las 200 más viejas y
+  // las de hoy quedaban afuera del mapa, dejando eventos/rutinas de hoy sin
+  // checkbox. Hoy solo necesita pendientes, así que no hace falta traer las
+  // hechas.
+  const { data: tasks, isLoading: loadingTasks } = useQuery({ queryKey: ["tasks", "pending"], queryFn: api.listPendingTasks });
   const { data: events, isLoading: loadingEvents } = useQuery({ queryKey: ["events"], queryFn: api.listEvents });
   const { data: routines, isLoading: loadingRoutines } = useQuery({
     queryKey: ["routines"],
@@ -190,13 +196,20 @@ export function TodayPage() {
               return (
                 <li
                   key={event.id}
-                  className="px-5 py-3 border-t border-white/8 first:border-t-0 flex items-center gap-3"
+                  className={`px-5 py-3 border-t border-white/8 first:border-t-0 flex items-center gap-3 ${
+                    linkedTask ? "cursor-pointer hover:bg-white/5 transition-colors" : ""
+                  }`}
+                  onClick={() => linkedTask && setOpenTask(linkedTask)}
                 >
                   {linkedTask && (
                     <input
                       type="checkbox"
                       checked={linkedTask.status === "done"}
-                      onChange={() => completeTask.request(linkedTask)}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        completeTask.request(linkedTask);
+                      }}
+                      onClick={(e) => e.stopPropagation()}
                       className="accent-electric-cyan w-4 h-4 flex-shrink-0"
                     />
                   )}
@@ -321,13 +334,20 @@ export function TodayPage() {
               return (
                 <li
                   key={routine.id}
-                  className="px-5 py-3 border-t border-white/8 first:border-t-0 flex items-center gap-3"
+                  className={`px-5 py-3 border-t border-white/8 first:border-t-0 flex items-center gap-3 ${
+                    linkedTask ? "cursor-pointer hover:bg-white/5 transition-colors" : ""
+                  }`}
+                  onClick={() => linkedTask && setOpenTask(linkedTask)}
                 >
                   {linkedTask && (
                     <input
                       type="checkbox"
                       checked={linkedTask.status === "done"}
-                      onChange={() => completeTask.request(linkedTask)}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        completeTask.request(linkedTask);
+                      }}
+                      onClick={(e) => e.stopPropagation()}
                       className="accent-electric-cyan w-4 h-4 flex-shrink-0"
                     />
                   )}
