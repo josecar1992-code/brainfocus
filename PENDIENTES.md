@@ -130,11 +130,9 @@ No implementado todavía — este documento es la lista de trabajo, no un change
   Telegram. Nueva columna `reminders.backup_cron_job_id` (migración manual pendiente, ver abajo) para
   poder cancelar/reprogramar el respaldo igual que el principal — wireado en los mismos puntos:
   `reminders.ts` (`afterCreate`/`afterUpdate`/`beforeDelete`) y `reminderCascade.ts`
-  (`cancelPendingRemindersFor`/`rescheduleRemindersForEvent`). **Migración pendiente de correr a mano en
-  el SQL Editor de Supabase:**
-  ```sql
-  alter table public.reminders add column if not exists backup_cron_job_id text;
-  ```
+  (`cancelPendingRemindersFor`/`rescheduleRemindersForEvent`). Migración corrida a mano en el SQL Editor de
+  Supabase (`alter table public.reminders add column if not exists backup_cron_job_id text;`) — verificado
+  24-sep-2026 que la columna existe en producción.
 
 - ~~**[ALTO] `borrar_recordatorio` (y cualquier tool de borrado con DELETE→204) le devolvía a Quicks un
   "error técnico" aunque el borrado ya hubiera salido bien en la API.**~~ ✅ Resuelto (20-ago-2026,
@@ -378,7 +376,9 @@ No implementado todavía — este documento es la lista de trabajo, no un change
   cliente queda como mejora futura (ver ítem de paginación abajo).
 - **[BAJO]** ~~`documents.ts` no valida tipo de archivo, solo tamaño (25MB).~~ ✅ Resuelto — whitelist de
   mimetypes (PDF + imágenes comunes) vía `fileFilter` de multer, responde 400 si no matchea.
-- **[BAJO]** Sin paginación real (cursor) en ningún endpoint — límite fijo de 200. _(pendiente)_
+- ~~**[BAJO]** Sin paginación real (cursor) en ningún endpoint — límite fijo de 200.~~ ✅ Resuelto
+  (24-sep-2026) — ver ítem de paginación real (20 + "Cargar más") en Tareas/Proyectos arriba, y
+  `resourceRouter.ts` que ahora soporta `?offset=`.
 - ~~**[BAJO] `AHORA_CR` en `apps/mcp/src/index.ts` se calcula una sola vez al cargar el módulo.**~~
   Descartado tras investigar — no es un bug: `docker-compose.yml` confirma que OpenClaw invoca el MCP con
   `docker compose run --rm` por cada tool call, un proceso nuevo cada vez, así que calcularlo una vez al
