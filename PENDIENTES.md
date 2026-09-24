@@ -19,6 +19,21 @@ No implementado todavía — este documento es la lista de trabajo, no un change
      siguen con `listTasks()` normal porque sí necesitan ver las hechas). Nota: `Agenda` tiene el mismo
      riesgo de fondo con `listEvents()`/`listTasks()` sin filtrar — no tocado ahora, no reportado
      todavía, pero puede repetirse.
+  3. **Seguimiento del mismo día (24-sep-2026, el usuario pidió revisar otras pantallas)**: el mismo
+     patrón (`listTasks()`/`listEvents()`/`listReminders()` sin filtro de fecha/estado, tope fijo,
+     orden ascendente) se usa también en `AgendaPage.tsx`, `TasksPage.tsx` (lista principal) y
+     `ProjectsPage.tsx`. Confirmado con una consulta `count` directa a Supabase: 233 tareas reales
+     (191 "done" + solo 33 "pending") contra un tope de 200 — la vista principal de Tareas estaba
+     contando y mostrando solo 9 pendientes de las 33 reales, y las categorías con tareas recientes
+     quedaban con datos viejos/incompletos. Eventos (115) y recordatorios (58) todavía no habían
+     llegado al tope pero iban en la misma trayectoria. Fix aplicado como parche de capacidad (no la
+     solución de fondo): `MAX_LIMIT` de `resourceRouter.ts` subido de 200 a 1000, y los `?limit=200`
+     de `api.ts` (`listTasks`, `listEvents`, `listReminders`) subidos a 1000 — a ~4-5 tareas/día de
+     crecimiento actual, da varios meses de margen. La solución de fondo (que Agenda/Tareas/Proyectos
+     pidan datos acotados por fecha/estado en vez de "todo hasta el tope", como ya hace Hoy con
+     `listPendingTasks`) queda pendiente — no se tocó esta vez porque implica tocar varias pantallas
+     con lógica de rango de fechas ya existente (`AgendaPage.tsx` ya calcula `rangeFrom`/`rangeTo`
+     pero no los manda a la API).
   2. **Click sin efecto**: los `<li>` de "Eventos de hoy" y "Rutinas de hoy" nunca tuvieron `onClick`
      (a diferencia de "Tareas que vencen hoy"/"Tareas atrasadas", que sí abren `TaskDetail`) — no era
      un bug nuevo, nunca se implementó. Agregado: abre `TaskDetail` de la tarea vinculada al hacer click

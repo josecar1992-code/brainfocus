@@ -67,7 +67,15 @@ export function createResourceRouter(config: ResourceConfig): Router {
   const { table, resourceName, createSchema, updateSchema, hooks, trackCreatedBy } = config;
   const orderBy = config.orderBy ?? { column: "created_at", ascending: false };
 
-  const MAX_LIMIT = 200;
+  // Subido de 200 a 1000 (24-sep-2026): con 233 tareas totales acumuladas
+  // (rutinas semanales llevan 7 semanas generando tareas) el tope de 200 ya
+  // se estaba llenando con las más viejas (orden ascendente), dejando afuera
+  // las tareas de hoy — ver PENDIENTES.md. Esto es un parche de capacidad,
+  // no la solución real (Agenda/Tareas/Proyectos siguen trayendo "todo hasta
+  // el tope" en vez de acotar por fecha/estado como sí hace ya Hoy con
+  // listPendingTasks()); a este ritmo de crecimiento (~4-5 tareas/día) volverá
+  // a llenarse en unos meses.
+  const MAX_LIMIT = 1000;
   const DEFAULT_LIMIT = 50;
   const RESERVED_QUERY_PARAMS = new Set(["limit", "fields", "q"]);
 

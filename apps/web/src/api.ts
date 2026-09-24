@@ -327,24 +327,23 @@ async function createEventReminders(input: {
 
 export const api = {
   checkAccess: () => request<Task[]>("/tasks?limit=1"),
-  // limit=200 (el máximo del backend): sin esto, el default de 50 + orden
-  // ascendente por due_date traía las 50 tareas más viejas, no las próximas
-  // — con más de 50 tareas históricas (rutinas generan una por ocurrencia)
-  // Agenda/Tareas dejaban de mostrar las pendientes reales.
-  listTasks: () => request<Task[]>("/tasks?limit=200"),
+  // limit=1000: sin esto, el default de 50 + orden ascendente por due_date
+  // traía las 50 tareas más viejas, no las próximas — con más de 50 tareas
+  // históricas (rutinas generan una por ocurrencia) Agenda/Tareas/Proyectos
+  // dejaban de mostrar las pendientes/recientes reales. Subido de 200 a 1000
+  // el 24-sep-2026 (junto con MAX_LIMIT en resourceRouter.ts) porque el tope
+  // de 200 ya se había llenado con tareas viejas — ver ese archivo para el
+  // detalle. Sigue siendo un parche de capacidad, no la solución real: estas
+  // páginas piden "todo hasta el tope" en vez de acotar por fecha/estado
+  // como sí hace Hoy (listPendingTasks, abajo) — volverá a pasar cuando se
+  // acumulen ~1000 tareas.
+  listTasks: () => request<Task[]>("/tasks?limit=1000"),
   // Para Hoy: listTasks() (arriba) trae TODAS las tareas (hechas y
-  // pendientes) hasta el límite de 200, ordenadas ascendente por due_date —
-  // con >200 tareas totales (24-sep-2026: rutinas semanales llevan 7
-  // semanas generando una tarea tras otra, casi todas ya marcadas "done"),
-  // las 200 más viejas llenaban el cupo entero y las de hoy/futuras quedaban
-  // afuera. En Hoy eso se vio como: el checkbox de un evento de rutina de
-  // hoy no aparecía (su tarea vinculada no estaba en el mapa por id) y, para
-  // las tareas normales, ni siquiera se mostraban en "Tareas que vencen
-  // hoy". Filtrar por status=pending server-side (soportado ya por el
-  // filtro genérico ?campo=valor del backend) baja el conteo real muy por
-  // debajo del límite, sin tener que subir el límite (que solo pospondría
-  // el mismo problema).
-  listPendingTasks: () => request<Task[]>("/tasks?limit=200&status=pending"),
+  // pendientes), y aunque el límite ya no se llena hoy mismo, sigue creciendo
+  // sin tope real — filtrar por status=pending server-side (soportado por el
+  // filtro genérico ?campo=valor del backend) evita depender del límite en
+  // primer lugar para esta vista.
+  listPendingTasks: () => request<Task[]>("/tasks?limit=1000&status=pending"),
   // Para el módulo Resumen: tareas marcadas como hechas dentro de un rango de
   // instantes — `desdeIso`/`hastaIso` ya vienen calculados por el caller con
   // el offset explícito de Costa Rica (ver ResumenPage.tsx), acá solo se
@@ -443,16 +442,16 @@ export const api = {
     return task;
   },
 
-  // Mismo motivo que listTasks: limit=200 en vez del default de 50, que con
+  // Mismo motivo que listTasks: limit=1000 en vez del default de 50, que con
   // orden ascendente por starts_at traía los eventos más viejos en vez de los
   // próximos.
-  listEvents: () => request<Event[]>("/events?limit=200"),
+  listEvents: () => request<Event[]>("/events?limit=1000"),
   updateEvent: (id: string, input: { title: string; description?: string; starts_at: string }) =>
     request<Event>(`/events/${id}`, { method: "PATCH", body: JSON.stringify(input) }),
   deleteEvent: (id: string) => request<void>(`/events/${id}`, { method: "DELETE" }),
 
-  // Mismo motivo que listTasks/listEvents: limit=200 en vez del default de 50.
-  listReminders: () => request<Reminder[]>("/reminders?limit=200"),
+  // Mismo motivo que listTasks/listEvents: limit=1000 en vez del default de 50.
+  listReminders: () => request<Reminder[]>("/reminders?limit=1000"),
 
   listNotes: () => request<Note[]>("/notes"),
   createNote: (input: { title?: string; content: string; project_id?: string }) =>
