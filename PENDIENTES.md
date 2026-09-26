@@ -50,6 +50,20 @@ No implementado todavía — este documento es la lista de trabajo, no un change
        `starts_at_gte`/`starts_at_lte` que ya soportaba el backend) en vez de traer hasta 1000 eventos
        enteros y filtrar en el cliente — mismo objetivo (nada de carga masiva al entrar), pero
        encajando con cómo ya funciona esa pantalla en vez de forzar paginación por cantidad de ítems.
+  5. **Efecto secundario del fix del punto 1 (25-sep-2026, reportado por el usuario: "cuando se marca
+     una tarea hecha de hoy, queda como inerte sin poder hacer nada más")**: al cambiar `Hoy` a
+     `listPendingTasks()` (solo `status=pending`), la tarea vinculada a un evento/rutina de hoy
+     desaparece de ese fetch EN CUANTO se marca como hecha — y como `tasksById` se armaba directo de
+     `tasks ?? []`, el `linkedTask` de esa fila pasaba a `undefined` de inmediato. El checkbox
+     (`{linkedTask && (<input .../>)}`) y el `onClick` (`linkedTask && setOpenTask(linkedTask)`) están
+     condicionados a que exista `linkedTask`, así que la fila se quedaba sin checkbox, sin tachado y
+     sin poder hacer click — parecía "trabada" para siempre (nunca vuelve a aparecer en
+     `listPendingTasks`, así que nunca se recupera sola). Fix en `TodayPage.tsx`: `tasksById` ahora es
+     un mapa "pegajoso" (`useRef`) que acumula toda tarea vista en vez de reconstruirse solo con el
+     fetch de pendientes, y se actualiza al toque con la tarea recién marcada (nuevo parámetro
+     `onToggled` en `useCompleteTask.ts`, alimentado con la respuesta del `PATCH /tasks/:id`) sin
+     esperar al refetch — así la fila sigue teniendo su `linkedTask` (ahora en estado "done") y se ve
+     tachada normal en vez de desaparecer.
      - Nuevo hook compartido `usePaginatedList.ts` (sobre `useInfiniteQuery`) y componente
        `LoadMoreButton.tsx`, reusados entre Tareas y Proyectos.
      - `MAX_LIMIT=1000` del punto anterior queda como red de seguridad general (Resumen,

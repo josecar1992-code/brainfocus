@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { api, type List, type Routine, type Subtask, type Task } from "./api";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { IconAlertTriangle, IconCalendar, IconCheckSquare, IconRepeat } from "./icons";
@@ -104,8 +104,20 @@ export function TodayPage() {
   const { data: lists } = useQuery({ queryKey: ["lists"], queryFn: api.listLists });
   const { data: projects } = useQuery({ queryKey: ["projects"], queryFn: api.listProjects });
   const { data: subtasks } = useQuery({ queryKey: ["subtasks"], queryFn: () => api.listSubtasks() });
-  const completeTask = useCompleteTask();
   const [openTask, setOpenTask] = useState<Task | null>(null);
+
+  // `tasks` viene de listPendingTasks (solo status=pending, ver comentario
+  // arriba). Al marcar una tarea hecha, desaparece de ese fetch de inmediato
+  // — si esa tarea era la vinculada a un evento/rutina de hoy, `tasksById`
+  // dejaba de tenerla y el checkbox/click de esa fila se dejaban de renderizar
+  // (`linkedTask &&`), quedando la fila "inerte" para siempre (reportado por
+  // el usuario 25-sep-2026). Fix: un mapa "pegajoso" que acumula toda tarea
+  // vista, sin borrar las que salen del fetch de pendientes, y que se
+  // actualiza de inmediato con la tarea recién marcada (vía onToggled) sin
+  // esperar al refetch.
+  const stickyTasksById = useRef(new Map<string, Task>());
+  for (const t of tasks ?? []) stickyTasksById.current.set(t.id, t);
+  const completeTask = useCompleteTask((updated) => stickyTasksById.current.set(updated.id, updated));
 
   const listsById = new Map((lists ?? []).map((l) => [l.id, l]));
   const projectsById = new Map((projects ?? []).map((p) => [p.id, p]));
@@ -156,7 +168,7 @@ export function TodayPage() {
     .filter((t) => !t.due_date && t.status !== "done" && !eventTaskIds.has(t.id))
     .sort((a, b) => a.title.localeCompare(b.title));
 
-  const tasksById = new Map((tasks ?? []).map((t) => [t.id, t]));
+  const tasksById = stickyTasksById.current;
   const isLoading = loadingTasks || loadingEvents || loadingRoutines;
   const nothingToday =
     eventsToday.length === 0 &&

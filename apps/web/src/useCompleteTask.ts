@@ -7,19 +7,20 @@ import { api, type Task } from "./api";
 // que marcarla en cualquier módulo la refleja en los otros tres (el backend
 // ya cancela recordatorios y avanza la rutina si aplica). Pide confirmación
 // solo al marcar como hecha (no al desmarcar) para evitar clicks accidentales.
-export function useCompleteTask() {
+export function useCompleteTask(onToggled?: (updated: Task) => void) {
   const queryClient = useQueryClient();
   const [pending, setPending] = useState<Task | null>(null);
 
   const mutation = useMutation({
     mutationFn: api.toggleTask,
-    onSuccess: () => {
+    onSuccess: (updated) => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
       queryClient.invalidateQueries({ queryKey: ["events"] });
       queryClient.invalidateQueries({ queryKey: ["reminders"] });
       queryClient.invalidateQueries({ queryKey: ["routines"] });
       queryClient.invalidateQueries({ queryKey: ["routine-completions"] });
       setPending(null);
+      onToggled?.(updated);
     },
   });
 
