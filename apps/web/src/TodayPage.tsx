@@ -1,3 +1,4 @@
+import { CR_OFFSET } from "@brainfocus/shared-time";
 import { useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { api, type List, type Routine, type Subtask, type Task } from "./api";
@@ -115,7 +116,17 @@ export function TodayPage() {
   // vista, sin borrar las que salen del fetch de pendientes, y que se
   // actualiza de inmediato con la tarea recién marcada (vía onToggled) sin
   // esperar al refetch.
+  // Además, tras refrescar la página el mapa pegajoso arranca vacío: las
+  // tareas de hoy YA hechas (ej. "Darle a Quicks los Kilometrajes") no vienen
+  // en `tasks`, así que su evento quedaba sin checkbox ni click (reportado
+  // 07-oct-2026 con captura). `tasksDueToday` las trae sin filtrar estado.
+  const todayCR0 = new Date().toLocaleDateString("en-CA", { timeZone: "America/Costa_Rica" });
+  const { data: tasksDueToday } = useQuery({
+    queryKey: ["tasks", "due-today", todayCR0],
+    queryFn: () => api.listTasksDueBetween(`${todayCR0}T00:00:00${CR_OFFSET}`, `${todayCR0}T23:59:59${CR_OFFSET}`),
+  });
   const stickyTasksById = useRef(new Map<string, Task>());
+  for (const t of tasksDueToday ?? []) stickyTasksById.current.set(t.id, t);
   for (const t of tasks ?? []) stickyTasksById.current.set(t.id, t);
   const completeTask = useCompleteTask((updated) => stickyTasksById.current.set(updated.id, updated));
 

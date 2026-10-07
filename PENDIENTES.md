@@ -64,6 +64,13 @@ No implementado todavía — este documento es la lista de trabajo, no un change
      `onToggled` en `useCompleteTask.ts`, alimentado con la respuesta del `PATCH /tasks/:id`) sin
      esperar al refetch — así la fila sigue teniendo su `linkedTask` (ahora en estado "done") y se ve
      tachada normal en vez de desaparecer.
+  6. **Seguimiento (07-oct-2026, el usuario mandó captura: "Darle a Quicks los Kilometrajes del mes"
+     sin checkbox tras refrescar, y había que marcar dos veces)**: el mapa pegajoso del punto 5 solo
+     cubría la sesión — al refrescar arranca vacío, y las tareas de hoy ya hechas no vienen en
+     `listPendingTasks`, así que su evento volvía a quedar inerte (sin poder desmarcar, y al
+     reintentar el usuario terminaba alternando el estado). Fix real: nueva query `tasksDueToday`
+     (`api.listTasksDueBetween`, `due_date_gte/_lte` del día CR con `CR_OFFSET`, cualquier estado) en
+     `TodayPage.tsx` que alimenta `tasksById` junto con las pendientes.
      - Nuevo hook compartido `usePaginatedList.ts` (sobre `useInfiniteQuery`) y componente
        `LoadMoreButton.tsx`, reusados entre Tareas y Proyectos.
      - `MAX_LIMIT=1000` del punto anterior queda como red de seguridad general (Resumen,

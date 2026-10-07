@@ -344,6 +344,13 @@ export const api = {
   // filtro genérico ?campo=valor del backend) evita depender del límite en
   // primer lugar para esta vista.
   listPendingTasks: () => request<Task[]>("/tasks?limit=1000&status=pending"),
+  // Tareas con due_date en un rango, de cualquier estado (hechas incluidas) —
+  // Hoy las necesita para que el evento/rutina de hoy cuya tarea ya está hecha
+  // siga mostrando su checkbox tras refrescar (listPendingTasks no las trae).
+  listTasksDueBetween: (fromIso: string, toIso: string) =>
+    request<Task[]>(
+      `/tasks?limit=1000&due_date_gte=${encodeURIComponent(fromIso)}&due_date_lte=${encodeURIComponent(toIso)}`,
+    ),
   // Para badges/contadores (tarjetas de categoría en Tareas, progreso de
   // proyecto) que necesitan status de TODAS las tareas (no solo pendientes)
   // pero no el objeto completo — ?fields= (ya soportado por el backend) trae
