@@ -355,6 +355,17 @@ No implementado todavía — este documento es la lista de trabajo, no un change
   del error de Supabase para poder diagnosticar si vuelve a pasar; `!data` sin error sigue siendo el 401
   real.
 
+- ~~**[ALTO] La web se quedaba en "Cargando..." eterno (navegador y teléfono).**~~ ✅ Resuelto
+  (19-oct-2026, reportado por el usuario). Los logs mostraban ráfagas de peticiones GET sin
+  respuesta; midiendo desde el VPS, `supabaseAdmin.auth.getUser(jwt)` tardaba 22 s, 21 s y hasta
+  74 s de forma intermitente (el `/auth/v1/health` respondía en 80 ms, y las consultas a tablas en
+  ~200 ms — solo ese endpoint de Auth). Causa raíz en `apps/api/src/middleware/auth.ts`:
+  `authenticate()` llamaba a `getUser()` en CADA petición con JWT, y la web dispara ~8 en
+  paralelo al cargar, así que todas quedaban colgadas esperando a Auth. Fix: `getClaims(jwt)`,
+  que verifica la firma localmente contra la clave pública (el proyecto usa ES256, JWKS
+  cacheado) sin viaje de red por petición. Trade-off aceptado: ya no se detecta una sesión
+  revocada antes de que expire el token (app de un solo usuario con lista de emails permitidos).
+
 ## 2. Mejoras a funciones existentes
 
 - ~~**En el detalle de un proyecto (`apps/web/src/ProjectsPage.tsx`), las notas del proyecto solo

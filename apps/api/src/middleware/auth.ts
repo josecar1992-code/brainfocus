@@ -18,15 +18,20 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
   try {
     if (authHeader?.startsWith("Bearer ")) {
       const jwt = authHeader.slice("Bearer ".length);
-      const { data, error } = await supabaseAdmin.auth.getUser(jwt);
-      if (error || !data.user) return res.status(401).json({ error: "Token inválido" });
+      // getClaims() verifica la firma localmente con la clave pública (JWKS,
+      // cacheada) — getUser() hacía un viaje a Supabase Auth en CADA petición
+      // y ese endpoint tardaba 22-74s de forma intermitente (medido
+      // 19-oct-2026), dejando la web en "Cargando..." eterno.
+      const { data, error } = await supabaseAdmin.auth.getClaims(jwt);
+      const userId = data?.claims?.sub;
+      if (error || !userId) return res.status(401).json({ error: "Token inválido" });
 
-      const email = data.user.email?.toLowerCase();
+      const email = typeof data.claims.email === "string" ? data.claims.email.toLowerCase() : undefined;
       if (env.allowedEmails.length > 0 && (!email || !env.allowedEmails.includes(email))) {
         return res.status(403).json({ error: "Esta cuenta no tiene acceso a Focusbrain" });
       }
 
-      req.auth = { type: "user", userId: data.user.id };
+      req.auth = { type: "user", userId };
       return next();
     }
 
