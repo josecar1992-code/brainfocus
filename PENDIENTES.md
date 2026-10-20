@@ -377,7 +377,9 @@ No implementado todavía — este documento es la lista de trabajo, no un change
   responde normal (prueba: 60 consultas, peor caso 4,4 s en vez de ~100 s, 0 errores). Las
   escrituras no se reintentan para no arriesgar duplicados. Causa de fondo (red VPS↔Supabase)
   sin identificar; si los logs `[supabase] ... reintento` se vuelven frecuentes, vale la pena
-  investigarla con el proveedor del VPS.
+  investigarla con el proveedor del VPS. Además, en `middleware/auth.ts` el update de
+  `last_used_at` de la API key (solo informativo) ya no se espera con `await`: en la prueba post-fix
+  una de 20 peticiones tardó 20 s por esa escritura colgada.
 
 ## 2. Mejoras a funciones existentes
 

@@ -59,7 +59,15 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
       }
       if (!data) return res.status(401).json({ error: "API key inválida" });
 
-      await supabaseAdmin.from("api_keys").update({ last_used_at: new Date().toISOString() }).eq("id", data.id);
+      // Sin await: es solo informativo y una escritura colgada (ver
+      // supabaseClient.ts) no debe frenar la petición real.
+      void supabaseAdmin
+        .from("api_keys")
+        .update({ last_used_at: new Date().toISOString() })
+        .eq("id", data.id)
+        .then(({ error: updateError }) => {
+          if (updateError) console.warn("[auth] no se pudo actualizar last_used_at:", updateError.message);
+        });
 
       req.auth = { type: "agent", userId: data.user_id, apiKeyId: data.id, scopes: data.scopes ?? [] };
       return next();
