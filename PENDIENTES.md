@@ -366,6 +366,19 @@ No implementado todavía — este documento es la lista de trabajo, no un change
   cacheado) sin viaje de red por petición. Trade-off aceptado: ya no se detecta una sesión
   revocada antes de que expire el token (app de un solo usuario con lista de emails permitidos).
 
+- ~~**[ALTO] Llamadas colgadas a Supabase desde el API (timeouts de Quicks, "Cargando..." en la web).**~~
+  ✅ Resuelto (20-oct-2026, reportado por el usuario: Quicks por Telegram dijo "la API de Focusbrain
+  dio timeout"). Seguimiento del fix de `getClaims` de arriba, que no era toda la causa: midiendo
+  desde el contenedor del API, ~10% de las llamadas a Supabase (cualquier tabla, también la ruta con
+  API key) se quedaban colgadas entre 7 y 108 s sin dar error, mientras `curl` al mismo host
+  siempre respondía en <150 ms. Descartado IPv6/DNS (misma tasa con `--dns-result-order=ipv4first`).
+  Fix en `apps/api/src/supabaseClient.ts`: `fetch` propio con timeout (5 s lecturas, 20 s
+  escrituras) y hasta 3 intentos solo para GET/HEAD — el reintento abre una conexión nueva y
+  responde normal (prueba: 60 consultas, peor caso 4,4 s en vez de ~100 s, 0 errores). Las
+  escrituras no se reintentan para no arriesgar duplicados. Causa de fondo (red VPS↔Supabase)
+  sin identificar; si los logs `[supabase] ... reintento` se vuelven frecuentes, vale la pena
+  investigarla con el proveedor del VPS.
+
 ## 2. Mejoras a funciones existentes
 
 - ~~**En el detalle de un proyecto (`apps/web/src/ProjectsPage.tsx`), las notas del proyecto solo
