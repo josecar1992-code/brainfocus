@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { formatReminderTitle, horaActualCR, isoACostaRica, TWO_HOURS_MS } from "@brainfocus/shared-time";
+import { CR_OFFSET, formatReminderTitle, horaActualCR, hoyEnCR, isoACostaRica, TWO_HOURS_MS } from "@brainfocus/shared-time";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
@@ -166,19 +166,30 @@ const tools = {
 
   listar_tareas: {
     description:
-      "Lista las tareas del usuario, opcionalmente filtradas por estado. Trae máximo 50. " +
+      "Lista las tareas del usuario, opcionalmente filtradas por estado y/o rango de fecha límite. " +
+      "Ordenadas por fecha límite ascendente, máximo 50 — sin filtros trae las MÁS VIEJAS primero, así " +
+      "que para buscar tareas de hoy/mañana usar `fecha_inicio`/`fecha_fin` (o `estado: pending`). " +
       "due_date_costa_rica ya viene calculado en hora local (YYYY-MM-DD HH:MM) — usar ese campo " +
-      "para hablarle al usuario de fechas, no convertir due_date (UTC) a mano.",
+      "para hablarle al usuario de fechas, no convertir due_date (UTC) a mano. Para eventos de la " +
+      "Agenda usar `listar_eventos`.",
     inputSchema: {
       type: "object",
       properties: {
         estado: { type: "string", enum: ["pending", "in_progress", "done"] },
+        fecha_inicio: { type: "string", description: "YYYY-MM-DD (día de Costa Rica), opcional." },
+        fecha_fin: { type: "string", description: "YYYY-MM-DD (día de Costa Rica), opcional, inclusive." },
       },
     },
-    argsSchema: z.object({ estado: z.enum(["pending", "in_progress", "done"]).optional() }),
-    handler: async (args: { estado?: string }) => {
+    argsSchema: z.object({
+      estado: z.enum(["pending", "in_progress", "done"]).optional(),
+      fecha_inicio: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+      fecha_fin: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    }),
+    handler: async (args: { estado?: string; fecha_inicio?: string; fecha_fin?: string }) => {
       const params = new URLSearchParams({ limit: "50", fields: "id,title,status,due_date" });
       if (args.estado) params.set("status", args.estado);
+      if (args.fecha_inicio) params.set("due_date_gte", `${args.fecha_inicio}T00:00:00${CR_OFFSET}`);
+      if (args.fecha_fin) params.set("due_date_lte", `${args.fecha_fin}T23:59:59${CR_OFFSET}`);
       const tareas = await apiRequest<Task[]>(`/tasks?${params.toString()}`);
       return tareas.map((t) => ({ ...t, due_date_costa_rica: t.due_date ? isoACostaRica(t.due_date) : null }));
     },
@@ -612,6 +623,85 @@ const tools = {
 
       return event;
     },
+  },
+
+  listar_eventos: {
+    description:
+      "Lista los eventos de la Agenda (citas, llamadas, cosas con hora fija), ordenados por fecha. " +
+      "Usar esto para encontrar un evento (ej. 'el de hoy', 'el de mañana') y obtener su `id` antes de " +
+      "moverlo con `editar_evento` o borrarlo con `borrar_evento`. Sin fechas trae los próximos desde " +
+      "hoy. `starts_at_costa_rica` ya viene en hora local (YYYY-MM-DD HH:MM) — usar ese campo para " +
+      "hablarle al usuario, no convertir starts_at (UTC) a mano. Máximo 100.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        fecha_inicio: { type: "string", description: "YYYY-MM-DD (día de Costa Rica), opcional. Default: hoy." },
+        fecha_fin: { type: "string", description: "YYYY-MM-DD (día de Costa Rica), opcional, inclusive." },
+      },
+    },
+    argsSchema: z.object({
+      fecha_inicio: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+      fecha_fin: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    }),
+    handler: async (args: { fecha_inicio?: string; fecha_fin?: string }) => {
+      const desde = args.fecha_inicio ?? hoyEnCR();
+      const params = new URLSearchParams({
+        limit: "100",
+        fields: "id,title,description,starts_at,task_id",
+        starts_at_gte: `${desde}T00:00:00${CR_OFFSET}`,
+      });
+      if (args.fecha_fin) params.set("starts_at_lte", `${args.fecha_fin}T23:59:59${CR_OFFSET}`);
+      const eventos = await apiRequest<Event[]>(`/events?${params.toString()}`);
+      return eventos.map((e) => ({ ...e, starts_at_costa_rica: isoACostaRica(e.starts_at) }));
+    },
+  },
+
+  editar_evento: {
+    description:
+      "Edita un evento ya existente (título, descripción o fecha/hora) — solo mandá los campos que " +
+      "cambian. Para MOVER un evento (ej. 'pasalo para mañana') mandá `inicio` con la fecha/hora " +
+      "nueva: la API mueve sola la tarea espejo y reprograma sus recordatorios, no hace falta tocar " +
+      "nada más. Necesita el `id` — usar `listar_eventos` primero si no se conoce. " +
+      `${AHORA_CR} Calculá "inicio" a partir de esta hora, no de tu propia estimación.`,
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "id del evento" },
+        titulo: { type: "string" },
+        descripcion: { type: "string" },
+        inicio: {
+          type: "string",
+          description: "ISO 8601 con offset -06:00 (Costa Rica). Nueva fecha/hora de inicio.",
+        },
+      },
+      required: ["id"],
+    },
+    argsSchema: z.object({
+      id: z.string().uuid(),
+      titulo: z.string().min(1).optional(),
+      descripcion: z.string().optional(),
+      inicio: z.string().datetime({ offset: true }).optional(),
+    }),
+    handler: async (args: { id: string; titulo?: string; descripcion?: string; inicio?: string }) => {
+      const evento = await apiRequest<Event>(`/events/${args.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ title: args.titulo, description: args.descripcion, starts_at: args.inicio }),
+      });
+      return { ...evento, starts_at_costa_rica: isoACostaRica(evento.starts_at) };
+    },
+  },
+
+  borrar_evento: {
+    description:
+      "Borra un evento de la Agenda junto con su tarea espejo y sus recordatorios (cancela los crons " +
+      "reales en OpenClaw). Necesita el `id` — usar `listar_eventos` primero si no se conoce.",
+    inputSchema: {
+      type: "object",
+      properties: { id: { type: "string", description: "id del evento" } },
+      required: ["id"],
+    },
+    argsSchema: z.object({ id: z.string().uuid() }),
+    handler: (args: { id: string }) => apiRequest(`/events/${args.id}`, { method: "DELETE" }),
   },
 
   crear_nota: {

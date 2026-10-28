@@ -381,6 +381,21 @@ No implementado todavía — este documento es la lista de trabajo, no un change
   `last_used_at` de la API key (solo informativo) ya no se espera con `await`: en la prueba post-fix
   una de 20 peticiones tardó 20 s por esa escritura colgada.
 
+- ~~**[ALTO] Quicks no podía encontrar ni mover un evento de la Agenda ("escuela doña alison", pedido
+  27-oct-2026 por Telegram: "muévelo para mañana").**~~ ✅ Resuelto (27-oct-2026, reportado por el
+  usuario). Leyendo la conversación en la sqlite de OpenClaw
+  (`/root/.openclaw/agents/main/agent/openclaw-agent.sqlite`, tabla `transcript_events`; ya no hay
+  `.jsonl` desde la migración a SQLite) se vio que Quicks intentó `listar_eventos` (no existía:
+  "Unknown tool id"), cayó a `listar_tareas` — que sin filtro trae las 50 tareas MÁS VIEJAS por
+  `due_date` ascendente, todas de agosto — y concluyó que el evento "no existe". Causas en
+  `apps/mcp/src/index.ts`: (1) el MCP nunca tuvo herramientas para listar/editar/borrar eventos
+  (solo `crear_evento`), aunque la API (`events.ts`) ya arrastra tarea espejo y recordatorios al
+  mover un evento y la API key ya tenía `events:read/write`; (2) `listar_tareas` no filtraba por
+  fecha. Fix: tools nuevas `listar_eventos` (default desde hoy, filtro `fecha_inicio`/`fecha_fin`,
+  incluye `starts_at_costa_rica`), `editar_evento` (título/descripción/`inicio` — mover = mandar
+  `inicio` nuevo) y `borrar_evento`; y `listar_tareas` ahora acepta `fecha_inicio`/`fecha_fin`
+  (día CR, con `CR_OFFSET`) y avisa en su descripción que sin filtros trae las más viejas.
+
 ## 2. Mejoras a funciones existentes
 
 - ~~**En el detalle de un proyecto (`apps/web/src/ProjectsPage.tsx`), las notas del proyecto solo
