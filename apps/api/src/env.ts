@@ -34,4 +34,8 @@ export const env = {
   // por eso es una variable separada, opcional (sin ella, canal "telegram"
   // simplemente no se puede usar).
   openclawReminderToTelegram: process.env.OPENCLAW_REMINDER_TO_TELEGRAM,
+  // Único usuario cuyos avisos salen por OpenClaw (su WhatsApp/Telegram). Los demás usuarios se entregan por el
+  // asistente (apps/assistant). Si está definido y el usuario no coincide (o no se sabe), NO se programa cron:
+  // sin esto el aviso de otro usuario llegaría al teléfono del dueño. Vacío = comportamiento anterior (un solo dueño).
+  openclawOwnerUserId: process.env.OPENCLAW_OWNER_USER_ID ?? "",
 };

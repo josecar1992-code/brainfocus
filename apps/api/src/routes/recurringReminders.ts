@@ -34,6 +34,7 @@ const createSchema = z
 
 type RecurringReminderRow = {
   id: string;
+  user_id?: string;
   title: string;
   schedule_type: "once" | "recurring";
   scheduled_at: string | null;
@@ -100,6 +101,7 @@ async function syncCron(row: RecurringReminderRow): Promise<string | null> {
     if (row.schedule_type === "once") {
       if (!row.scheduled_at) return null;
       return await scheduleOnceCron({
+        userId: row.user_id,
         displayName: `brainfocus:asistente:${row.id}`,
         at: row.scheduled_at,
         message: buildMessage(row),
@@ -109,6 +111,7 @@ async function syncCron(row: RecurringReminderRow): Promise<string | null> {
     }
     if (!row.active) return null;
     return await scheduleRecurringCron({
+      userId: row.user_id,
       displayName: `brainfocus:asistente:${row.id}`,
       cronExpr: buildCronExpr(row),
       message: buildMessage(row),

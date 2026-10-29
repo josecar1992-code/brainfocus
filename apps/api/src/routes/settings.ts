@@ -80,6 +80,7 @@ settingsRouter.post("/mileage-reminder", requireScope("settings:write"), async (
     // el aviso mensual si el usuario apaga y prende el toggle varias veces.
     await cancelReminderCron(profile?.mileage_reminder_cron_id ?? null);
     const jobId = await scheduleRecurringCron({
+      userId,
       displayName: `brainfocus:mileage-reminder:${userId}`,
       cronExpr: MILEAGE_CRON_EXPR,
       message: MILEAGE_CRON_MESSAGE,

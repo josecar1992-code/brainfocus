@@ -5,7 +5,9 @@ import { horaActualCR } from "@brainfocus/shared-time";
 import { runTurn } from "./agent.js";
 import { createHandler } from "./handler.js";
 import { createForwarder } from "./forward.js";
-import { sendText } from "./kapso/client.js";
+import { createDispatcher } from "./dispatcher.js";
+import { createDispatchStore } from "./dispatchStore.js";
+import { sendText, sendTemplate } from "./kapso/client.js";
 import { parseWebhook, verifySignature } from "./kapso/webhook.js";
 import { createQwenClient } from "./llm/qwen.js";
 import { buildSystemPrompt } from "./prompt.js";
@@ -48,5 +50,14 @@ app.post("/kapso/webhook", express.raw({ type: "*/*", limit: "2mb" }), (req, res
     handler.handle(msg).catch((err) => log("fallo manejando mensaje", err instanceof Error ? err.message : err));
   }
 });
+
+// Entrega de recordatorios con la política de ventana de 24 h (ver dispatcher.ts). Cada minuto.
+const dispatcher = createDispatcher({
+  store: createDispatchStore(env.supabaseUrl, env.supabaseServiceRoleKey),
+  sendText: (to, text) => sendText(env.kapso, to, text),
+  sendTemplate: (to, name, params) => sendTemplate(env.kapso, to, name, params),
+  log,
+});
+setInterval(() => dispatcher.tick().catch((err) => log("fallo el ciclo de recordatorios", err instanceof Error ? err.message : err)), 60_000);
 
 app.listen(env.port, () => log(`escuchando en :${env.port}`));

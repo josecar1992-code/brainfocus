@@ -546,3 +546,8 @@ create table if not exists assistant_usage (
 );
 create index if not exists idx_assistant_usage_user_created on assistant_usage (user_id, created_at desc);
 alter table assistant_usage enable row level security;
+
+-- Ventana de 24 h de WhatsApp (ver migrations/20261029_asistente_ventana_whatsapp.sql)
+alter table public.profiles
+  add column if not exists whatsapp_template_sent_at timestamptz,
+  add column if not exists whatsapp_keepalive_sent_at timestamptz;

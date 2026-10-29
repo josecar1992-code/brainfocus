@@ -101,13 +101,17 @@ function buildToolsAllow(brainfocusTools: string[] = []): string[] {
 
 interface ReminderForCron {
   id: string;
+  user_id?: string;
   title: string;
   remind_at: string;
   channel: string | null;
 }
 
-function isConfigured(): boolean {
-  return Boolean(env.openclawGatewayUrl && env.openclawGatewayToken);
+function isConfigured(userId?: string): boolean {
+  if (!env.openclawGatewayUrl || !env.openclawGatewayToken) return false;
+  // Aislamiento multiusuario: el destino de OpenClaw es el teléfono del dueño, así que solo el dueño lo usa.
+  if (env.openclawOwnerUserId && userId !== env.openclawOwnerUserId) return false;
+  return true;
 }
 
 // OpenClaw 2026.10.5 (actualización del 23/24-oct-2026): cron ya no funciona por
@@ -184,7 +188,7 @@ function extractJobId(result: unknown): string {
  * ciegas) para que quien creó el recordatorio se entere.
  */
 export async function scheduleReminderCron(reminder: ReminderForCron): Promise<string | null> {
-  if (!isConfigured()) return null;
+  if (!isConfigured(reminder.user_id)) return null;
   const { to, gatewayChannel } = resolveDelivery(reminder.channel);
 
   const result = await invoke("cron", "add", {
@@ -244,7 +248,7 @@ const BACKUP_DELAY_MINUTES = 4;
  * pidió Telegram como canal, el respaldo sería el mismo canal, sin sentido).
  */
 export async function scheduleReminderBackupCron(reminder: ReminderForCron): Promise<string | null> {
-  if (!isConfigured()) return null;
+  if (!isConfigured(reminder.user_id)) return null;
   const { gatewayChannel } = resolveDelivery(reminder.channel);
   if (gatewayChannel === "telegram") return null;
   const telegramTo = env.openclawReminderToTelegram;
@@ -274,6 +278,7 @@ export async function scheduleReminderBackupCron(reminder: ReminderForCron): Pro
 }
 
 interface RecurringCronInput {
+  userId?: string;
   displayName: string;
   // 5 o 6 campos (con segundos), formato estándar de cron.
   cronExpr: string;
@@ -292,7 +297,7 @@ interface RecurringCronInput {
 // (ver `openclaw cron add --cron ... --tz ... --json` para inspeccionar el
 // shape real; no está documentado, solo lo devuelve el propio comando).
 export async function scheduleRecurringCron(input: RecurringCronInput): Promise<string | null> {
-  if (!isConfigured()) return null;
+  if (!isConfigured(input.userId)) return null;
   const { to, gatewayChannel } = resolveDelivery(input.channel);
 
   const result = await invoke("cron", "add", {
@@ -313,6 +318,7 @@ export async function scheduleRecurringCron(input: RecurringCronInput): Promise<
 }
 
 interface OnceCronInput {
+  userId?: string;
   displayName: string;
   // ISO con offset explícito (-06:00 para Costa Rica), mismo requisito que
   // scheduleReminderCron.
@@ -329,7 +335,7 @@ interface OnceCronInput {
 // tipo de cambio del bitcoin actual"), donde el texto ya es la orden final,
 // no un dato para relayar.
 export async function scheduleOnceCron(input: OnceCronInput): Promise<string | null> {
-  if (!isConfigured()) return null;
+  if (!isConfigured(input.userId)) return null;
   const { to, gatewayChannel } = resolveDelivery(input.channel);
 
   const result = await invoke("cron", "add", {

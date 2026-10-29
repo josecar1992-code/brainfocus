@@ -73,7 +73,7 @@ export async function rescheduleRemindersForEvent(
       continue;
     }
 
-    const reminderForCron = { id: r.id, title: r.title, remind_at: newRemindAt, channel: r.channel };
+    const reminderForCron = { id: r.id, user_id: userId, title: r.title, remind_at: newRemindAt, channel: r.channel };
     const jobId = await scheduleReminderCron(reminderForCron);
     let backupJobId: string | null = null;
     try {

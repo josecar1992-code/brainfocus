@@ -920,3 +920,24 @@ URL del webhook en Kapso (acción manual del usuario).
   (`handler.ts`, caso `unregistered`; se registra solo un log). Las altas se hacen a mano: el usuario entra a la
   web (queda `pending` por defecto), el administrador lo activa y vincula su `whatsapp_phone`. La fase 4 será una
   pantalla de administrador para eso, nunca un flujo de auto-registro por WhatsApp. Test: `handler.test.ts`.
+
+- **⚠️ Aislamiento de avisos: los cron de OpenClaw solo para el dueño (29-oct-2026, hallazgo de la fase 3).**
+  Antes, al crear un recordatorio de CUALQUIER usuario la API programaba un cron de OpenClaw cuyo destino es
+  `OPENCLAW_REMINDER_TO` (el teléfono del dueño): el aviso de un segundo usuario habría llegado al WhatsApp del
+  dueño (y los avisos del dueño no se mezclan en sentido contrario porque el segundo no tiene cron propio). Causa
+  raíz: el destino de OpenClaw era global (app pensada para un solo dueño). Fix: nueva `OPENCLAW_OWNER_USER_ID`
+  (`env.ts`); `isConfigured(userId)` en `openclawCron.ts` devuelve false para cualquier otro usuario **o si no se
+  sabe quién es (falla cerrado)**, y todos los llamadores pasan el `user_id` (reminders, cascada, vehículos,
+  rutinas, asistente recurrente, aviso de kilometraje). Tests: `openclawOwner.test.ts`. **Para activarlo hay que
+  poner `OPENCLAW_OWNER_USER_ID=<uuid del dueño>` en `apps/api/.env` y desplegar la API; hasta entonces sigue el
+  comportamiento anterior.** Limitación conocida: los *recordatorios recurrentes* y los avisos de kilometraje de
+  usuarios no dueños hoy no se entregan (el despachador solo cubre recordatorios de una vez).
+- **Fase 3: entrega propia con política de ventana de 24 h (29-oct-2026, solo local).**
+  `apps/assistant/src/dispatcher.ts` + `dispatchStore.ts`, ciclo cada minuto: recordatorios vencidos, sin
+  `sent_at` y sin `cron_job_id` (los de OpenClaw no se tocan) de usuarios activos con WhatsApp vinculado.
+  Ventana abierta → texto libre; ventana cerrada → UNA plantilla `recordatorio_general` por ventana
+  (`{{1}}` = el más próximo + " y N más", `{{2}}` = fecha/hora Costa Rica con `timeZone` explícito) y el
+  recordatorio queda pendiente hasta que el usuario responde; keep-alive de un solo aviso entre 23 h y 24 h del
+  último mensaje. `claimReminder` marca `sent_at` condicionado a que siga nulo (sin doble envío) y se libera si
+  el envío falla. Migración `supabase/migrations/20261029_asistente_ventana_whatsapp.sql` (2 columnas en
+  `profiles`): **la corre el usuario**. Tests: `dispatcher.test.ts` (35 en el paquete, 47 en la API).
