@@ -1036,3 +1036,19 @@ URL del webhook en Kapso (acción manual del usuario).
   habilitados del usuario; (2) el export de chat de WhatsApp no incluye adjuntos, no confundir con que no llegaron.
   Pendiente: cambiar el webhook de Kapso al asistente (con vuelta atrás inmediata), limpiar los datos de prueba y
   la prueba con una persona real.
+- **✅ Webhook de Kapso cambiado al asistente (29-oct-2026) — el asistente ya recibe el tráfico real.**
+  Cómo: en el Caddy compartido (`naturalbeautycr-caddy`, `/opt/naturalbeautycr/Caddyfile`, bloque
+  `agents.quickwashcr.com`) se agregó `handle /kapso/webhook { reverse_proxy host.docker.internal:3002 }`; todo lo
+  demás de ese dominio sigue yendo a OpenClaw (:18789). Así la URL registrada en Kapso no cambió. El asistente
+  enruta por número: el dueño se reenvía a OpenClaw (eventos re-firmados, un mensaje a la vez), los números de
+  QuickWash se descartan, los usuarios activos se atienden con Qwen y los no registrados no reciben respuesta.
+  Se abrió el puerto 3002 en ufw solo para las redes de Docker (172.17/172.18). Respaldo previo:
+  `/opt/naturalbeautycr/Caddyfile.bak-assistant-<fecha>`. **Vuelta atrás:** restaurar el respaldo más reciente y
+  `docker exec naturalbeautycr-caddy caddy reload --config /etc/caddy/Caddyfile`.
+  Verificado con tráfico real: el dueño sigue atendido por OpenClaw vía reenvío (el journal muestra el despacho y
+  el turno del agente); la cuenta de prueba fue atendida por el asistente con un `wa_message_id` real y su consumo
+  quedó registrado; un número no registrado quedó en silencio; sin errores en el log del asistente. Datos de
+  prueba limpiados de la cuenta de prueba (conservando `assistant_usage`, que es consumo real).
+  Observación aparte (anterior a este cambio): el monitor de OpenClaw reinicia el canal `kapso-whatsapp` con
+  `reason: stopped` cientos de veces por día desde el 26-oct (42/145/144/103 por día), por lo que no es efecto del
+  asistente; queda como pendiente investigar su causa.
