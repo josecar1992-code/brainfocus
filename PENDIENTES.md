@@ -851,3 +851,17 @@ Kapso hoy atendidos por tu Quicks, con tus datos).
   mensaje entrante del personal aparezca descartado en el journal; (b) que el próximo aviso de QuickWash a esos
   números se entregue. Revertir: `openclaw config set channels.kapso-whatsapp.allowFrom
   '["+50687686207","+50663083397","+50660740401"]' --strict-json`.
+
+**Fase 2 — avance (29-oct-2026, solo en local, sin desplegar):** nuevo `apps/assistant` con las piezas de
+entrada ya probadas (12 tests): verificación de firma HMAC-SHA256 y lectura del webhook de Kapso
+(`kapso/webhook.ts`, formato tomado de `dist/webhook.js` del plugin de OpenClaw: evento
+`whatsapp.message.received`, evento suelto o lote `{data:[…]}`, transcripción de notas de voz),
+enrutador por número del remitente (`router.ts`: descartar > reenviar > usuario activo > no registrado) y
+cliente de envío por el proxy de Kapso (`kapso/client.ts`: texto libre y plantilla). Modelo: Qwen
+(`qwen3.7-plus`, endpoint OpenAI-compatible `https://dashscope-intl.aliyuncs.com/compatible-mode/v1`), igual
+que Quicks hoy. **Reenvío a OpenClaw:** el lote se parte y cada evento del dueño se re-firma por separado
+(mismo secreto) para no filtrarle a OpenClaw mensajes de otros usuarios. **Pendiente:** bucle del modelo con
+herramientas, historial y registro de consumo por usuario, autenticación servicio-a-servicio en la API
+(`X-Service-Key` + usuario fijado por el servidor), reutilizar la tabla de herramientas del MCP (35 tools,
+independiente del protocolo MCP) extrayéndola a un paquete compartido, Dockerfile/compose, y el cambio de la
+URL del webhook en Kapso (acción manual del usuario).
