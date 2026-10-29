@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { createDispatcher, windowOpen, templateParams, formatCR, TEMPLATE_NAME, type DispatchStore, type DueUser } from "./dispatcher.js";
+import { createDispatcher, windowOpen, templateParams, formatCR, TEMPLATE_NAME, type DispatchStore, type DueUser, type DueJob } from "./dispatcher.js";
 
 const H = 3600_000;
 const NOW = Date.parse("2026-10-29T16:00:00Z"); // 10:00 en Costa Rica
@@ -10,6 +10,8 @@ function setup(users: DueUser[], over: Partial<DispatchStore> = {}) {
     dueUsers: async () => users,
     claimReminder: vi.fn(async () => true),
     releaseReminder: vi.fn(async () => {}),
+    claimJob: vi.fn(async () => true),
+    releaseJob: vi.fn(async () => {}),
     markTemplateSent: vi.fn(async () => {}),
     keepaliveCandidates: async () => [],
     markKeepaliveSent: vi.fn(async () => {}),
@@ -17,10 +19,11 @@ function setup(users: DueUser[], over: Partial<DispatchStore> = {}) {
   };
   const sendText = vi.fn(async () => {});
   const sendTemplate = vi.fn(async () => {});
-  return { d: createDispatcher({ store, sendText, sendTemplate, now: () => NOW }), store, sendText, sendTemplate };
+  const runJob = vi.fn(async () => "respuesta del agente");
+  return { d: createDispatcher({ store, sendText, sendTemplate, runJob, now: () => NOW }), store, sendText, sendTemplate, runJob };
 }
 const user = (o: Partial<DueUser> = {}): DueUser => ({
-  userId: "u", phone: "+506999", lastInboundAt: NOW - 2 * H, templateSentAt: null, reminders: [rem("r1", "Pagar luz")], ...o,
+  userId: "u", phone: "+506999", lastInboundAt: NOW - 2 * H, templateSentAt: null, reminders: [rem("r1", "Pagar luz")], jobs: [], ...o,
 });
 
 describe("ventana de 24 h", () => {
@@ -75,6 +78,42 @@ describe("ventana de 24 h", () => {
     await t.d.tick();
     expect(t.sendText).toHaveBeenCalledWith("+506999", expect.stringContaining("Respondeme"));
     expect(t.store.markKeepaliveSent).toHaveBeenCalledOnce();
+  });
+});
+
+const job = (o: Partial<DueJob> = {}): DueJob => ({
+  source: "recurring", id: "j1", kind: "text", label: "Tomar agua", prompt: "p", dueAt: "2026-10-29T15:00:00Z", prevFired: null, ...o,
+});
+
+describe("recurrentes y kilometraje", () => {
+  it("ventana abierta: entrega aviso de texto y corre el agente para las instrucciones", async () => {
+    const t = setup([user({ reminders: [], jobs: [job(), job({ id: "j2", kind: "agent", prompt: "dame el bitcoin" })] })]);
+    await t.d.tick();
+    expect(t.sendText).toHaveBeenCalledWith("+506999", expect.stringContaining("Tomar agua"));
+    expect(t.runJob).toHaveBeenCalledWith("u", "dame el bitcoin");
+    expect(t.sendText).toHaveBeenCalledWith("+506999", "respuesta del agente");
+  });
+
+  it("si el agente responde NADA no manda mensaje", async () => {
+    const t = setup([user({ reminders: [], jobs: [job({ kind: "agent" })] })]);
+    t.runJob.mockResolvedValueOnce("NADA");
+    await t.d.tick();
+    expect(t.sendText).not.toHaveBeenCalled();
+  });
+
+  it("ventana cerrada: cuenta para la plantilla y no corre el agente", async () => {
+    const t = setup([user({ lastInboundAt: NOW - 30 * H, reminders: [], jobs: [job({ kind: "agent", label: "Kilometraje de tus vehículos" })] })]);
+    await t.d.tick();
+    expect(t.sendTemplate).toHaveBeenCalledWith("+506999", TEMPLATE_NAME, ["Kilometraje de tus vehículos", expect.any(String)]);
+    expect(t.runJob).not.toHaveBeenCalled();
+    expect(t.store.claimJob).not.toHaveBeenCalled();
+  });
+
+  it("si falla el agente devuelve el estado para reintentar", async () => {
+    const t = setup([user({ reminders: [], jobs: [job({ kind: "agent" })] })]);
+    t.runJob.mockRejectedValueOnce(new Error("qwen"));
+    await t.d.tick();
+    expect(t.store.releaseJob).toHaveBeenCalledOnce();
   });
 });
 

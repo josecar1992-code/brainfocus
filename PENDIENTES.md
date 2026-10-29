@@ -941,3 +941,20 @@ URL del webhook en Kapso (acción manual del usuario).
   último mensaje. `claimReminder` marca `sent_at` condicionado a que siga nulo (sin doble envío) y se libera si
   el envío falla. Migración `supabase/migrations/20261029_asistente_ventana_whatsapp.sql` (2 columnas en
   `profiles`): **la corre el usuario**. Tests: `dispatcher.test.ts` (35 en el paquete, 47 en la API).
+- **Recordatorios recurrentes y aviso de kilometraje para usuarios del asistente (29-oct-2026, solo local).**
+  Cierra la limitación anotada arriba: sin cron de OpenClaw (solo el dueño lo usa) estos avisos no se entregaban.
+  Ahora el despachador (`dispatcher.ts`/`dispatchStore.ts`) los calcula: `occurrence.ts` replica en hora de Costa
+  Rica (UTC-6 fijo, sin depender de la zona del proceso) las mismas expresiones que usa la API (`cada N horas` en
+  múltiplos de N, diario, semanal, una sola vez) y el kilometraje (9:00 los días impares, el `0 9 */2 * *` del
+  dueño). Cada entrega marca `last_fired_at` (nuevo, en `recurring_reminders`; y `mileage_reminder_last_fired_at`
+  en `profiles`) con un claim condicional al valor leído, así no hay doble envío y se devuelve el estado si falla.
+  Solo cuenta lo posterior a la creación y a la última entrega; si hubo varias sin entregar por ventana cerrada
+  solo se manda la última (no se acumulan avisos viejos, y llevan "estaba programado para …"). Las
+  *instrucciones* (`is_instruction`) y el kilometraje corren el agente solo con la ventana abierta (con ventana
+  cerrada cuentan para la plantilla única, sin gastar tokens); el kilometraje responde `NADA` (no se envía) si no
+  hay nada que preguntar, y ni se considera si el usuario no tiene vehículos (no gasta ni una plantilla). Lo
+  enviado queda en el historial (`record`) para que la respuesta del usuario tenga contexto. Al activar el
+  kilometraje la API fija `mileage_reminder_last_fired_at = ahora` (`routes/settings.ts`) para que no dispare
+  retroactivo. Migración `supabase/migrations/20261029_asistente_recurrentes.sql`: **la corre el usuario**. Los
+  canales `telegram` de usuarios nuevos se tratan como WhatsApp. Tests: `occurrence.test.ts` y ampliación de
+  `dispatcher.test.ts` (48 en el paquete).

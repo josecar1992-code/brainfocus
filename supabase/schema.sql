@@ -551,3 +551,7 @@ alter table assistant_usage enable row level security;
 alter table public.profiles
   add column if not exists whatsapp_template_sent_at timestamptz,
   add column if not exists whatsapp_keepalive_sent_at timestamptz;
+
+-- Recurrentes y kilometraje por el asistente (ver migrations/20261029_asistente_recurrentes.sql)
+alter table public.recurring_reminders add column if not exists last_fired_at timestamptz;
+alter table public.profiles add column if not exists mileage_reminder_last_fired_at timestamptz;

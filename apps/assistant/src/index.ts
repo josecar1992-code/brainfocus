@@ -19,9 +19,10 @@ const llm = createQwenClient(env.qwen);
 const toolset = buildToolset(tools as unknown as ToolTable, { baseUrl: env.apiBaseUrl, serviceKey: env.serviceKey });
 const log = (msg: string, extra?: unknown) => console.error(`[assistant] ${msg}`, extra ?? "");
 
+const store = createStore(env.supabaseUrl, env.supabaseServiceRoleKey);
 const handler = createHandler({
   routing: { dropNumbers: parseNumberList(env.dropNumbers), forwardNumbers: parseNumberList(env.forwardNumbers) },
-  store: createStore(env.supabaseUrl, env.supabaseServiceRoleKey),
+  store,
   runAgent: (userId, history, text) =>
     runTurn(llm, toolset, { userId, systemPrompt: buildSystemPrompt(horaActualCR()), history, userText: text }),
   model: llm.model,
@@ -56,6 +57,12 @@ const dispatcher = createDispatcher({
   store: createDispatchStore(env.supabaseUrl, env.supabaseServiceRoleKey),
   sendText: (to, text) => sendText(env.kapso, to, text),
   sendTemplate: (to, name, params) => sendTemplate(env.kapso, to, name, params),
+  runJob: async (userId, prompt) => {
+    const r = await runTurn(llm, toolset, { userId, systemPrompt: buildSystemPrompt(horaActualCR()), history: [], userText: prompt });
+    await store.logUsage(userId, llm.model, r.usage);
+    return r.reply;
+  },
+  record: (userId, text) => store.saveAssistantMessage(userId, text),
   log,
 });
 setInterval(() => dispatcher.tick().catch((err) => log("fallo el ciclo de recordatorios", err instanceof Error ? err.message : err)), 60_000);

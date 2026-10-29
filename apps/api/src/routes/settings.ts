@@ -97,7 +97,13 @@ settingsRouter.post("/mileage-reminder", requireScope("settings:write"), async (
 
     const { error } = await supabaseAdmin
       .from("profiles")
-      .upsert({ id: userId, mileage_reminder_enabled: true, mileage_reminder_cron_id: jobId });
+      .upsert({
+        id: userId,
+        mileage_reminder_enabled: true,
+        mileage_reminder_cron_id: jobId,
+        // Para usuarios del asistente (sin cron de OpenClaw) el aviso se calcula aparte: arranca desde ahora, no desde el pasado.
+        mileage_reminder_last_fired_at: new Date().toISOString(),
+      });
     if (error) throw error;
     res.json({ enabled: true });
   } catch (err) {

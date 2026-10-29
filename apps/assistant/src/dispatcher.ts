@@ -19,12 +19,27 @@ export interface DueReminder {
   remindAt: string;
 }
 
+/** Aviso recurrente / de una vez / de kilometraje. "text" se manda tal cual; "agent" se le pasa al agente para que lo ejecute. */
+export interface DueJob {
+  source: "recurring" | "mileage";
+  id: string;
+  kind: "text" | "agent";
+  /** Lo que ve el usuario en la plantilla y el texto del aviso (kind "text"). */
+  label: string;
+  /** Instrucción para el agente (kind "agent"). */
+  prompt: string;
+  dueAt: string;
+  /** Última entrega previa, para poder devolver el estado si el envío falla. */
+  prevFired: string | null;
+}
+
 export interface DueUser {
   userId: string;
   phone: string;
   lastInboundAt: number | null;
   templateSentAt: number | null;
   reminders: DueReminder[]; // ordenados por remind_at
+  jobs: DueJob[];
 }
 
 export interface KeepaliveCandidate {
@@ -38,6 +53,8 @@ export interface DispatchStore {
   /** Marca enviado solo si seguía pendiente; false si otro ciclo ya lo tomó. */
   claimReminder(id: string, userId: string, nowMs: number): Promise<boolean>;
   releaseReminder(id: string, userId: string): Promise<void>;
+  claimJob(job: DueJob, userId: string): Promise<boolean>;
+  releaseJob(job: DueJob, userId: string): Promise<void>;
   markTemplateSent(userId: string, nowMs: number): Promise<void>;
   keepaliveCandidates(nowMs: number): Promise<KeepaliveCandidate[]>;
   markKeepaliveSent(userId: string, nowMs: number): Promise<void>;
@@ -47,6 +64,10 @@ export interface DispatchDeps {
   store: DispatchStore;
   sendText: (to: string, text: string) => Promise<unknown>;
   sendTemplate: (to: string, name: string, params: string[]) => Promise<unknown>;
+  /** Ejecuta una instrucción con el agente y devuelve el texto a mandar. */
+  runJob: (userId: string, prompt: string) => Promise<string>;
+  /** Deja lo enviado en el historial de la conversación, para que la respuesta del usuario tenga contexto. */
+  record?: (userId: string, text: string) => Promise<void>;
   now?: () => number;
   log?: (msg: string, extra?: unknown) => void;
 }
@@ -73,6 +94,10 @@ export function reminderText(r: DueReminder, nowMs: number): string {
   return `⏰ Recordatorio: ${r.title}` + (late ? `\n(estaba programado para ${formatCR(r.remindAt)})` : "");
 }
 
+export function jobText(j: DueJob, nowMs: number): string {
+  return reminderText({ id: j.id, title: j.label, remindAt: j.dueAt }, nowMs);
+}
+
 export function templateParams(reminders: DueReminder[]): [string, string] {
   const first = reminders[0];
   const more = reminders.length - 1;
@@ -84,14 +109,29 @@ export function createDispatcher(deps: DispatchDeps) {
   const log = deps.log ?? (() => {});
   let running = false;
 
+  async function say(u: DueUser, text: string) {
+    await deps.sendText(u.phone, text);
+    await deps.record?.(u.userId, text).catch((err) => log("no se pudo guardar en el historial", err instanceof Error ? err.message : err));
+  }
+
   async function deliverUser(u: DueUser, nowMs: number) {
     if (windowOpen(u.lastInboundAt, nowMs)) {
       for (const r of u.reminders) {
         if (!(await deps.store.claimReminder(r.id, u.userId, nowMs))) continue;
         try {
-          await deps.sendText(u.phone, reminderText(r, nowMs));
+          await say(u, reminderText(r, nowMs));
         } catch (err) {
           await deps.store.releaseReminder(r.id, u.userId); // reintenta en el próximo ciclo
+          throw err;
+        }
+      }
+      for (const j of u.jobs) {
+        if (!(await deps.store.claimJob(j, u.userId))) continue;
+        try {
+          const out = j.kind === "agent" ? await deps.runJob(u.userId, j.prompt) : jobText(j, nowMs);
+          if (out.trim().toUpperCase() !== "NADA") await say(u, out); // NADA = el agente no tiene nada que avisar
+        } catch (err) {
+          await deps.store.releaseJob(j, u.userId);
           throw err;
         }
       }
@@ -100,7 +140,12 @@ export function createDispatcher(deps: DispatchDeps) {
     // Ventana cerrada: una plantilla por ventana. Ya se mandó si fue después del último mensaje del usuario.
     const alreadySent = u.templateSentAt !== null && (u.lastInboundAt === null || u.templateSentAt > u.lastInboundAt);
     if (alreadySent) return;
-    await deps.sendTemplate(u.phone, TEMPLATE_NAME, templateParams(u.reminders));
+    const pending = [
+      ...u.reminders,
+      ...u.jobs.map((j) => ({ id: j.id, title: j.label, remindAt: j.dueAt })),
+    ].sort((x, y) => x.remindAt.localeCompare(y.remindAt));
+    if (pending.length === 0) return;
+    await deps.sendTemplate(u.phone, TEMPLATE_NAME, templateParams(pending));
     await deps.store.markTemplateSent(u.userId, nowMs);
   }
 
