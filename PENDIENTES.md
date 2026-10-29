@@ -1063,3 +1063,12 @@ URL del webhook en Kapso (acción manual del usuario).
   Usuarios surte efecto en el siguiente mensaje sin reiniciar. Tests en `agent.test.ts`.
   Pendiente: desplegar (`git pull && docker compose build assistant && docker compose --profile assistant up -d assistant`)
   y comparar tokens de prompt de la cuenta de prueba (antes 7.632 por llamada).
+- **✅ Precios de Qwen configurados en el servidor (29-oct-2026).** `apps/api/.env` del VPS (fuera del repo) tiene
+  `QWEN_PRICE_INPUT_PER_M_USD=0.40` y `QWEN_PRICE_OUTPUT_PER_M_USD=1.60` (USD por millón de tokens, qwen3.7-plus
+  región internacional según la página oficial de Alibaba Cloud Model Studio). Con eso Consumos muestra el costo
+  estimado por usuario. Es estimación por tokens: no descuenta el caché de prompt, así que puede salir algo más alto
+  que el cobro real. Si Alibaba cambia la tarifa, hay que actualizar estas dos variables y recrear el API.
+  Aprendizaje: al agregar variables a un `.env` por SSH, no usar `printf "\n"` dentro de comillas anidadas (el `\n`
+  llegó como letra "n") ni asumir que el archivo termina en salto de línea (las dos variables quedaron pegadas en
+  una línea y el API no las podía leer como número); verificar siempre con `grep -n` y `printenv` dentro del
+  contenedor después de reiniciar.
