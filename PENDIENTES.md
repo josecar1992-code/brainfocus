@@ -1047,7 +1047,7 @@ URL del webhook en Kapso (acción manual del usuario).
   `docker exec naturalbeautycr-caddy caddy reload --config /etc/caddy/Caddyfile`.
   Verificado con tráfico real: el dueño sigue atendido por OpenClaw vía reenvío (el journal muestra el despacho y
   el turno del agente); la cuenta de prueba fue atendida por el asistente con un `wa_message_id` real y su consumo
-  quedó registrado; un número no registrado quedó en silencio; sin errores en el log del asistente. Datos de
+  quedó registrado; un número de QuickWash (+506 6308 3397) fue descartado en silencio (la ruta de un número desconocido cualquiera solo está cubierta por tests, sin prueba real); sin errores en el log del asistente. Datos de
   prueba limpiados de la cuenta de prueba (conservando `assistant_usage`, que es consumo real).
   Observación aparte (anterior a este cambio): el monitor de OpenClaw reinicia el canal `kapso-whatsapp` con
   `reason: stopped` cientos de veces por día desde el 26-oct (42/145/144/103 por día), por lo que no es efecto del
