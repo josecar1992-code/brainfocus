@@ -771,7 +771,7 @@ genérica ("Tienes un recordatorio pendiente, responde para verlo") y entrega co
 existe una plantilla que Quicks usa en recordatorios de QuickWash, evaluar reutilizarla antes de pedir otra;
 consumo medido por usuario desde el inicio; primer usuario = persona cercana de confianza.
 
-**Fase 1 (código hecho, falta correr la migración y desplegar):**
+**Fase 1 (✅ hecha, migrada y desplegada 29-oct-2026, commit `20fa4cc`):**
 - Auditoría de aislamiento: las rutas genéricas ya filtraban todo por `user_id`; los puntos que
   actualizaban/borraban solo por `id` (con ids de filas propias) ahora también filtran por `user_id`
   (`reminders`, `recurringReminders`, `routines`, `vehicles`, `documents`, `reminderCascade`,
@@ -805,3 +805,14 @@ recordatorios propios con ventana de 24 h + plantilla; registro desde la web con
 vincular el WhatsApp; ocultar módulos en la web usando `/me`; prueba de aislamiento en vivo con dos usuarios
 reales tras correr la migración; averiguar quiénes son `+50663083397` y `+50660740401` (en el allowlist de
 Kapso hoy atendidos por tu Quicks, con tus datos).
+
+- **Verificación en vivo (29-oct-2026):** con la API desplegada y la migración corrida, prueba de aislamiento con
+  las dos cuentas reales (dueño y `ramirezjosec00@gmail.com`, esta última sin datos y sin rol de administrador),
+  API keys temporales ya borradas y filas desechables ya borradas: **28/28 comprobaciones pasan** — la segunda
+  cuenta no ve filas de la primera en ningún listado, recibe 404 al pedir/editar una tarea ajena por id, su
+  DELETE sobre una tarea ajena no la borra, `?user_id=<otro>` y embeds en `?fields` no filtran nada, las
+  referencias cruzadas (`event_id`, `task_id`, `project_id`) devuelven 400, `/consumos` da 403 al no
+  administrador, y `enabled_modules=[notas]` deja `/notes` en 200, `/vehicles` en 403 y las tareas (núcleo) en 200.
+  Hallazgo de la migración: el `insert ... select from auth.users` marcó administrador a TODA cuenta existente
+  (había una segunda, de Google, creada el 3-ago); se corrigió a mano (`is_admin=false`). Lección: ese SQL asume
+  que solo existe el dueño — no reutilizarlo tal cual cuando haya más usuarios.
