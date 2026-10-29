@@ -971,3 +971,14 @@ URL del webhook en Kapso (acción manual del usuario).
   una URL directa a un módulo no permitido cae en el primero visible). Es solo UX: el servidor ya hacía cumplir
   permisos y módulos. Tests: `admin.test.ts` (54 en la API). Sin verificar en navegador (requiere sesión de
   Google); `tsc` limpio en web y API. Hay que redesplegar **api y web** para verlo.
+- **Fase 5: consumo por usuario en Consumos (29-oct-2026, solo local).** `GET /consumos/por-usuario?desde&hasta`
+  (`routes/consumos.ts`, solo administrador) agrega `assistant_usage` por usuario (mensajes, llamadas al modelo,
+  tokens) con el rango como día calendario de Costa Rica (`-06:00` explícito, `services/usageByUser.ts`) y une el
+  correo desde `auth.users`. El costo es una **estimación por tokens**: solo se calcula si se definen
+  `QWEN_PRICE_INPUT_PER_M_USD` y `QWEN_PRICE_OUTPUT_PER_M_USD` en `apps/api/.env` (USD por millón de tokens, de la
+  tarifa de Alibaba del modelo; no están en el repo a propósito para no inventar precios); sin ellos la pantalla
+  muestra solo tokens. El cobro real de Alibaba sigue siendo el total del mes ya existente, y no incluye los
+  mensajes que el dueño sigue haciendo por Quicks en OpenClaw. Web: sección "Quicks por usuario" en
+  `ConsumosPage.tsx`. Tests: `usageByUser.test.ts` (57 en la API). Para verlo hay que redesplegar api y web.
+  Nota de proceso: una primera versión generada por script dejó las regex de fecha sin `\` (`d{4}`) y habría
+  rechazado toda fecha; se detectó al revisar el diff, antes del commit.

@@ -99,6 +99,38 @@ function ProviderBreakdown({ consumos }: { consumos: Consumo[] }) {
   );
 }
 
+function UsagePerUser({ desde, hasta }: { desde: string; hasta: string }) {
+  const { data } = useQuery({ queryKey: ["consumos-por-usuario", desde, hasta], queryFn: () => api.consumosPorUsuario(desde, hasta) });
+  if (!data || data.users.length === 0) return null;
+  const nf = (n: number) => n.toLocaleString("es-CR");
+  return (
+    <div className="bg-night-blue/40 backdrop-blur-md rounded-2xl border border-electric-cyan/10 shadow-[0_0_40px_-24px_rgba(0,210,255,0.35)] p-5">
+      <p className="text-xs text-white/40 font-medium uppercase tracking-wide mb-2">Quicks por usuario (asistente compartido)</p>
+      <div className="space-y-2">
+        {data.users.map((u) => (
+          <div key={u.user_id} className="flex items-center justify-between gap-2 py-1.5 border-b border-white/5 last:border-0">
+            <div className="min-w-0">
+              <p className="text-sm text-white/85 font-medium truncate">{u.email ?? u.user_id}</p>
+              <p className="text-[11px] text-white/35">
+                {nf(u.turns)} mensajes · {nf(u.prompt_tokens + u.completion_tokens)} tokens
+              </p>
+            </div>
+            <p className="text-sm font-semibold text-electric-cyan flex-shrink-0">
+              {u.estimated_usd === null ? "—" : formatUsd(u.estimated_usd)}
+            </p>
+          </div>
+        ))}
+      </div>
+      <p className="text-[11px] text-white/30 mt-2">
+        {data.priced
+          ? "Estimado por tokens según la tarifa configurada; el cobro real es el total de arriba."
+          : "Solo tokens: falta configurar el precio por millón de tokens para estimar el costo."}{" "}
+        No incluye tus mensajes de Quicks en OpenClaw.
+      </p>
+    </div>
+  );
+}
+
 export function ConsumosPage() {
   const [range] = useState(() => currentMonthRangeCR());
   const [proveedor, setProveedor] = useState("");
@@ -167,6 +199,8 @@ export function ConsumosPage() {
               </p>
             )}
           </div>
+
+          <UsagePerUser desde={range.desde} hasta={range.hasta} />
 
           {consumos && consumos.length === 0 && (
             <div className="bg-night-blue/40 backdrop-blur-md rounded-2xl border border-electric-cyan/10 shadow-[0_0_40px_-24px_rgba(0,210,255,0.35)] p-5">

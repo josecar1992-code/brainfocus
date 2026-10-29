@@ -4,6 +4,8 @@ import { requireAdmin, requireScope } from "../middleware/auth.js";
 import { supabaseAdmin } from "../supabaseClient.js";
 import { logAgentAction } from "../services/agentActions.js";
 import { parseLimit } from "../utils/pagination.js";
+import { env } from "../env.js";
+import { aggregateUsage, crRangeBounds } from "../services/usageByUser.js";
 
 // Gasto real por proveedor (IA, mensajería, hosting, ...). Esquema genérico
 // a propósito — ver comentario en supabase/schema.sql — así que este router
@@ -30,6 +32,44 @@ export const consumosRouter = Router();
 
 const MAX_LIMIT = 500;
 const DEFAULT_LIMIT = 200;
+
+// Consumo del asistente por usuario (tokens y costo estimado). Solo administrador. Es una estimación por tokens;
+// el cobro real de Alibaba sigue siendo el total que se ve en el resto de Consumos.
+const rangeSchema = z.object({
+  desde: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  hasta: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+});
+
+consumosRouter.get("/por-usuario", requireAdmin, requireScope("consumos:read"), async (req, res, next) => {
+  try {
+    const range = rangeSchema.safeParse(req.query);
+    if (!range.success) return res.status(400).json({ error: "desde y hasta (YYYY-MM-DD) son obligatorios" });
+    const { from, to } = crRangeBounds(range.data.desde, range.data.hasta);
+
+    const { data, error } = await supabaseAdmin
+      .from("assistant_usage")
+      .select("user_id, prompt_tokens, completion_tokens, llm_calls")
+      .gte("created_at", from)
+      .lte("created_at", to)
+      .limit(50000);
+    if (error) throw error;
+
+    const usage = aggregateUsage(data ?? [], {
+      inputPerMillionUsd: env.qwenPriceInputPerMillionUsd,
+      outputPerMillionUsd: env.qwenPriceOutputPerMillionUsd,
+    });
+
+    const { data: authUsers, error: uErr } = await supabaseAdmin.auth.admin.listUsers({ perPage: 200 });
+    if (uErr) throw uErr;
+    const emails = new Map(authUsers.users.map((u) => [u.id, u.email ?? null]));
+    res.json({
+      priced: env.qwenPriceInputPerMillionUsd !== null && env.qwenPriceOutputPerMillionUsd !== null,
+      users: usage.map((u) => ({ ...u, email: emails.get(u.user_id) ?? null })),
+    });
+  } catch (err) {
+    next(err);
+  }
+});
 
 consumosRouter.get("/", requireAdmin, requireScope("consumos:read"), async (req, res, next) => {
   try {

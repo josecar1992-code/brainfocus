@@ -282,6 +282,19 @@ export interface AdminUser {
 
 export type AdminUserPatch = Partial<Pick<AdminUser, "status" | "enabled_modules" | "whatsapp_phone">>;
 
+export interface UsageByUser {
+  priced: boolean;
+  users: Array<{
+    user_id: string;
+    email: string | null;
+    turns: number;
+    llm_calls: number;
+    prompt_tokens: number;
+    completion_tokens: number;
+    estimated_usd: number | null;
+  }>;
+}
+
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -578,6 +591,8 @@ export const api = {
   listRoutineCompletions: (routineId: string) =>
     request<RoutineCompletion[]>(`/routine-completions?routine_id=${routineId}&limit=100`),
 
+  consumosPorUsuario: (desde: string, hasta: string) =>
+    request<UsageByUser>(`/consumos/por-usuario?desde=${desde}&hasta=${hasta}`),
   listConsumos: (params?: { desde?: string; hasta?: string; proveedor?: string }) => {
     const qs = new URLSearchParams({ limit: "500" });
     if (params?.desde) qs.set("desde", params.desde);

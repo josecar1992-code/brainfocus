@@ -37,5 +37,9 @@ export const env = {
   // Único usuario cuyos avisos salen por OpenClaw (su WhatsApp/Telegram). Los demás usuarios se entregan por el
   // asistente (apps/assistant). Si está definido y el usuario no coincide (o no se sabe), NO se programa cron:
   // sin esto el aviso de otro usuario llegaría al teléfono del dueño. Vacío = comportamiento anterior (un solo dueño).
+  // Precios por millón de tokens (USD) para ESTIMAR el consumo por usuario en Consumos. Opcionales: sin ellos solo se
+  // muestran tokens. Tomarlos de la tarifa de Alibaba Cloud del modelo en uso (no están en el repo a propósito).
+  qwenPriceInputPerMillionUsd: process.env.QWEN_PRICE_INPUT_PER_M_USD ? Number(process.env.QWEN_PRICE_INPUT_PER_M_USD) : null,
+  qwenPriceOutputPerMillionUsd: process.env.QWEN_PRICE_OUTPUT_PER_M_USD ? Number(process.env.QWEN_PRICE_OUTPUT_PER_M_USD) : null,
   openclawOwnerUserId: process.env.OPENCLAW_OWNER_USER_ID ?? "",
 };
