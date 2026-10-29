@@ -57,12 +57,13 @@ async function syncMaintenanceReminder(userId: string, vehicle: VehicleRow) {
       const { error: updateError } = await supabaseAdmin
         .from("reminders")
         .update({ cron_job_id: jobId })
+        .eq("user_id", userId)
         .eq("id", reminder.id);
       if (updateError) console.error(`[vehicles] cron creado (${jobId}) pero no se pudo guardar:`, updateError.message);
     }
   } catch (err) {
     console.error(`[vehicles] no se pudo programar el aviso de mantenimiento, se borra el recordatorio fantasma:`, err);
-    await supabaseAdmin.from("reminders").delete().eq("id", reminder.id);
+    await supabaseAdmin.from("reminders").delete().eq("user_id", userId).eq("id", reminder.id);
   }
 }
 

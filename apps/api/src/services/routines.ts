@@ -81,18 +81,19 @@ async function createOccurrence(routine: RoutineRow, occurrenceDate: string): Pr
     try {
       const jobId = await scheduleReminderCron(reminder);
       if (jobId) {
-        const { error } = await supabaseAdmin.from("reminders").update({ cron_job_id: jobId }).eq("id", reminder.id);
+        const { error } = await supabaseAdmin.from("reminders").update({ cron_job_id: jobId }).eq("user_id", routine.user_id).eq("id", reminder.id);
         if (error) console.error(`[routines] cron creado (${jobId}) pero no se pudo guardar:`, error.message);
       }
     } catch (err) {
       console.error(`[routines] no se pudo programar el aviso de "${routine.title}", se borra el recordatorio fantasma:`, err);
-      await supabaseAdmin.from("reminders").delete().eq("id", reminder.id);
+      await supabaseAdmin.from("reminders").delete().eq("user_id", routine.user_id).eq("id", reminder.id);
     }
   }
 
   const { error: updateError } = await supabaseAdmin
     .from("routines")
     .update({ current_task_id: task.id, current_event_id: event.id, current_occurrence_date: occurrenceDate })
+    .eq("user_id", routine.user_id)
     .eq("id", routine.id);
   if (updateError) throw updateError;
 }

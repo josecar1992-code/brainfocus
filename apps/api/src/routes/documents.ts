@@ -4,6 +4,7 @@ import multer from "multer";
 import { z } from "zod";
 import { requireScope } from "../middleware/auth.js";
 import { logAgentAction } from "../services/agentActions.js";
+import { findForeignRef } from "../utils/ownedRefs.js";
 import { supabaseAdmin } from "../supabaseClient.js";
 import { parseLimit } from "../utils/pagination.js";
 
@@ -109,6 +110,8 @@ documentsRouter.post(
       if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
       const { name } = parsed.data;
       const projectId = parsed.data.project_id || null;
+      const foreignRef = await findForeignRef(req.auth!.userId, { project_id: projectId });
+      if (foreignRef) return res.status(400).json({ error: `Referencia inválida: ${foreignRef} no existe` });
 
       // "Guardalo con este nombre" reemplaza si ya existe — nunca duplica
       // (nombre único por usuario, ver idx_documents_user_name).
@@ -140,6 +143,7 @@ documentsRouter.post(
         ? await supabaseAdmin
             .from("documents")
             .update({ mime_type: row.mime_type, size: row.size, project_id: row.project_id })
+            .eq("user_id", req.auth!.userId)
             .eq("id", existing.id)
             .select("id, name, mime_type, size, project_id, created_at")
             .single()

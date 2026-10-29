@@ -758,3 +758,50 @@ No implementado todavía — este documento es la lista de trabajo, no un change
   puede cambiar y hay que actualizarla. `/readyz` devuelve 503 por `kapso-whatsapp` ("stopped,
   disconnected"): falso positivo conocido (Kapso va por webhook, sin proceso residente); la API de
   Focusbrain llama al RPC, no a `/readyz`, así que no le afecta.
+
+## 6. Multiusuario (en curso desde 29-oct-2026)
+
+**Objetivo:** abrir la app a más usuarios con ecosistemas totalmente independientes (ni ellos ven mis
+datos ni yo los suyos), y que Quicks, hablando por **un solo número de WhatsApp compartido**, responda y
+guarde únicamente en el ecosistema de quien escribe. Decisiones tomadas con el usuario: un único número
+(no conseguir uno por persona); el servicio nuevo `apps/assistant` será el único dueño del webhook de
+Kapso y enrutará por número del remitente (tu Quicks actual quedaría detrás de un reenvío mientras tanto);
+recordatorios con aviso de 23 h siempre (como hoy) y, si la ventana de 24 h está cerrada, una plantilla
+genérica ("Tienes un recordatorio pendiente, responde para verlo") y entrega completa al responder; ya
+existe una plantilla que Quicks usa en recordatorios de QuickWash, evaluar reutilizarla antes de pedir otra;
+consumo medido por usuario desde el inicio; primer usuario = persona cercana de confianza.
+
+**Fase 1 (código hecho, falta correr la migración y desplegar):**
+- Auditoría de aislamiento: las rutas genéricas ya filtraban todo por `user_id`; los puntos que
+  actualizaban/borraban solo por `id` (con ids de filas propias) ahora también filtran por `user_id`
+  (`reminders`, `recurringReminders`, `routines`, `vehicles`, `documents`, `reminderCascade`,
+  `services/routines`). Defensa en profundidad: la service role se salta RLS, así que un `.eq("user_id")`
+  olvidado sería una fuga.
+- Hueco real encontrado y cerrado: nada validaba que un `task_id`/`event_id`/`project_id`/`list_id`/
+  `vehicle_id`/`routine_id` del body perteneciera al mismo usuario (un FK de Postgres solo comprueba que el
+  id exista). `utils/ownedRefs.ts` (`findForeignRef`) lo valida en POST/PATCH del router genérico, rutinas y
+  documentos → 400.
+- Acceso por perfil (`services/profiles.ts`, caché 60 s) en lugar de solo `ALLOWED_EMAILS`: entra quien está
+  en `ALLOWED_EMAILS` (dueño original, además administrador) o quien tiene `profiles.status='active'`; un
+  perfil `blocked` bloquea incluso a quien esté en la lista. Las API keys dejan de servir si su dueño no está
+  activo. Sin fila de perfil (o migración sin correr) se conserva el comportamiento anterior del dueño.
+- Módulos por usuario (`profiles.enabled_modules`, null = todos), aplicados en el servidor en
+  `requireScope` a usuarios y a sus agentes: `proyectos`, `rutinas`, `notas`, `documentos`, `vehiculos`.
+  Núcleo siempre activo: Hoy, Agenda, Tareas, Asistente, Resumen, Configuración. `GET /me` expone
+  `{userId,isAdmin,modules}` para que la web oculte módulos (fase 4).
+- Consumos queda solo para administradores (`requireAdmin`), usuarios y agentes.
+- Tests nuevos (`apps/api/src/multiusuario.test.ts`, 16): referencias cruzadas, módulos, scopes y admin.
+  Total 37 en `npm test`.
+- Migración: `supabase/migrations/20261029_multiusuario_perfiles.sql` (y `schema.sql` actualizado) agrega
+  `status`, `is_admin`, `enabled_modules`, `whatsapp_phone` (único) y `whatsapp_last_inbound_at` a
+  `profiles`, y deja a los usuarios que existen hoy como `active` + administrador. **La corre el usuario a
+  mano en el SQL Editor de Supabase.** Antes de correrla, el servicio funciona igual (el perfil no se puede
+  leer → se usa el comportamiento anterior) y solo deja un aviso `[profiles] no se pudo leer…` en los logs
+  por petición.
+
+**Pendiente (siguientes fases):** servicio `apps/assistant` (webhook Kapso con firma, enrutamiento por
+número, bucle del modelo con `user_id` fijado por el servidor, historial, consumo por usuario);
+recordatorios propios con ventana de 24 h + plantilla; registro desde la web con código de un solo uso para
+vincular el WhatsApp; ocultar módulos en la web usando `/me`; prueba de aislamiento en vivo con dos usuarios
+reales tras correr la migración; averiguar quiénes son `+50663083397` y `+50660740401` (en el allowlist de
+Kapso hoy atendidos por tu Quicks, con tus datos).

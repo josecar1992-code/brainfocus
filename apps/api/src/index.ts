@@ -44,6 +44,13 @@ app.get("/health", (_req, res) => res.json({ ok: true }));
 // Todo lo demás requiere identidad (JWT de usuario o API key de agente)
 app.use(authenticate);
 
+// Quién soy y qué puedo ver: la web lo usa para ocultar módulos no habilitados
+// (la restricción real se aplica en el servidor, ver requireScope/requireAdmin).
+app.get("/me", (req, res) => {
+  const { userId, isAdmin, modules } = req.auth!;
+  res.json({ userId, isAdmin, modules });
+});
+
 app.use("/internal/api-keys", apiKeysRouter);
 app.use("/tasks", tasksRouter);
 app.use("/subtasks", subtasksRouter);

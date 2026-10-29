@@ -2,6 +2,8 @@ import type { NextFunction, Request, Response } from "express";
 import { createHash } from "node:crypto";
 import { env } from "../env.js";
 import { supabaseAdmin } from "../supabaseClient.js";
+import { getProfileAccess } from "../services/profiles.js";
+import { isModuleAllowed, moduleForResource } from "../utils/modules.js";
 
 export function hashApiKey(rawKey: string): string {
   return createHash("sha256").update(rawKey).digest("hex");
@@ -27,11 +29,17 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
       if (error || !userId) return res.status(401).json({ error: "Token inválido" });
 
       const email = typeof data.claims.email === "string" ? data.claims.email.toLowerCase() : undefined;
-      if (env.allowedEmails.length > 0 && (!email || !env.allowedEmails.includes(email))) {
+      // Entra quien está en ALLOWED_EMAILS (el dueño original) o quien tiene un
+      // perfil con status 'active'. Un perfil 'blocked' bloquea incluso al que
+      // esté en la lista. Sin ninguna de las dos, aunque Supabase le haya dejado
+      // crear la cuenta, no tiene acceso.
+      const inAllowlist = Boolean(email && env.allowedEmails.includes(email));
+      const profile = await getProfileAccess(userId);
+      if (profile?.status === "blocked" || !(inAllowlist || profile?.status === "active")) {
         return res.status(403).json({ error: "Esta cuenta no tiene acceso a Focusbrain" });
       }
 
-      req.auth = { type: "user", userId };
+      req.auth = { type: "user", userId, isAdmin: inAllowlist || Boolean(profile?.isAdmin), modules: profile?.modules ?? null };
       return next();
     }
 
@@ -69,7 +77,23 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
           if (updateError) console.warn("[auth] no se pudo actualizar last_used_at:", updateError.message);
         });
 
-      req.auth = { type: "agent", userId: data.user_id, apiKeyId: data.id, scopes: data.scopes ?? [] };
+      // La key actúa en nombre de su dueño: si ese usuario fue bloqueado o aún no
+      // está activo, la key deja de servir. Sin fila de perfil (instalación de un
+      // solo dueño, o migración multiusuario sin correr) se mantiene el
+      // comportamiento anterior: acceso completo del dueño.
+      const profile = await getProfileAccess(data.user_id);
+      if (profile && profile.status !== "active") {
+        return res.status(403).json({ error: "Esta cuenta no tiene acceso a Focusbrain" });
+      }
+
+      req.auth = {
+        type: "agent",
+        userId: data.user_id,
+        apiKeyId: data.id,
+        scopes: data.scopes ?? [],
+        isAdmin: profile ? profile.isAdmin : true,
+        modules: profile?.modules ?? null,
+      };
       return next();
     }
 
@@ -79,15 +103,32 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
   }
 }
 
-/** El dueño (JWT) siempre pasa; un agente necesita el scope exacto o su comodín `<recurso>:*`. */
+/**
+ * Dos comprobaciones: (1) el módulo del recurso está habilitado para este usuario
+ * (aplica a usuarios y a sus agentes), y (2) para un agente, el scope exacto o su
+ * comodín `<recurso>:*`. El dueño por JWT no necesita scope, solo el módulo.
+ */
 export function requireScope(scope: string) {
   return (req: Request, res: Response, next: NextFunction) => {
     if (!req.auth) return res.status(401).json({ error: "No autenticado" });
-    if (req.auth.type === "user") return next();
 
     const [resource] = scope.split(":");
+    const moduleKey = moduleForResource(resource);
+    if (moduleKey && !isModuleAllowed(req.auth.modules, moduleKey)) {
+      return res.status(403).json({ error: `Módulo no habilitado para esta cuenta: ${moduleKey}` });
+    }
+
+    if (req.auth.type === "user") return next();
+
     const hasScope = req.auth.scopes.includes(scope) || req.auth.scopes.includes(`${resource}:*`);
     if (!hasScope) return res.status(403).json({ error: `Falta el scope requerido: ${scope}` });
     next();
   };
+}
+
+/** Recursos de operación del servidor (ej. Consumos) que solo ve el administrador. */
+export function requireAdmin(req: Request, res: Response, next: NextFunction) {
+  if (!req.auth) return res.status(401).json({ error: "No autenticado" });
+  if (!req.auth.isAdmin) return res.status(403).json({ error: "Solo el administrador puede acceder a este recurso" });
+  next();
 }

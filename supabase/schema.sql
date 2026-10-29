@@ -17,6 +17,12 @@ create table if not exists public.profiles (
   -- recordatorios de la app) — ver settings.ts / openclawCron.ts.
   mileage_reminder_enabled boolean not null default false,
   mileage_reminder_cron_id text,
+  -- Multiusuario (ver supabase/migrations/20261029_multiusuario_perfiles.sql)
+  status text not null default 'pending' check (status in ('pending', 'active', 'blocked')),
+  is_admin boolean not null default false,
+  enabled_modules text[], -- null = todos los módulos
+  whatsapp_phone text, -- E.164, identifica al remitente en WhatsApp
+  whatsapp_last_inbound_at timestamptz, -- ventana de 24 h de WhatsApp
   created_at timestamptz not null default now()
 );
 
@@ -453,6 +459,7 @@ create index if not exists idx_routine_completions_routine on public.routine_com
 create index if not exists idx_tasks_routine on public.tasks(routine_id);
 create index if not exists idx_consumos_user_fecha on public.consumos(user_id, fecha);
 create index if not exists idx_consumos_proveedor on public.consumos(proveedor);
+create unique index if not exists idx_profiles_whatsapp_phone on public.profiles(whatsapp_phone) where whatsapp_phone is not null;
 
 -- ============================================================
 -- RLS — activo en todas las tablas de datos

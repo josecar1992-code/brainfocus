@@ -4,6 +4,7 @@ import { supabaseAdmin } from "../supabaseClient.js";
 import { requireScope } from "../middleware/auth.js";
 import { logAgentAction } from "../services/agentActions.js";
 import { parseLimit } from "../utils/pagination.js";
+import { findForeignRef } from "../utils/ownedRefs.js";
 
 interface ResourceConfig {
   table: string;
@@ -161,6 +162,9 @@ export function createResourceRouter(config: ResourceConfig): Router {
       const parsed = createSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
+      const foreignRef = await findForeignRef(req.auth!.userId, parsed.data);
+      if (foreignRef) return res.status(400).json({ error: `Referencia inválida: ${foreignRef} no existe` });
+
       if (hooks?.beforeCreate) {
         const blockMessage = await hooks.beforeCreate(req.auth!.userId, parsed.data);
         if (blockMessage) return res.status(409).json({ error: blockMessage });
@@ -189,6 +193,9 @@ export function createResourceRouter(config: ResourceConfig): Router {
     try {
       const parsed = updateSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+      const foreignRef = await findForeignRef(req.auth!.userId, parsed.data);
+      if (foreignRef) return res.status(400).json({ error: `Referencia inválida: ${foreignRef} no existe` });
 
       const { data: before, error: beforeError } = await supabaseAdmin
         .from(table)

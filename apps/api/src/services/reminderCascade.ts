@@ -68,6 +68,7 @@ export async function rescheduleRemindersForEvent(
       await supabaseAdmin
         .from("reminders")
         .update({ remind_at: newRemindAt, cron_job_id: null, backup_cron_job_id: null })
+        .eq("user_id", userId)
         .eq("id", r.id);
       continue;
     }
@@ -83,7 +84,8 @@ export async function rescheduleRemindersForEvent(
     const { error: updateError } = await supabaseAdmin
       .from("reminders")
       .update({ remind_at: newRemindAt, cron_job_id: jobId, backup_cron_job_id: backupJobId })
-      .eq("id", r.id);
+      .eq("user_id", userId)
+        .eq("id", r.id);
     if (updateError) console.error(`[reminderCascade] recordatorio ${r.id} reprogramado pero no se pudo guardar:`, updateError.message);
   }
 }

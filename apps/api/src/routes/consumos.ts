@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { requireScope } from "../middleware/auth.js";
+import { requireAdmin, requireScope } from "../middleware/auth.js";
 import { supabaseAdmin } from "../supabaseClient.js";
 import { logAgentAction } from "../services/agentActions.js";
 import { parseLimit } from "../utils/pagination.js";
@@ -31,7 +31,7 @@ export const consumosRouter = Router();
 const MAX_LIMIT = 500;
 const DEFAULT_LIMIT = 200;
 
-consumosRouter.get("/", requireScope("consumos:read"), async (req, res, next) => {
+consumosRouter.get("/", requireAdmin, requireScope("consumos:read"), async (req, res, next) => {
   try {
     const limit = parseLimit(req.query.limit, { max: MAX_LIMIT, defaultValue: DEFAULT_LIMIT });
     let query = supabaseAdmin.from("consumos").select("*").eq("user_id", req.auth!.userId);
@@ -49,7 +49,7 @@ consumosRouter.get("/", requireScope("consumos:read"), async (req, res, next) =>
   }
 });
 
-consumosRouter.post("/", requireScope("consumos:write"), async (req, res, next) => {
+consumosRouter.post("/", requireAdmin, requireScope("consumos:write"), async (req, res, next) => {
   try {
     const parsed = createSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
@@ -72,7 +72,7 @@ consumosRouter.post("/", requireScope("consumos:write"), async (req, res, next) 
   }
 });
 
-consumosRouter.delete("/:id", requireScope("consumos:write"), async (req, res, next) => {
+consumosRouter.delete("/:id", requireAdmin, requireScope("consumos:write"), async (req, res, next) => {
   try {
     const { error } = await supabaseAdmin
       .from("consumos")

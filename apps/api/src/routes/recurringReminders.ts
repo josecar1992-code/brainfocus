@@ -129,12 +129,12 @@ export const recurringRemindersRouter = createResourceRouter({
   orderBy: { column: "created_at", ascending: false },
   trackCreatedBy: true,
   hooks: {
-    async afterCreate(_userId, row) {
+    async afterCreate(userId, row) {
       const jobId = await syncCron(row);
-      const { error } = await supabaseAdmin.from("recurring_reminders").update({ cron_job_id: jobId }).eq("id", row.id);
+      const { error } = await supabaseAdmin.from("recurring_reminders").update({ cron_job_id: jobId }).eq("user_id", userId).eq("id", row.id);
       if (error) console.error(`[asistente] cron creado pero no se pudo guardar:`, error.message);
     },
-    async afterUpdate(_userId, before, after) {
+    async afterUpdate(userId, before, after) {
       // Una vez ya disparada (pasado su scheduled_at), editar no debería
       // volver a programar nada — solo importa para las que siguen pendientes.
       if (after.schedule_type === "once" && after.scheduled_at && new Date(after.scheduled_at) <= new Date()) return;
@@ -155,7 +155,7 @@ export const recurringRemindersRouter = createResourceRouter({
 
       await cancelReminderCron(before.cron_job_id ?? null);
       const jobId = await syncCron(after);
-      const { error } = await supabaseAdmin.from("recurring_reminders").update({ cron_job_id: jobId }).eq("id", after.id);
+      const { error } = await supabaseAdmin.from("recurring_reminders").update({ cron_job_id: jobId }).eq("user_id", userId).eq("id", after.id);
       if (error) console.error(`[asistente] cron reprogramado pero no se pudo guardar:`, error.message);
     },
     async beforeDelete(_userId, row) {

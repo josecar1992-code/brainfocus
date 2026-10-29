@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { requireScope } from "../middleware/auth.js";
+import { findForeignRef } from "../utils/ownedRefs.js";
 import { supabaseAdmin } from "../supabaseClient.js";
 import { logAgentAction } from "../services/agentActions.js";
 import { createFirstOccurrence } from "../services/routines.js";
@@ -69,6 +70,8 @@ routinesRouter.post("/", requireScope("routines:write"), async (req, res, next) 
   try {
     const parsed = createSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+    const foreignRef = await findForeignRef(req.auth!.userId, parsed.data);
+    if (foreignRef) return res.status(400).json({ error: `Referencia inválida: ${foreignRef} no existe` });
 
     const { data: routine, error } = await supabaseAdmin
       .from("routines")
@@ -93,13 +96,14 @@ routinesRouter.post("/", requireScope("routines:write"), async (req, res, next) 
     try {
       await createFirstOccurrence(routine);
     } catch (err) {
-      await supabaseAdmin.from("routines").delete().eq("id", routine.id);
+      await supabaseAdmin.from("routines").delete().eq("user_id", req.auth!.userId).eq("id", routine.id);
       throw err;
     }
 
     const { data: full, error: fullError } = await supabaseAdmin
       .from("routines")
       .select("*")
+      .eq("user_id", req.auth!.userId)
       .eq("id", routine.id)
       .single();
     if (fullError) throw fullError;
@@ -115,6 +119,8 @@ routinesRouter.patch("/:id", requireScope("routines:write"), async (req, res, ne
   try {
     const parsed = updateSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+    const foreignRef = await findForeignRef(req.auth!.userId, parsed.data);
+    if (foreignRef) return res.status(400).json({ error: `Referencia inválida: ${foreignRef} no existe` });
 
     const { data, error } = await supabaseAdmin
       .from("routines")

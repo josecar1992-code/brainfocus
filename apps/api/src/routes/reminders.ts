@@ -58,12 +58,12 @@ export const remindersRouter = createResourceRouter({
     // crear el cron en el chat. Si falla programar el aviso, se borra la fila
     // recién creada y se propaga el error: mejor que el caller se entere a que
     // quede un recordatorio "fantasma" sin aviso y sin que nadie lo sepa.
-    async afterCreate(_userId, row) {
+    async afterCreate(userId, row) {
       let jobId: string | null;
       try {
         jobId = await scheduleReminderCron(row);
       } catch (err) {
-        await supabaseAdmin.from("reminders").delete().eq("id", row.id);
+        await supabaseAdmin.from("reminders").delete().eq("user_id", userId).eq("id", row.id);
         throw err;
       }
       // Respaldo por Telegram best-effort: si falla programarlo, no se aborta
