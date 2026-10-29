@@ -380,6 +380,7 @@ No implementado todavía — este documento es la lista de trabajo, no un change
   investigarla con el proveedor del VPS. Además, en `middleware/auth.ts` el update de
   `last_used_at` de la API key (solo informativo) ya no se espera con `await`: en la prueba post-fix
   una de 20 peticiones tardó 20 s por esa escritura colgada.
+  Medición 29-oct-2026: 100 lecturas seguidas a Supabase desde el contenedor de la API → p50 176 ms, p95 416 ms, máx 775 ms, 0 lentas (>1 s) y 0 fallos; los logs del contenedor (solo desde su reinicio de ese día) no muestran ningún `reintento`. Sin evidencia de que los stalls sigan; reevaluar si Quicks o la web vuelven a reportar timeouts.
 
 - ~~**[ALTO] Quicks no podía encontrar ni mover un evento de la Agenda ("escuela doña alison", pedido
   27-oct-2026 por Telegram: "muévelo para mañana").**~~ ✅ Resuelto (27-oct-2026, reportado por el
