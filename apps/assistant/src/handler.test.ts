@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { createHandler, INVITE_TEXT, UNSUPPORTED_TEXT, ERROR_TEXT, type Store } from "./handler.js";
+import { createHandler, UNSUPPORTED_TEXT, ERROR_TEXT, type Store } from "./handler.js";
 import type { InboundMessage } from "./kapso/webhook.js";
 
 const OWNER = "+50611111111";
@@ -48,13 +48,12 @@ describe("handler", () => {
     expect(t.runAgent).not.toHaveBeenCalled();
   });
 
-  it("invita una sola vez al día a un número no registrado", async () => {
+  it("no responde nada a un número no registrado", async () => {
     const t = setup();
     await t.h.handle(msg(STRANGER));
-    await t.h.handle(msg(STRANGER, "otra", "m2"));
-    expect(t.send).toHaveBeenCalledTimes(1);
-    expect(t.send).toHaveBeenCalledWith(STRANGER, INVITE_TEXT);
+    expect(t.send).not.toHaveBeenCalled();
     expect(t.runAgent).not.toHaveBeenCalled();
+    expect(t.store.saveUserMessage).not.toHaveBeenCalled();
   });
 
   it("procesa a un usuario registrado con su propio userId, guarda y registra consumo", async () => {

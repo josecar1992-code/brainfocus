@@ -801,8 +801,7 @@ consumo medido por usuario desde el inicio; primer usuario = persona cercana de 
 
 **Pendiente (siguientes fases):** servicio `apps/assistant` (webhook Kapso con firma, enrutamiento por
 número, bucle del modelo con `user_id` fijado por el servidor, historial, consumo por usuario);
-recordatorios propios con ventana de 24 h + plantilla; registro desde la web con código de un solo uso para
-vincular el WhatsApp; ocultar módulos en la web usando `/me`; prueba de aislamiento en vivo con dos usuarios
+recordatorios propios con ventana de 24 h + plantilla; alta y vinculación del WhatsApp SOLO por el administrador desde la web (sin auto-registro); ocultar módulos en la web usando `/me`; prueba de aislamiento en vivo con dos usuarios
 reales tras correr la migración; averiguar quiénes son `+50663083397` y `+50660740401` (en el allowlist de
 Kapso hoy atendidos por tu Quicks, con tus datos).
 
@@ -840,8 +839,8 @@ Kapso hoy atendidos por tu Quicks, con tus datos).
   envíos; quitarlos de esa lista hace que OpenClaw los ignore. Cambio a cargo de la sesión de OpenClaw
   (prompt entregado al usuario). En el servicio nuevo esos números → descartar sin respuesta.
 - **Enrutamiento del webhook:** usuario registrado en Focusbrain → servicio nuevo con su `user_id`; número del
-  dueño → reenvío a OpenClaw (transición); personal de QuickWash → descartar; cualquier otro → mensaje de
-  registro sin acceso a datos.
+  dueño → reenvío a OpenClaw (transición); personal de QuickWash → descartar; cualquier otro → silencio total
+  (corregido el 29-oct: antes era un mensaje de invitación).
 - **✅ Quicks ya no responde al personal de QuickWash (29-oct-2026, hecho por la sesión de OpenClaw):** se
   quitaron `+50663083397` y `+50660740401` de `channels["kapso-whatsapp"].allowFrom` (solo queda
   `+50687686207`); con `dmSecurity=allowlist` sus mensajes entrantes se descartan sin respuesta
@@ -906,7 +905,7 @@ URL del webhook en Kapso (acción manual del usuario).
   reenvío al webhook de OpenClaw, Dockerfile/compose.
 - **Asistente: servicio completo en local (29-oct-2026, sin desplegar ni activar).** `apps/assistant`:
   `index.ts` (express; verifica la firma HMAC sobre el cuerpo crudo, responde 200 de inmediato y procesa async),
-  `handler.ts` (enruta por número: descartar → reenviar → usuario registrado → invitación; un mensaje a la vez por
+  `handler.ts` (enruta por número: descartar → reenviar → usuario registrado → silencio para desconocidos; un mensaje a la vez por
   usuario; ignora reintentos por `wa_message_id`; pide texto si llega media; errores sin filtrar detalles),
   `store.ts` (historial, consumo y `whatsapp_last_inbound_at`; toda consulta filtra `user_id`), `forward.ts`
   (reenvía solo los eventos del dueño a OpenClaw, re-firmados), `env.ts`, `Dockerfile`, `.env.example` y servicio
@@ -915,3 +914,9 @@ URL del webhook en Kapso (acción manual del usuario).
   RLS sin políticas): **la corre el usuario en Supabase**. Tests: 26 en el paquete. Pendiente: plantilla
   `recordatorio_general` y política de ventana de 24 h (fase 3), registro/vinculación del número en la web
   (fase 4), consumo por usuario en Consumos (fase 5), cambiar el webhook de Kapso solo tras probar.
+- **Decisión: el alta de usuarios es interna, Quicks nunca invita a registrarse (29-oct-2026).** Corrección del
+  dueño: el registro no puede ser público, porque cualquiera podría usarlo. Por eso un número no registrado (o con
+  cuenta no activa) no recibe **ninguna** respuesta: ni invitación ni aviso de que el servicio existe
+  (`handler.ts`, caso `unregistered`; se registra solo un log). Las altas se hacen a mano: el usuario entra a la
+  web (queda `pending` por defecto), el administrador lo activa y vincula su `whatsapp_phone`. La fase 4 será una
+  pantalla de administrador para eso, nunca un flujo de auto-registro por WhatsApp. Test: `handler.test.ts`.

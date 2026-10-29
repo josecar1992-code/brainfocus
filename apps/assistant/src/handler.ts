@@ -20,20 +20,14 @@ export interface HandlerDeps {
   send: (to: string, text: string) => Promise<unknown>;
   forward: (msg: InboundMessage) => Promise<void>;
   log?: (msg: string, extra?: unknown) => void;
-  now?: () => number;
 }
 
 const HISTORY_LIMIT = 20;
-const INVITE_EVERY_MS = 24 * 3600_000;
-export const INVITE_TEXT =
-  "Hola, soy Quicks. Este número todavía no está registrado en Focusbrain. Pedí acceso a quien te invitó y, cuando te activen, escribime de nuevo.";
 export const UNSUPPORTED_TEXT = "Por ahora solo puedo leer mensajes de texto y notas de voz. ¿Me lo escribís?";
 export const ERROR_TEXT = "Tuve un problema procesando tu mensaje. Probá de nuevo en un momento.";
 
 export function createHandler(deps: HandlerDeps) {
   const log = deps.log ?? (() => {});
-  const now = deps.now ?? Date.now;
-  const lastInvite = new Map<string, number>();
   // Un mensaje a la vez por usuario: si manda varios seguidos se procesan en orden y no se pisan.
   const queues = new Map<string, Promise<unknown>>();
 
@@ -52,13 +46,11 @@ export function createHandler(deps: HandlerDeps) {
         return;
       case "forward":
         return deps.forward(msg);
-      case "unregistered": {
-        const last = lastInvite.get(msg.from) ?? 0;
-        if (now() - last < INVITE_EVERY_MS) return;
-        lastInvite.set(msg.from, now());
-        await deps.send(msg.from, INVITE_TEXT);
+      case "unregistered":
+        // El alta de usuarios es interna (la hace el administrador): a un número no registrado no se le
+        // responde nada, ni siquiera una invitación, para no incentivar registros ni revelar que el servicio existe.
+        log("mensaje de número no registrado descartado");
         return;
-      }
       case "user": {
         const userId = route.userId;
         return serialize(userId, async () => {

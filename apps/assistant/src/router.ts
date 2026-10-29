@@ -5,7 +5,7 @@ export type Route =
   | { kind: "user"; userId: string }
   | { kind: "forward" } // se reenvía a OpenClaw (dueño en transición)
   | { kind: "drop" } // se descarta sin responder (personal de QuickWash)
-  | { kind: "unregistered" }; // número desconocido o cuenta no activa: solo invitación a registrarse
+  | { kind: "unregistered" }; // número desconocido o cuenta no activa: se ignora en silencio
 
 export interface RouteDeps {
   dropNumbers: ReadonlySet<string>;
