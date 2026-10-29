@@ -742,3 +742,19 @@ No implementado todavía — este documento es la lista de trabajo, no un change
   dependencia = `npm update <pkg>` aquí, commitear el lockfile y reconstruir; el VPS ya no debe
   correr `npm install` a mano. Recordatorios del 23–24-oct revisados: los 17 pendientes tienen su
   cron en OpenClaw, sin huérfanos.
+- **OpenClaw se queda en 2026.10.5; la actualización a 2026.10.8 falló (29-oct-2026).** Decisión del
+  usuario: no volver a intentar hasta que salga una versión nueva. La validación en copia temporal
+  pasó, pero la activación falló en `runtime-artifact-publication` ("Cannot replace …"), el mismo
+  paso que ya falló el 27-oct; el gateway nunca se reinició (mismo proceso desde el 27-oct 22:51).
+  Verificado después: los 48 crons son idénticos al respaldo, `admin-http-rpc` sigue habilitado y
+  el contrato `cron.add`/`cron.remove` que usa `openclawCron.ts` no cambió, así que **no hay nada
+  que tocar en este repo**. No probado (no tenía sentido sin versión nueva): journal tras reinicio,
+  RPC directo, MCP y mensajes de prueba por canales. Para la próxima actualización: leer el
+  changelog de seguridad de la versión destino (10.5 no tiene auditoría de CVE), repetir la lista
+  de verificación en una copia aislada, averiguar por qué falla `Cannot replace`, avisar antes de
+  reiniciar y volver a probar crear/cancelar crons contra la API (ver prueba del 29-oct arriba).
+- **Panel de OpenClaw tras Caddy:** `gateway.trustedProxies = ["172.18.0.2"]` (IP de Caddy) en la
+  config de OpenClaw, para que `agents.quickwashcr.com` no responda 403. Si se recrea Caddy la IP
+  puede cambiar y hay que actualizarla. `/readyz` devuelve 503 por `kapso-whatsapp` ("stopped,
+  disconnected"): falso positivo conocido (Kapso va por webhook, sin proceso residente); la API de
+  Focusbrain llama al RPC, no a `/readyz`, así que no le afecta.
