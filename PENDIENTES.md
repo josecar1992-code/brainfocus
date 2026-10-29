@@ -904,3 +904,14 @@ URL del webhook en Kapso (acción manual del usuario).
   `agent.ts` (bucle de herramientas, máx. 6 iteraciones, acumula consumo), `prompt.ts` (reglas generales).
   Tests en `agent.test.ts` (19 en el paquete). Falta: almacenamiento de conversación/consumo, `index.ts`,
   reenvío al webhook de OpenClaw, Dockerfile/compose.
+- **Asistente: servicio completo en local (29-oct-2026, sin desplegar ni activar).** `apps/assistant`:
+  `index.ts` (express; verifica la firma HMAC sobre el cuerpo crudo, responde 200 de inmediato y procesa async),
+  `handler.ts` (enruta por número: descartar → reenviar → usuario registrado → invitación; un mensaje a la vez por
+  usuario; ignora reintentos por `wa_message_id`; pide texto si llega media; errores sin filtrar detalles),
+  `store.ts` (historial, consumo y `whatsapp_last_inbound_at`; toda consulta filtra `user_id`), `forward.ts`
+  (reenvía solo los eventos del dueño a OpenClaw, re-firmados), `env.ts`, `Dockerfile`, `.env.example` y servicio
+  `assistant` en `docker-compose.yml` bajo `profiles: ["assistant"]` (no arranca con `up -d api`). Migración
+  `supabase/migrations/20261029_asistente_mensajes_consumo.sql` (tablas `assistant_messages`, `assistant_usage`,
+  RLS sin políticas): **la corre el usuario en Supabase**. Tests: 26 en el paquete. Pendiente: plantilla
+  `recordatorio_general` y política de ventana de 24 h (fase 3), registro/vinculación del número en la web
+  (fase 4), consumo por usuario en Consumos (fase 5), cambiar el webhook de Kapso solo tras probar.

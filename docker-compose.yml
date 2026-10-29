@@ -43,6 +43,20 @@ services:
     ports:
       - "8081:80" # ver nota de ufw arriba, mismo motivo
 
+  # Asistente multiusuario (WhatsApp compartido). En profile "assistant": NO se levanta con
+  # `docker compose up -d api`; se activa a propósito con `--profile assistant` cuando se haga la migración.
+  assistant:
+    build:
+      context: .
+      dockerfile: apps/assistant/Dockerfile
+    profiles: ["assistant"]
+    restart: unless-stopped
+    env_file: ./apps/assistant/.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "3002:3002"
+
   mcp:
     build:
       context: .
