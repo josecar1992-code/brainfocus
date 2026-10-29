@@ -880,3 +880,8 @@ URL del webhook en Kapso (acción manual del usuario).
   módulo — correcto en el MCP (un proceso por llamada) pero obsoleto en un servicio de larga duración, así que
   el asistente lo reescribe en cada turno. `guardar_documento` lee archivos del disco del VPS (media de
   OpenClaw) y queda fuera del asistente.
+  **✅ Desplegado en producción (29-oct-2026, commit `7457df0`):** imagen `mcp` reconstruida en el VPS desde el
+  código ya subido. Comprobado ejecutando la imagen real del compose por stdio con la key de Quicks:
+  `tools/list` = 35 herramientas (incluye `listar_eventos`/`editar_evento`/`borrar_evento`), `hora_actual`
+  responde y `listar_tareas` (estado pending, solo lectura) llama a la API y devuelve las 33 pendientes.
+  No hizo falta reiniciar el gateway (la lista de herramientas no cambió).
