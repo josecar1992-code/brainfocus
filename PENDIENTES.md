@@ -723,7 +723,7 @@ No implementado todavía — este documento es la lista de trabajo, no un change
   Confirmado por la sesión de OpenClaw (29-oct-2026): el error exacto era `trusted operational run
   instance required for this gateway call` (OpenClaw 2026.10.5 exige identidad de run de agente para
   `cron.*`; el 500 de la API era ese mismo error). Probado en vivo: `cron.add` dispara y llega por
-  WhatsApp; **no probado**: cancelación (`cron.remove`) al borrar tarea/evento, ni que los crons
+  WhatsApp. Cancelación verificada 29-oct-2026 con el código real de la API en producción: `scheduleReminderCron` creó el job (aparece en `openclaw cron list --all --json`) y `cancelReminderCron` lo eliminó (ya no aparece). **No probado**: que los crons
   recurrentes funcionen por esta vía (el código sí pasa `kind:"cron"` explícito en esa ruta, el
   default `"at"` solo aplica a los de un disparo). `admin-http-rpc` no tiene garantía de estabilidad
   entre versiones de OpenClaw: revisarlo en la próxima actualización.
