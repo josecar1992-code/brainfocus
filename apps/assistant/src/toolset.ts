@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { horaActualCR } from "@brainfocus/shared-time";
 import { apiUpload, runWithApi } from "@brainfocus/focusbrain-tools";
+import { cleanDisplayName } from "./name.js";
 import type { Attachment } from "./attachments.js";
 import type { ToolSpec } from "./llm/qwen.js";
 
@@ -48,6 +49,8 @@ export interface ApiAccess {
 export interface ToolContext {
   attachment(): Attachment | null;
   sendDocument(doc: { url: string; name: string; mimeType: string | null }): Promise<void>;
+  /** Guarda cómo se llama la persona (profiles.display_name). */
+  setName?(name: string): Promise<void>;
 }
 
 const STALE_NOW = /Ahora mismo en Costa Rica es: .*? \(offset -06:00\)\./g;
@@ -69,6 +72,15 @@ const SAVE_SPEC = {
     required: ["nombre"],
   },
 };
+const NAME_SPEC = {
+  description:
+    "Guarda el nombre con el que la persona quiere que la llames. Usala apenas te lo diga (solo el nombre, sin apellidos salvo que los dé). Si cambia de nombre, volvé a llamarla.",
+  parameters: {
+    type: "object",
+    properties: { nombre: { type: "string", description: 'Cómo le gusta que le digan (ej. "Ana").' } },
+    required: ["nombre"],
+  },
+};
 const saveArgs = z.object({ nombre: z.string().min(1), proyecto_id: z.string().uuid().optional() });
 
 const SEND_DESCRIPTION_SUFFIX =
@@ -83,7 +95,7 @@ export interface Toolset {
 
 export function buildToolset(table: ToolTable, api: ApiAccess, opts: { now?: () => string } = {}): Toolset {
   const now = opts.now ?? horaActualCR;
-  const names = Object.keys(table).filter((n) => !EXCLUDED_TOOLS.has(n));
+  const names = [...Object.keys(table).filter((n) => !EXCLUDED_TOOLS.has(n)), "guardar_nombre"];
   const apiCtx = (userId: string) => ({
     baseUrl: api.baseUrl,
     headers: { "X-Service-Key": api.serviceKey, "X-On-Behalf-Of": userId },
@@ -102,6 +114,14 @@ export function buildToolset(table: ToolTable, api: ApiAccess, opts: { now?: () 
     return { guardado: true, id: doc.id, nombre: doc.name };
   }
 
+  async function saveName(rawArgs: unknown, ctx?: ToolContext): Promise<unknown> {
+    const name = cleanDisplayName((rawArgs as { nombre?: unknown } | null)?.nombre);
+    if (!name) throw new Error("Nombre inválido: tiene que ser solo letras, hasta 40 caracteres. Pedíselo de nuevo.");
+    if (!ctx?.setName) throw new Error("No se puede guardar el nombre desde aquí");
+    await ctx.setName(name);
+    return { guardado: true, nombre: name };
+  }
+
   async function sendDocument(userId: string, args: unknown, ctx?: ToolContext): Promise<unknown> {
     const result = await runWithApi(apiCtx(userId), () => table.enviar_documento.handler(args));
     const r = result as { url?: string; name?: string; mime_type?: string | null } | null;
@@ -118,6 +138,7 @@ export function buildToolset(table: ToolTable, api: ApiAccess, opts: { now?: () 
       const fresh = `Ahora mismo en Costa Rica es: ${now()} (offset -06:00).`;
       const offered = names.filter((n) => !modules || !TOOL_MODULE[n] || modules.includes(TOOL_MODULE[n]));
       return offered.map((name) => {
+        if (name === "guardar_nombre") return { type: "function" as const, function: { name, ...NAME_SPEC } };
         if (name === "guardar_documento") return { type: "function" as const, function: { name, ...SAVE_SPEC } };
         const description =
           table[name].description.replace(STALE_NOW, fresh) + (name === "enviar_documento" ? SEND_DESCRIPTION_SUFFIX : "");
@@ -136,6 +157,7 @@ export function buildToolset(table: ToolTable, api: ApiAccess, opts: { now?: () 
       }
 
       try {
+        if (name === "guardar_nombre") return JSON.stringify(await saveName(args, ctx));
         if (name === "guardar_documento") return JSON.stringify(await saveDocument(userId, args, ctx));
         const parsed = table[name].argsSchema.safeParse(args);
         if (!parsed.success) return JSON.stringify({ error: `Argumentos inválidos: ${parsed.error.message}` });

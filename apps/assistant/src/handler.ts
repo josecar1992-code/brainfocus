@@ -11,6 +11,9 @@ export interface Store {
   saveAssistantMessage(userId: string, content: string): Promise<void>;
   /** Módulos opcionales habilitados del usuario (null = todos). */
   enabledModules(userId: string): Promise<string[] | null>;
+  /** Nombre con el que Quicks llama a la persona (null si todavía no lo dio). */
+  displayName(userId: string): Promise<string | null>;
+  setDisplayName(userId: string, name: string): Promise<void>;
   history(userId: string, limit: number): Promise<Array<{ role: "user" | "assistant"; content: string }>>;
   logUsage(userId: string, model: string, usage: TurnResult["usage"]): Promise<void>;
   touchInbound(userId: string, atMs: number): Promise<void>;
@@ -94,6 +97,7 @@ ${note}` : note;
             if (!(await deps.store.saveUserMessage(userId, text, msg.messageId))) return; // duplicado
             const ctx: ToolContext = {
               attachment: () => deps.attachments?.latest(userId) ?? null,
+              setName: (name) => deps.store.setDisplayName(userId, name),
               sendDocument: async (doc) => {
                 if (!deps.sendMedia) throw new Error("No se pueden enviar archivos desde aquí");
                 await deps.sendMedia(msg.from, doc);

@@ -22,6 +22,16 @@ export function createStore(url: string, serviceRoleKey: string): Store {
       return (data?.enabled_modules as string[] | null | undefined) ?? null;
     },
 
+    async displayName(userId) {
+      const { data, error } = await db.from("profiles").select("display_name").eq("id", userId).maybeSingle();
+      check(error);
+      return (data?.display_name as string | null | undefined) ?? null;
+    },
+
+    async setDisplayName(userId, name) {
+      check((await db.from("profiles").update({ display_name: name }).eq("id", userId)).error);
+    },
+
     async saveUserMessage(userId, content, waMessageId) {
       const { error } = await db.from("assistant_messages").insert({ user_id: userId, role: "user", content, wa_message_id: waMessageId });
       if (error?.code === "23505") return false;

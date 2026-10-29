@@ -20,3 +20,16 @@ describe("prompt del asistente", () => {
     expect(p).toContain("_costa_rica");
   });
 });
+
+describe("nombre de la persona", () => {
+  it("sin nombre, instruye preguntarlo en la primera respuesta y guardarlo", () => {
+    const p = buildSystemPrompt("2026-10-29T10:00:00-06:00", null);
+    expect(p).toContain("Todavía no sabés cómo se llama");
+    expect(p).toContain("guardar_nombre");
+  });
+  it("con nombre, lo usa y no vuelve a preguntarlo", () => {
+    const p = buildSystemPrompt("2026-10-29T10:00:00-06:00", "Ana");
+    expect(p).toContain('La persona se llama "Ana"');
+    expect(p).not.toContain("Todavía no sabés");
+  });
+});

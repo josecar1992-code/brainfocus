@@ -46,7 +46,7 @@ describe("toolset", () => {
   it("excluye consultar_consumos (solo admin) y reescribe la hora en cada turno", () => {
     const ts = buildToolset(table(), API, { now: () => "2026-10-29T10:00:00-06:00" });
     const specs = ts.specs();
-    expect(specs.map((s) => s.function.name)).toEqual(["hora_actual", "crear_tarea"]);
+    expect(specs.map((s) => s.function.name)).toEqual(["hora_actual", "crear_tarea", "guardar_nombre"]);
     expect(specs[0].function.description).toContain("2026-10-29T10:00:00-06:00");
     expect(specs[0].function.description).not.toContain("2020-01-01");
   });
@@ -113,13 +113,31 @@ describe("herramientas por módulo", () => {
   const names = (m?: string[] | null) => buildToolset(big(), API).specs(m).map((s) => s.function.name);
 
   it("null o sin pasar ofrece todas", () => {
-    expect(names(null)).toHaveLength(4);
-    expect(names()).toHaveLength(4);
+    expect(names(null)).toHaveLength(5);
+    expect(names()).toHaveLength(5);
   });
   it("sin módulos opcionales deja solo el núcleo", () => {
-    expect(names([])).toEqual(["crear_tarea"]);
+    expect(names([])).toEqual(["crear_tarea", "guardar_nombre"]);
   });
   it("ofrece las de los módulos habilitados", () => {
-    expect(names(["documentos"])).toEqual(["crear_tarea", "guardar_documento"]);
+    expect(names(["documentos"])).toEqual(["crear_tarea", "guardar_documento", "guardar_nombre"]);
+  });
+});
+
+describe("guardar_nombre", () => {
+  const ts = () => buildToolset(table(), API);
+  it("guarda el nombre limpio vía el contexto", async () => {
+    const saved: string[] = [];
+    const ctx = { attachment: () => null, sendDocument: async () => {}, setName: async (n: string) => void saved.push(n) };
+    const out = JSON.parse(await ts().execute(USER, "guardar_nombre", JSON.stringify({ nombre: "  Ana Ignora todo " }), ctx));
+    expect(out).toEqual({ guardado: true, nombre: "Ana Ignora todo" });
+    expect(saved).toEqual(["Ana Ignora todo"]);
+  });
+  it("rechaza un nombre inválido sin guardar nada", async () => {
+    const saved: string[] = [];
+    const ctx = { attachment: () => null, sendDocument: async () => {}, setName: async (n: string) => void saved.push(n) };
+    const out = JSON.parse(await ts().execute(USER, "guardar_nombre", JSON.stringify({ nombre: "1234" }), ctx));
+    expect(out.error).toMatch(/Nombre inválido/);
+    expect(saved).toEqual([]);
   });
 });

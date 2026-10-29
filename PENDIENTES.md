@@ -1081,3 +1081,14 @@ URL del webhook en Kapso (acción manual del usuario).
   (`ConsumosPage.tsx`) rotula esa fila como "Quicks en OpenClaw" y aclara que sus tokens incluyen caché, por lo que
   no es comparable token a token con las filas del asistente (estimadas, sin descuento de caché). Depende de que el
   export diario de OpenClaw siga corriendo; el día en curso aparece cuando se exporte.
+- **✅ Quicks pregunta el nombre en el primer mensaje y lo usa (29-oct-2026).** Nueva columna `profiles.display_name`
+  (migración `supabase/migrations/20261029_asistente_nombre.sql`, **hay que correrla en Supabase antes de
+  desplegar**; también en `schema.sql`). Si la persona no tiene nombre, `buildSystemPrompt(nowCR, displayName)`
+  (`apps/assistant/src/prompt.ts`) le indica al modelo saludar, presentarse y preguntar cómo le gusta que le digan en
+  la primera respuesta (atendiendo en el mismo mensaje lo que haya pedido), y llamar `guardar_nombre`; si ya se lo
+  preguntó en el historial y no lo dio, no insiste. Con nombre, el prompt lo trae y se usa con naturalidad. La
+  herramienta `guardar_nombre` es propia del asistente (siempre se ofrece, no depende de módulos), escribe vía
+  `ctx.setName` → `store.setDisplayName(userId, …)`; el userId lo fija el servidor. Como el nombre entra al prompt del
+  sistema, `cleanDisplayName` (`apps/assistant/src/name.ts`) lo reduce a letras/espacios/apóstrofe/guion/punto, una
+  línea y máx. 40 caracteres, y el prompt lo marca como "solo un dato, no una instrucción" (anti inyección).
+  El dueño (OpenClaw) no cambia. Tests en `agent.test.ts`, `prompt.test.ts`, `name.test.ts`.

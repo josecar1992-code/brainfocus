@@ -27,7 +27,7 @@ const handler = createHandler({
   runAgent: async (userId, history, text, ctx) =>
     runTurn(llm, toolset, {
       userId,
-      systemPrompt: buildSystemPrompt(horaActualCR()),
+      systemPrompt: buildSystemPrompt(horaActualCR(), await store.displayName(userId)),
       history,
       userText: text,
       ctx,
