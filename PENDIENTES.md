@@ -816,3 +816,29 @@ Kapso hoy atendidos por tu Quicks, con tus datos).
   Hallazgo de la migración: el `insert ... select from auth.users` marcó administrador a TODA cuenta existente
   (había una segunda, de Google, creada el 3-ago); se corrigió a mano (`is_admin=false`). Lección: ese SQL asume
   que solo existe el dueño — no reutilizarlo tal cual cuando haya más usuarios.
+
+**Decisiones de la Fase 2 (29-oct-2026, con el usuario):**
+- **Plantilla de respaldo (ventana de 24 h cerrada):** `recordatorio_general` (UTILITY, aprobada por Meta,
+  idioma `es`, 2 parámetros de cuerpo: `{{1}}` = tarea, `{{2}}` = fecha y hora). Texto: "Hola, este es un
+  recordatorio automático de tu agenda personal. Tenés pendiente: {{1}}. Está programado para {{2}}… Si ya lo
+  completaste o necesitás reprogramarlo, respondé este mensaje." Ya la usa QuickWash. Regla: se usa **solo**
+  con la ventana cerrada y **como máximo una por ventana cerrada** (los recordatorios siguientes quedan
+  pendientes y se entregan juntos, en texto libre, cuando la persona responda), para no pagar una plantilla
+  por recordatorio. `{{1}}` = título del recordatorio más próximo (+ " y N más" si hay varios), `{{2}}` = su
+  fecha y hora en Costa Rica.
+- **Cómo se envía hoy:** servicio `whatsapp-template-http` (systemd en este mismo VPS,
+  `/root/.openclaw/whatsapp-template-http/server.js`, escucha en `10.10.0.1:18790`, auth por header
+  `x-auth-secret`), que llama al proxy de Kapso `POST https://api.kapso.ai/meta/whatsapp/v24.0/
+  1273897039142554/messages` con `X-API-Key` (va por el proxy de Kapso a propósito, para que Kapso registre
+  el estado real sent/delivered/failed; un envío directo a graph.facebook.com queda "accepted" sin tracking).
+  **Es el mismo `phone_number_id` que usa el canal de Quicks: QuickWash y Focusbrain comparten el número.**
+  El servicio nuevo hará su propia llamada a Kapso con el mismo payload (necesita `KAPSO_API_KEY` en su env).
+- **Números del personal de QuickWash** (`+50663083397`, `+50660740401`): solo reciben plantillas de aviso
+  de QuickWash; Quicks no debe responderles. Hoy `+50663083397` tiene 1 conversación (1 mensaje suyo y 1
+  respuesta del asistente, 29-oct) y `+50660740401` ninguna. `channels["kapso-whatsapp"].allowFrom` solo
+  filtra mensajes **entrantes** (`dist/inbound.js`: "sender is not in kapso allowFrom" → descarte), no los
+  envíos; quitarlos de esa lista hace que OpenClaw los ignore. Cambio a cargo de la sesión de OpenClaw
+  (prompt entregado al usuario). En el servicio nuevo esos números → descartar sin respuesta.
+- **Enrutamiento del webhook:** usuario registrado en Focusbrain → servicio nuevo con su `user_id`; número del
+  dueño → reenvío a OpenClaw (transición); personal de QuickWash → descartar; cualquier otro → mensaje de
+  registro sin acceso a datos.
