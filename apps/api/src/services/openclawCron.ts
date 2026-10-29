@@ -110,20 +110,26 @@ function isConfigured(): boolean {
   return Boolean(env.openclawGatewayUrl && env.openclawGatewayToken);
 }
 
-// `action`/`job` van anidados dentro de `args` — un {tool, action, job} de
-// primer nivel responde "job required" aunque job venga en el body.
-async function invoke(tool: string, action: string, args: Record<string, unknown>): Promise<unknown> {
-  const res = await fetch(`${env.openclawGatewayUrl}/tools/invoke`, {
+// OpenClaw 2026.10.5 (actualización del 23/24-oct-2026): cron ya no funciona por
+// `POST /tools/invoke` (exige identidad de run de agente). Se usa el plugin
+// `admin-http-rpc` en `POST /api/v1/admin/rpc` con `{ method: "cron.<action>", params }`.
+// `cron.add` recibe el job directo; `cron.remove` recibe `{ jobId }`. Se devuelve con la
+// forma `{ result: { details } }` que ya esperaban los llamadores del contrato viejo.
+async function invoke(_tool: string, action: string, args: Record<string, unknown>): Promise<unknown> {
+  const params: any = action === "add" ? { ...(args as any).job } : args;
+  // El RPC exige schedule.kind (el gateway antes lo inferia en /tools/invoke).
+  if (action === "add" && params.schedule && !params.schedule.kind) params.schedule = { kind: "at", ...params.schedule };
+  const res = await fetch(`${env.openclawGatewayUrl}/api/v1/admin/rpc`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${env.openclawGatewayToken}`,
     },
-    body: JSON.stringify({ tool, args: { action, ...args } }),
+    body: JSON.stringify({ method: "cron." + action, params }),
     signal: AbortSignal.timeout(10_000),
   });
   const json = await res.json().catch(() => null);
-  if (!res.ok) {
+  if (!res.ok || (json as any)?.ok === false) {
     const errField = json && typeof json === "object" ? (json as any).error : null;
     const detail =
       errField && typeof errField === "object"
@@ -131,7 +137,7 @@ async function invoke(tool: string, action: string, args: Record<string, unknown
         : (errField ?? res.statusText);
     throw new Error(`OpenClaw cron ${action} falló (${res.status}): ${detail}`);
   }
-  return json;
+  return { result: { details: (json as any)?.payload } };
 }
 
 // Default "whatsapp" (07-ago-2026, confirmado con test de entrega en vivo):

@@ -711,8 +711,12 @@ No implementado todavía — este documento es la lista de trabajo, no un change
   archivo de prueba puesto a mano). Se amplió a la raíz completa de solo lectura en vez de listar
   rutas puntuales, para no perseguir cada ruta nueva si el patrón de staging cambia. Ya persistido en
   `docker-compose.yml` (raíz del repo).
-- **Archivos `.bak-20260803` sueltos en el VPS**, no parte del repo (untracked): 
-  `apps/api/src/services/openclawCron.ts.bak-20260803` y `docker-compose.yml.bak-20260803` —
-  confirmado que son snapshots pre-fix del 03-ago-2026, completamente superados por el código
-  actual. Parecen residuos de debugging de otra sesión. _(pendiente: limpiarlos si el usuario
-  confirma que no hace falta conservarlos)._
+- ~~**Archivos `.bak-20260803` sueltos en el VPS.**~~ ✅ Ya no existían (28-oct-2026).
+- **Cron de OpenClaw por `admin-http-rpc` (OpenClaw 2026.10.5).** Tras la actualización del 23/24-oct-2026,
+  `POST /tools/invoke` dejó de servir para `cron` (exige identidad de run de agente) y los recordatorios
+  fallaban con `OpenClaw cron remove falló (500): tool execution failed`. La sesión de OpenClaw lo
+  parchó directo en el VPS (sin commitear ni documentar) usando el plugin `admin-http-rpc`:
+  `POST /api/v1/admin/rpc` con `{method:"cron.add"|"cron.remove", params}`; `cron.add` exige
+  `schedule.kind` (se default a `"at"`). Causa raíz de que quedara solo en el VPS: el cambio no pasó
+  por el repo. 28-oct-2026 se trajo a `apps/api/src/services/openclawCron.ts` y se actualizó
+  `infra/DEPLOY.md`; `HANDOFF_*_OPENCLAW.md` quedan como histórico del contrato viejo.

@@ -171,7 +171,7 @@ Documentado aquí para que quede como referencia, pero lo ejecuta y verifica la 
    - **Recordatorios vs. `cron` (superado)**: la convención anterior era que Quicks creaba el
      recordatorio en la API **y** el cron job en el mismo turno. Ya no aplica — desde el endpoint
      `/reminders` de `apps/api`, la propia API programa el cron de disparo único en OpenClaw
-     automáticamente (`tool cron` sobre `POST /tools/invoke`, ver
+     automáticamente (`cron.add`/`cron.remove` sobre `POST /api/v1/admin/rpc` desde OpenClaw 2026.10.5 — antes `POST /tools/invoke`; ver
      `apps/api/src/services/openclawCron.ts` y el detalle del contrato en
      `HANDOFF_TO_OPENCLAW.md`), tanto si el recordatorio se creó desde la app como desde Quicks.
      **Hecho y verificado en producción**: `OPENCLAW_GATEWAY_URL`/`OPENCLAW_GATEWAY_TOKEN`/
@@ -230,8 +230,8 @@ Documentado aquí para que quede como referencia, pero lo ejecuta y verifica la 
      1. `select id, title, channel, cron_job_id, remind_at from reminders where sent_at is null and
         remind_at > now() order by remind_at;` (Supabase MCP `execute_sql`) — cualquier fila con el
         canal viejo (o roto) es candidata a migrar.
-     2. Para cada una: `POST /tools/invoke` con `{"tool":"cron","args":{"action":"remove","jobId":
-        "<cron_job_id viejo>"}}`, después `action":"add"` con el mismo `displayName`
+     2. Para cada una: `POST /api/v1/admin/rpc` con `{"method":"cron.remove","params":{"jobId":
+        "<cron_job_id viejo>"}}`, después `cron.add` con el mismo `displayName`
         (`brainfocus:reminder:<id>`), mismo `schedule.at` y el `delivery.channel`/`to` correctos —
         mismo payload que arma `scheduleReminderCron` (ver `openclawCron.ts`).
      3. `update reminders set channel = '<nuevo>', cron_job_id = '<nuevo job id>' where id = '<id>';`
