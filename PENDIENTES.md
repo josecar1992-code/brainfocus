@@ -865,3 +865,18 @@ herramientas, historial y registro de consumo por usuario, autenticación servic
 (`X-Service-Key` + usuario fijado por el servidor), reutilizar la tabla de herramientas del MCP (35 tools,
 independiente del protocolo MCP) extrayéndola a un paquete compartido, Dockerfile/compose, y el cambio de la
 URL del webhook en Kapso (acción manual del usuario).
+- **Herramientas del MCP extraídas a un paquete compartido (29-oct-2026, local, sin desplegar):** la tabla
+  `tools` (35 herramientas) pasó de `apps/mcp/src/index.ts` a `packages/focusbrain-tools` (`tools.ts`), para que
+  la usen el MCP de OpenClaw y `apps/assistant` sin duplicar lógica. `apiClient` se movió allí con
+  `AsyncLocalStorage`: el MCP sigue usando `BRAINFOCUS_API_URL`/`BRAINFOCUS_API_KEY` de entorno (falla al
+  arrancar si faltan, como antes, vía `assertApiConfiguredFromEnv`), y el asistente fija credenciales y usuario
+  POR LLAMADA con `runWithApi()` (un solo proceso atiende a muchos usuarios a la vez). `apps/mcp/src/index.ts`
+  quedó solo con el servidor MCP (54 líneas). **Verificado sin tocar producción:** `tools/list` del MCP
+  compilado en local y de una imagen construida en el VPS con el Dockerfile nuevo bajo otra etiqueta (ya
+  borrada) son idénticos a la línea base previa al cambio (35 herramientas, mismas descripciones y esquemas).
+  `apps/mcp/Dockerfile` ahora construye `shared-time` → `focusbrain-tools` → mcp. **Ojo:** reconstruir la imagen
+  `mcp` del compose reemplaza la que usa Quicks en la siguiente llamada; hacerlo solo tras `git push` + `git
+  pull` en el VPS. Nota: las descripciones llevan "Ahora mismo en Costa Rica es: …" calculado al cargar el
+  módulo — correcto en el MCP (un proceso por llamada) pero obsoleto en un servicio de larga duración, así que
+  el asistente lo reescribe en cada turno. `guardar_documento` lee archivos del disco del VPS (media de
+  OpenClaw) y queda fuera del asistente.
