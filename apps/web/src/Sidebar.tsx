@@ -14,6 +14,7 @@ import {
   IconRobot,
   IconSettings,
   IconSun,
+  IconUsers,
   IconX,
 } from "./icons";
 import { supabase } from "./supabaseClient";
@@ -28,6 +29,7 @@ export type ModuleKey =
   | "documentos"
   | "vehiculos"
   | "consumos"
+  | "usuarios"
   | "resumen"
   | "asistente"
   | "configuracion";
@@ -43,9 +45,23 @@ export const MODULES: { key: ModuleKey; label: string; icon: ComponentType<SVGPr
   { key: "documentos", label: "Documentos", icon: IconFile },
   { key: "vehiculos", label: "Vehículos", icon: IconCar },
   { key: "consumos", label: "Consumos", icon: IconChartBar },
+  { key: "usuarios", label: "Usuarios", icon: IconUsers },
   { key: "resumen", label: "Resumen", icon: IconCheckCircle },
   { key: "configuracion", label: "Configuración", icon: IconSettings },
 ];
+
+// Módulos que ve cada persona: Consumos y Usuarios son solo del administrador, y los opcionales dependen de
+// lo que el administrador le habilitó (modules null = todos). El servidor igual lo hace cumplir; esto es solo UX.
+const ADMIN_ONLY: ModuleKey[] = ["consumos", "usuarios"];
+const OPTIONAL: ModuleKey[] = ["proyectos", "rutinas", "notas", "documentos", "vehiculos"];
+export function visibleModules(me: { isAdmin: boolean; modules: string[] | null } | null): typeof MODULES {
+  if (!me) return MODULES.filter((m) => !ADMIN_ONLY.includes(m.key));
+  return MODULES.filter((m) => {
+    if (ADMIN_ONLY.includes(m.key)) return me.isAdmin;
+    if (OPTIONAL.includes(m.key)) return me.modules === null || me.modules.includes(m.key);
+    return true;
+  });
+}
 
 function getInitials(email?: string | null) {
   if (!email) return "?";
@@ -73,10 +89,10 @@ function Brand() {
   );
 }
 
-function NavLinks({ active, onChange }: { active: ModuleKey; onChange: (m: ModuleKey) => void }) {
+function NavLinks({ active, onChange, items }: { active: ModuleKey; onChange: (m: ModuleKey) => void; items: typeof MODULES }) {
   return (
     <nav className="flex-1 space-y-0.5">
-      {MODULES.map((m) => (
+      {items.map((m) => (
         <button
           key={m.key}
           type="button"
@@ -95,7 +111,7 @@ function NavLinks({ active, onChange }: { active: ModuleKey; onChange: (m: Modul
   );
 }
 
-function UserBlock({ email }: { email?: string | null }) {
+function UserBlock({ email, role }: { email?: string | null; role: string }) {
   return (
     <div className="space-y-1">
       <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg">
@@ -104,7 +120,7 @@ function UserBlock({ email }: { email?: string | null }) {
         </div>
         <div className="min-w-0">
           <p className="text-white text-xs font-semibold truncate leading-tight">{email ?? "—"}</p>
-          <p className="text-white/35 text-xs truncate leading-tight mt-0.5">Dueño</p>
+          <p className="text-white/35 text-xs truncate leading-tight mt-0.5">{role}</p>
         </div>
       </div>
       <button
@@ -123,10 +139,13 @@ interface SidebarProps {
   active: ModuleKey;
   onChange: (m: ModuleKey) => void;
   email?: string | null;
+  me: { isAdmin: boolean; modules: string[] | null } | null;
 }
 
-export function Sidebar({ active, onChange, email }: SidebarProps) {
+export function Sidebar({ active, onChange, email, me }: SidebarProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const items = visibleModules(me);
+  const role = me?.isAdmin ? "Administrador" : "Usuario";
 
   return (
     <>
@@ -136,9 +155,9 @@ export function Sidebar({ active, onChange, email }: SidebarProps) {
           <Brand />
         </div>
         <div className="mx-2 h-px bg-gradient-to-r from-electric-cyan/25 via-white/8 to-transparent mb-2" />
-        <NavLinks active={active} onChange={onChange} />
+        <NavLinks active={active} onChange={onChange} items={items} />
         <div className="mx-2 h-px bg-gradient-to-r from-electric-cyan/25 via-white/8 to-transparent mt-2 mb-1" />
-        <UserBlock email={email} />
+        <UserBlock email={email} role={role} />
       </aside>
 
       {/* Móvil: barra superior con hamburguesa */}
@@ -174,6 +193,7 @@ export function Sidebar({ active, onChange, email }: SidebarProps) {
             </div>
             <div className="mx-2 h-px bg-white/8 mb-2" />
             <NavLinks
+              items={items}
               active={active}
               onChange={(m) => {
                 onChange(m);
@@ -181,7 +201,7 @@ export function Sidebar({ active, onChange, email }: SidebarProps) {
               }}
             />
             <div className="mx-2 h-px bg-white/8 mt-2 mb-1" />
-            <UserBlock email={email} />
+            <UserBlock email={email} role={role} />
           </div>
         </div>
       )}

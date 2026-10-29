@@ -958,3 +958,16 @@ URL del webhook en Kapso (acción manual del usuario).
   retroactivo. Migración `supabase/migrations/20261029_asistente_recurrentes.sql`: **la corre el usuario**. Los
   canales `telegram` de usuarios nuevos se tratan como WhatsApp. Tests: `occurrence.test.ts` y ampliación de
   `dispatcher.test.ts` (48 en el paquete).
+- **Fase 4: pantalla de administrador de usuarios (29-oct-2026, solo local).** El alta es interna (ver decisión
+  arriba): nueva ruta `apps/api/src/routes/admin.ts` (`GET /admin/users`, `PATCH /admin/users/:id`) que solo
+  acepta al administrador **desde la sesión web** (no API keys ni la credencial del asistente: un agente nunca debe
+  poder darse o dar acceso) y solo deja cambiar `status`, `enabled_modules` (únicamente los 5 opcionales) y
+  `whatsapp_phone` (se normaliza a E.164; un duplicado devuelve 409); `is_admin` no es editable por la API
+  (esquema `strict`, anti-escalada) y uno no puede desactivar su propia cuenta. Lista las cuentas de
+  `auth.users` unidas con `profiles`: quien se registró con Google y aún no tiene perfil aparece como
+  `pending`. El cambio invalida el caché de acceso (`invalidateProfileAccess`), aplica al instante. Web:
+  `AdminPage.tsx` (módulo "Usuarios", solo admin) y la barra lateral ahora oculta Consumos/Usuarios a quien no es
+  admin y los módulos opcionales que no se le habilitaron, usando `GET /me` (`visibleModules` en `Sidebar.tsx`;
+  una URL directa a un módulo no permitido cae en el primero visible). Es solo UX: el servidor ya hacía cumplir
+  permisos y módulos. Tests: `admin.test.ts` (54 en la API). Sin verificar en navegador (requiere sesión de
+  Google); `tsc` limpio en web y API. Hay que redesplegar **api y web** para verlo.

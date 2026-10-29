@@ -5,6 +5,7 @@ import morgan from "morgan";
 import { env } from "./env.js";
 import { authenticate } from "./middleware/auth.js";
 import { errorHandler } from "./middleware/errorHandler.js";
+import { adminRouter } from "./routes/admin.js";
 import { apiKeysRouter } from "./routes/apiKeys.js";
 import { consumosRouter } from "./routes/consumos.js";
 import { documentsRouter } from "./routes/documents.js";
@@ -52,6 +53,7 @@ app.get("/me", (req, res) => {
 });
 
 app.use("/internal/api-keys", apiKeysRouter);
+app.use("/admin", adminRouter);
 app.use("/tasks", tasksRouter);
 app.use("/subtasks", subtasksRouter);
 app.use("/lists", listsRouter);

@@ -2,14 +2,15 @@ import { useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { AgendaPage } from "./AgendaPage";
 import { AsistentePage } from "./AsistentePage";
-import { ApiError, api } from "./api";
+import { ApiError, api, type Me } from "./api";
 import { ConsumosPage } from "./ConsumosPage";
 import { DocumentsPage } from "./DocumentsPage";
 import { ResumenPage } from "./ResumenPage";
 import { Header } from "./Header";
 import { Login } from "./Login";
 import { NeuronBackground } from "./NeuronBackground";
-import { Sidebar } from "./Sidebar";
+import { Sidebar, visibleModules } from "./Sidebar";
+import { AdminPage } from "./AdminPage";
 import { NotesPage } from "./NotesPage";
 import { ProjectsPage } from "./ProjectsPage";
 import { RoutinesPage } from "./RoutinesPage";
@@ -26,6 +27,7 @@ export function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [access, setAccess] = useState<AccessState>("checking");
+  const [me, setMe] = useState<Me | null>(null);
   const [activeModule, setActiveModule] = useModuleRoute();
   // Independiente de `session`: signOut() lo borra, pero el mensaje debe seguir
   // visible en vez de saltar directo a la pantalla de login.
@@ -56,7 +58,11 @@ export function App() {
     setAccess("checking");
     api
       .checkAccess()
-      .then(() => setAccess("granted"))
+      .then(() => {
+        setAccess("granted");
+        // Solo decide qué módulos se muestran; si falla se ven los básicos y el servidor sigue haciendo cumplir los permisos.
+        api.me().then(setMe).catch(() => setMe(null));
+      })
       .catch((err) => {
         if (err instanceof ApiError && err.status === 403) {
           setDenied(true);
@@ -84,6 +90,10 @@ export function App() {
   if (!session) return <Login />;
   if (access === "checking") return null;
 
+  // Una URL directa a un módulo que esta persona no tiene (ej. /consumos) cae en el primero que sí ve.
+  const allowed = visibleModules(me);
+  const current = allowed.some((m) => m.key === activeModule) ? activeModule : allowed[0].key;
+
   return (
     <div className="md:flex md:h-screen">
       {/* Misma estética "red neuronal" del login, pero discreta — de fondo detrás
@@ -98,23 +108,24 @@ export function App() {
         }}
       />
 
-      <Sidebar active={activeModule} onChange={setActiveModule} email={session.user.email} />
+      <Sidebar active={current} onChange={setActiveModule} email={session.user.email} me={me} />
       <div className="flex-1 flex flex-col min-w-0 md:overflow-hidden">
-        <Header active={activeModule} email={session.user.email} />
+        <Header active={current} email={session.user.email} />
         <main className="flex-1 md:overflow-auto px-4 py-6 md:px-8 md:py-8">
           <div className="max-w-3xl mx-auto w-full">
-            {activeModule === "hoy" && <TodayPage />}
-            {activeModule === "tareas" && <TasksPage />}
-            {activeModule === "agenda" && <AgendaPage />}
-            {activeModule === "rutinas" && <RoutinesPage />}
-            {activeModule === "proyectos" && <ProjectsPage />}
-            {activeModule === "notas" && <NotesPage />}
-            {activeModule === "documentos" && <DocumentsPage />}
-            {activeModule === "vehiculos" && <VehiclesPage />}
-            {activeModule === "consumos" && <ConsumosPage />}
-            {activeModule === "resumen" && <ResumenPage />}
-            {activeModule === "asistente" && <AsistentePage />}
-            {activeModule === "configuracion" && <SettingsPage />}
+            {current === "hoy" && <TodayPage />}
+            {current === "tareas" && <TasksPage />}
+            {current === "agenda" && <AgendaPage />}
+            {current === "rutinas" && <RoutinesPage />}
+            {current === "proyectos" && <ProjectsPage />}
+            {current === "notas" && <NotesPage />}
+            {current === "documentos" && <DocumentsPage />}
+            {current === "vehiculos" && <VehiclesPage />}
+            {current === "consumos" && <ConsumosPage />}
+            {current === "usuarios" && <AdminPage />}
+            {current === "resumen" && <ResumenPage />}
+            {current === "asistente" && <AsistentePage />}
+            {current === "configuracion" && <SettingsPage />}
           </div>
         </main>
       </div>

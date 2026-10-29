@@ -261,6 +261,27 @@ async function authHeader(): Promise<Record<string, string>> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+export interface Me {
+  userId: string;
+  isAdmin: boolean;
+  /** Módulos opcionales habilitados; null = todos. */
+  modules: string[] | null;
+}
+
+export interface AdminUser {
+  id: string;
+  email: string | null;
+  created_at: string;
+  last_sign_in_at: string | null;
+  status: "pending" | "active" | "blocked";
+  is_admin: boolean;
+  enabled_modules: string[] | null;
+  whatsapp_phone: string | null;
+  whatsapp_last_inbound_at: string | null;
+}
+
+export type AdminUserPatch = Partial<Pick<AdminUser, "status" | "enabled_modules" | "whatsapp_phone">>;
+
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -327,6 +348,10 @@ async function createEventReminders(input: {
 
 export const api = {
   checkAccess: () => request<Task[]>("/tasks?limit=1"),
+  me: () => request<Me>("/me"),
+  adminListUsers: () => request<AdminUser[]>("/admin/users"),
+  adminUpdateUser: (id: string, patch: AdminUserPatch) =>
+    request<{ ok: true }>(`/admin/users/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   // limit=1000: sin esto, el default de 50 + orden ascendente por due_date
   // traía las 50 tareas más viejas, no las próximas — con más de 50 tareas
   // históricas (rutinas generan una por ocurrencia) Agenda/Tareas/Proyectos

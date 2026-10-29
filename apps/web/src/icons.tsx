@@ -241,3 +241,13 @@ export function IconRobot(props: SVGProps<SVGSVGElement>) {
     </Icon>
   );
 }
+
+export function IconUsers(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <circle cx="9" cy="8" r="3.25" />
+      <path d="M3 20c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5" />
+      <path d="M16 4.9a3.25 3.25 0 0 1 0 6.2M18 14.8c1.8.7 3 2.4 3 5.2" />
+    </Icon>
+  );
+}
