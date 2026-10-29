@@ -1051,7 +1051,7 @@ URL del webhook en Kapso (acción manual del usuario).
   prueba limpiados de la cuenta de prueba (conservando `assistant_usage`, que es consumo real).
   Observación aparte (anterior a este cambio): el monitor de OpenClaw reinicia el canal `kapso-whatsapp` con
   `reason: stopped` cientos de veces por día desde el 26-oct (42/145/144/103 por día), por lo que no es efecto del
-  asistente; queda como pendiente investigar su causa.
+  asistente. **Investigado (29-oct-2026):** no es nuevo ni dañino. Son exactamente 145 por día (cada 10 min) desde al menos el 1-oct, mucho antes de ese cambio; mi nota original de "desde el 26-oct" estaba mal porque solo miré los últimos días. `openclaw channels status` muestra Kapso WhatsApp como `stopped, disconnected, health:not-running`, mientras los Telegram están `running, connected`: el canal de Kapso funciona solo por webhook (no tiene una conexión viva), así que el monitor lo ve "parado", intenta reiniciarlo y no cambia nada (misma causa del falso positivo de `/readyz` 503 ya anotado). Los mensajes entran igual por el webhook. Es ruido de log: no se tocó nada; si algún día molesta, la salida es excluir ese canal del monitor de salud de OpenClaw (no encontré la opción en `openclaw.json`; revisar `openclaw doctor` o la documentación de la versión).
 - **✅ Herramientas del asistente filtradas por módulos habilitados del usuario (29-oct-2026).** Antes cada llamada
   al modelo llevaba las 34 herramientas (~7.600 tokens) aunque el usuario solo tuviera, por ejemplo, Documentos.
   Ahora `toolset.specs(modules)` ofrece el núcleo (tareas, recordatorios, eventos, avisos, hora) más las
