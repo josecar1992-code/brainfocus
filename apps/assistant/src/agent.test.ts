@@ -104,3 +104,22 @@ describe("runTurn", () => {
     expect(r.reply).toContain("No pude");
   });
 });
+
+describe("herramientas por módulo", () => {
+  const big = (): ToolTable => {
+    const def = { description: "d", inputSchema: {}, argsSchema: { safeParse: (v: unknown) => ({ success: true as const, data: v }) }, handler: async () => ({}) };
+    return { crear_tarea: def, crear_nota: def, guardar_documento: def, listar_vehiculos: def };
+  };
+  const names = (m?: string[] | null) => buildToolset(big(), API).specs(m).map((s) => s.function.name);
+
+  it("null o sin pasar ofrece todas", () => {
+    expect(names(null)).toHaveLength(4);
+    expect(names()).toHaveLength(4);
+  });
+  it("sin módulos opcionales deja solo el núcleo", () => {
+    expect(names([])).toEqual(["crear_tarea"]);
+  });
+  it("ofrece las de los módulos habilitados", () => {
+    expect(names(["documentos"])).toEqual(["crear_tarea", "guardar_documento"]);
+  });
+});

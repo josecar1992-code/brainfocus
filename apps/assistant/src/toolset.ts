@@ -17,6 +17,28 @@ export type ToolTable = Record<string, ToolDef>;
 //  - consultar_consumos: gasto del servidor, solo del administrador (la credencial del asistente no tiene ese scope).
 export const EXCLUDED_TOOLS = new Set(["consultar_consumos"]);
 
+// Herramientas de los módulos opcionales (mismos nombres que apps/api/src/utils/modules.ts). Las que no están aquí
+// son del núcleo y siempre se ofrecen. Ofrecer solo las del usuario baja los tokens por llamada; la API sigue
+// siendo la que impone el permiso de verdad.
+const TOOL_MODULE: Record<string, string> = {
+  listar_proyectos: "proyectos",
+  crear_proyecto: "proyectos",
+  listar_rutinas: "rutinas",
+  crear_rutina: "rutinas",
+  crear_nota: "notas",
+  buscar_notas: "notas",
+  guardar_documento: "documentos",
+  buscar_documentos: "documentos",
+  enviar_documento: "documentos",
+  listar_vehiculos: "vehiculos",
+  crear_vehiculo: "vehiculos",
+  fijar_proximo_mantenimiento: "vehiculos",
+  crear_mantenimiento: "vehiculos",
+  listar_mantenimientos: "vehiculos",
+  registrar_kilometraje: "vehiculos",
+  listar_kilometrajes: "vehiculos",
+};
+
 export interface ApiAccess {
   baseUrl: string;
   serviceKey: string;
@@ -53,7 +75,8 @@ const SEND_DESCRIPTION_SUFFIX =
   " El archivo se envía directamente por WhatsApp a la persona; después de llamar esta herramienta solo confirmá que se lo mandaste.";
 
 export interface Toolset {
-  specs(): ToolSpec[];
+  /** modules: los habilitados del usuario (null o sin pasar = todos). */
+  specs(modules?: string[] | null): ToolSpec[];
   /** Ejecuta una herramienta EN NOMBRE de userId. El userId lo pone el servidor, nunca el modelo. */
   execute(userId: string, name: string, rawArgs: string, ctx?: ToolContext): Promise<string>;
 }
@@ -89,11 +112,12 @@ export function buildToolset(table: ToolTable, api: ApiAccess, opts: { now?: () 
   }
 
   return {
-    specs() {
+    specs(modules) {
       // La descripción trae "Ahora mismo en Costa Rica es: <hora>" fijada al cargar el módulo; en un servicio
       // de larga duración eso queda viejo, así que se reescribe con la hora real en cada turno.
       const fresh = `Ahora mismo en Costa Rica es: ${now()} (offset -06:00).`;
-      return names.map((name) => {
+      const offered = names.filter((n) => !modules || !TOOL_MODULE[n] || modules.includes(TOOL_MODULE[n]));
+      return offered.map((name) => {
         if (name === "guardar_documento") return { type: "function" as const, function: { name, ...SAVE_SPEC } };
         const description =
           table[name].description.replace(STALE_NOW, fresh) + (name === "enviar_documento" ? SEND_DESCRIPTION_SUFFIX : "");

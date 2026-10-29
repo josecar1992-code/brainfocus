@@ -16,6 +16,12 @@ export function createStore(url: string, serviceRoleKey: string): Store {
       return data ? { userId: data.id as string, status: data.status as string } : null;
     },
 
+    async enabledModules(userId) {
+      const { data, error } = await db.from("profiles").select("enabled_modules").eq("id", userId).maybeSingle();
+      check(error);
+      return (data?.enabled_modules as string[] | null | undefined) ?? null;
+    },
+
     async saveUserMessage(userId, content, waMessageId) {
       const { error } = await db.from("assistant_messages").insert({ user_id: userId, role: "user", content, wa_message_id: waMessageId });
       if (error?.code === "23505") return false;

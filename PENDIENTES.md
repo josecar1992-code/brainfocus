@@ -1052,3 +1052,14 @@ URL del webhook en Kapso (acción manual del usuario).
   Observación aparte (anterior a este cambio): el monitor de OpenClaw reinicia el canal `kapso-whatsapp` con
   `reason: stopped` cientos de veces por día desde el 26-oct (42/145/144/103 por día), por lo que no es efecto del
   asistente; queda como pendiente investigar su causa.
+- **✅ Herramientas del asistente filtradas por módulos habilitados del usuario (29-oct-2026).** Antes cada llamada
+  al modelo llevaba las 34 herramientas (~7.600 tokens) aunque el usuario solo tuviera, por ejemplo, Documentos.
+  Ahora `toolset.specs(modules)` ofrece el núcleo (tareas, recordatorios, eventos, avisos, hora) más las
+  herramientas de los módulos opcionales que el usuario tiene en `profiles.enabled_modules` (`null` = todas, como
+  el dueño). El mapa herramienta→módulo vive en `apps/assistant/src/toolset.ts` (`TOOL_MODULE`) y debe mantenerse
+  alineado con `apps/api/src/utils/modules.ts`; una herramienta nueva de módulo opcional que no se agregue ahí se
+  ofrece siempre (la API sigue rechazándola si el módulo no está habilitado, así que es solo costo, no fuga).
+  `store.enabledModules(userId)` lee el perfil en cada mensaje, por lo que activar un módulo en la pantalla de
+  Usuarios surte efecto en el siguiente mensaje sin reiniciar. Tests en `agent.test.ts`.
+  Pendiente: desplegar (`git pull && docker compose build assistant && docker compose --profile assistant up -d assistant`)
+  y comparar tokens de prompt de la cuenta de prueba (antes 7.632 por llamada).

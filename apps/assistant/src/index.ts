@@ -24,8 +24,15 @@ const store = createStore(env.supabaseUrl, env.supabaseServiceRoleKey);
 const handler = createHandler({
   routing: { dropNumbers: parseNumberList(env.dropNumbers), forwardNumbers: parseNumberList(env.forwardNumbers) },
   store,
-  runAgent: (userId, history, text, ctx) =>
-    runTurn(llm, toolset, { userId, systemPrompt: buildSystemPrompt(horaActualCR()), history, userText: text, ctx }),
+  runAgent: async (userId, history, text, ctx) =>
+    runTurn(llm, toolset, {
+      userId,
+      systemPrompt: buildSystemPrompt(horaActualCR()),
+      history,
+      userText: text,
+      ctx,
+      modules: await store.enabledModules(userId),
+    }),
   attachments: createAttachmentStore({ kapsoApiKey: env.kapso.apiKey }),
   sendMedia: async (to, doc) => {
     const kind = doc.mimeType?.startsWith("image/") ? "image" : "document";

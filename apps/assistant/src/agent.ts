@@ -13,6 +13,8 @@ export interface TurnInput {
   userText: string;
   /** Adjunto del mensaje actual y envío de archivos de vuelta (herramientas de documentos). */
   ctx?: ToolContext;
+  /** Módulos habilitados del usuario (null = todos): solo se le ofrecen las herramientas de esos módulos. */
+  modules?: string[] | null;
 }
 
 export interface TurnResult {
@@ -29,7 +31,7 @@ export async function runTurn(llm: LlmClient, toolset: Toolset, input: TurnInput
   const usage = { promptTokens: 0, completionTokens: 0, llmCalls: 0 };
 
   for (let i = 0; i < MAX_ITERATIONS; i++) {
-    const { message, usage: u } = await llm.chat(messages, toolset.specs());
+    const { message, usage: u } = await llm.chat(messages, toolset.specs(input.modules));
     usage.promptTokens += u.promptTokens;
     usage.completionTokens += u.completionTokens;
     usage.llmCalls += 1;

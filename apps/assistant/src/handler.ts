@@ -9,6 +9,8 @@ export interface Store {
   /** Guarda el mensaje del usuario; false si ese wa_message_id ya se procesó (reintento del webhook). */
   saveUserMessage(userId: string, content: string, waMessageId: string): Promise<boolean>;
   saveAssistantMessage(userId: string, content: string): Promise<void>;
+  /** Módulos opcionales habilitados del usuario (null = todos). */
+  enabledModules(userId: string): Promise<string[] | null>;
   history(userId: string, limit: number): Promise<Array<{ role: "user" | "assistant"; content: string }>>;
   logUsage(userId: string, model: string, usage: TurnResult["usage"]): Promise<void>;
   touchInbound(userId: string, atMs: number): Promise<void>;
