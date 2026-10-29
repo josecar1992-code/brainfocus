@@ -720,3 +720,18 @@ No implementado todavía — este documento es la lista de trabajo, no un change
   `schedule.kind` (se default a `"at"`). Causa raíz de que quedara solo en el VPS: el cambio no pasó
   por el repo. 28-oct-2026 se trajo a `apps/api/src/services/openclawCron.ts` y se actualizó
   `infra/DEPLOY.md`; `HANDOFF_*_OPENCLAW.md` quedan como histórico del contrato viejo.
+  Confirmado por la sesión de OpenClaw (29-oct-2026): el error exacto era `trusted operational run
+  instance required for this gateway call` (OpenClaw 2026.10.5 exige identidad de run de agente para
+  `cron.*`; el 500 de la API era ese mismo error). Probado en vivo: `cron.add` dispara y llega por
+  WhatsApp; **no probado**: cancelación (`cron.remove`) al borrar tarea/evento, ni que los crons
+  recurrentes funcionen por esta vía (el código sí pasa `kind:"cron"` explícito en esa ruta, el
+  default `"at"` solo aplica a los de un disparo). `admin-http-rpc` no tiene garantía de estabilidad
+  entre versiones de OpenClaw: revisarlo en la próxima actualización.
+  _(pendiente: cruzar `reminders` con `sent_at is null and remind_at > now()` contra
+  `openclaw cron list --all` por si quedaron recordatorios del 23–24-oct sin cron.)_
+- **Los Dockerfiles ignoran los `package-lock.json`.** `apps/api/Dockerfile` y `apps/mcp/Dockerfile`
+  copian solo `package.json` y hacen `npm install`, así que el lockfile del repo no fija nada: lo que
+  corre en producción depende de la fecha de build y de la capa cacheada (api conserva el árbol del
+  10-sep: `body-parser` 1.20.8; mcp se reconstruyó el 27-oct con SDK 1.32.2). Un `npm audit fix`
+  sobre el lockfile (como el del 27-oct en el VPS) no cambia lo que corre. _(pendiente de decisión:
+  pasar a `COPY package-lock.json` + `npm ci`, y reconstruir api sin caché para recoger parches.)_
