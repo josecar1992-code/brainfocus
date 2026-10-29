@@ -1,5 +1,5 @@
 import type { ChatMessage, LlmClient, ToolCall } from "./llm/qwen.js";
-import type { Toolset } from "./toolset.js";
+import type { ToolContext, Toolset } from "./toolset.js";
 
 const MAX_ITERATIONS = 6;
 const FALLBACK_REPLY = "No pude completar eso. ¿Me lo repetís o lo intentamos de otra forma?";
@@ -11,6 +11,8 @@ export interface TurnInput {
   /** Conversación previa (solo mensajes del usuario y respuestas finales del asistente). */
   history: Array<{ role: "user" | "assistant"; content: string }>;
   userText: string;
+  /** Adjunto del mensaje actual y envío de archivos de vuelta (herramientas de documentos). */
+  ctx?: ToolContext;
 }
 
 export interface TurnResult {
@@ -39,7 +41,7 @@ export async function runTurn(llm: LlmClient, toolset: Toolset, input: TurnInput
 
     messages.push({ role: "assistant", content: message.content, tool_calls: calls });
     for (const call of calls) {
-      const content = await toolset.execute(input.userId, call.function.name, call.function.arguments);
+      const content = await toolset.execute(input.userId, call.function.name, call.function.arguments, input.ctx);
       messages.push({ role: "tool", tool_call_id: call.id, content });
     }
   }

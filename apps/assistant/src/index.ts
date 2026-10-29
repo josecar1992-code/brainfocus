@@ -7,7 +7,8 @@ import { createHandler } from "./handler.js";
 import { createForwarder } from "./forward.js";
 import { createDispatcher } from "./dispatcher.js";
 import { createDispatchStore } from "./dispatchStore.js";
-import { sendText, sendTemplate } from "./kapso/client.js";
+import { createAttachmentStore, filenameFor } from "./attachments.js";
+import { sendMedia, sendText, sendTemplate } from "./kapso/client.js";
 import { parseWebhook, verifySignature } from "./kapso/webhook.js";
 import { createQwenClient } from "./llm/qwen.js";
 import { buildSystemPrompt } from "./prompt.js";
@@ -23,8 +24,13 @@ const store = createStore(env.supabaseUrl, env.supabaseServiceRoleKey);
 const handler = createHandler({
   routing: { dropNumbers: parseNumberList(env.dropNumbers), forwardNumbers: parseNumberList(env.forwardNumbers) },
   store,
-  runAgent: (userId, history, text) =>
-    runTurn(llm, toolset, { userId, systemPrompt: buildSystemPrompt(horaActualCR()), history, userText: text }),
+  runAgent: (userId, history, text, ctx) =>
+    runTurn(llm, toolset, { userId, systemPrompt: buildSystemPrompt(horaActualCR()), history, userText: text, ctx }),
+  attachments: createAttachmentStore({ kapsoApiKey: env.kapso.apiKey }),
+  sendMedia: async (to, doc) => {
+    const kind = doc.mimeType?.startsWith("image/") ? "image" : "document";
+    await sendMedia(env.kapso, to, { kind, url: doc.url, filename: filenameFor(doc.name, doc.mimeType) });
+  },
   model: llm.model,
   send: (to, text) => sendText(env.kapso, to, text),
   forward: createForwarder(env.openclawWebhookUrl, env.webhookSecret),

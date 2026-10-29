@@ -21,7 +21,7 @@ function table(handler = vi.fn(async (a: any) => ({ echo: a }))): ToolTable {
       argsSchema: z.object({ title: z.string() }),
       handler,
     },
-    guardar_documento: {
+    consultar_consumos: {
       description: "x",
       inputSchema: { type: "object" },
       argsSchema: z.object({}),
@@ -43,7 +43,7 @@ function scripted(results: LlmResult[]): LlmClient & { calls: number } {
 const u = { promptTokens: 10, completionTokens: 5 };
 
 describe("toolset", () => {
-  it("excluye guardar_documento y reescribe la hora en cada turno", () => {
+  it("excluye consultar_consumos (solo admin) y reescribe la hora en cada turno", () => {
     const ts = buildToolset(table(), API, { now: () => "2026-10-29T10:00:00-06:00" });
     const specs = ts.specs();
     expect(specs.map((s) => s.function.name)).toEqual(["hora_actual", "crear_tarea"]);
@@ -54,7 +54,7 @@ describe("toolset", () => {
   it("rechaza herramientas excluidas, JSON inválido y argumentos inválidos sin llamar al handler", async () => {
     const handler = vi.fn(async () => ({}));
     const ts = buildToolset(table(handler), API);
-    for (const name of ["guardar_documento", "enviar_documento", "consultar_consumos"]) expect(await ts.execute(USER, name, "{}")).toContain("desconocida");
+    for (const name of ["consultar_consumos"]) expect(await ts.execute(USER, name, "{}")).toContain("desconocida");
     expect(await ts.execute(USER, "crear_tarea", "no json")).toContain("no es JSON");
     expect(await ts.execute(USER, "crear_tarea", "{}")).toContain("inválidos");
     expect(handler).not.toHaveBeenCalled();

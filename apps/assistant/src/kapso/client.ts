@@ -41,3 +41,15 @@ export function sendTemplate(cfg: KapsoConfig, to: string, name: string, params:
     },
   });
 }
+
+/** Imagen o documento por enlace (la URL firmada la baja Meta). Solo dentro de la ventana de 24 h. */
+export function sendMedia(
+  cfg: KapsoConfig,
+  to: string,
+  media: { kind: "image" | "document"; url: string; filename?: string; caption?: string },
+): Promise<string | null> {
+  const payload = media.kind === "image"
+    ? { link: media.url, ...(media.caption ? { caption: media.caption } : {}) }
+    : { link: media.url, ...(media.filename ? { filename: media.filename } : {}), ...(media.caption ? { caption: media.caption } : {}) };
+  return post(cfg, { to: digits(to), type: media.kind, [media.kind]: payload });
+}

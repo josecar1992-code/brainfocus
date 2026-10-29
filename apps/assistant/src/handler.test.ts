@@ -59,7 +59,7 @@ describe("handler", () => {
   it("procesa a un usuario registrado con su propio userId, guarda y registra consumo", async () => {
     const t = setup();
     await t.h.handle(msg(FRIEND));
-    expect(t.runAgent).toHaveBeenCalledWith("u-friend", [], "hola");
+    expect(t.runAgent).toHaveBeenCalledWith("u-friend", [], "hola", expect.anything());
     expect(t.store.saveAssistantMessage).toHaveBeenCalledWith("u-friend", "ok");
     expect(t.store.logUsage).toHaveBeenCalledWith("u-friend", "m", expect.objectContaining({ llmCalls: 1 }));
     expect(t.send).toHaveBeenCalledWith(FRIEND, "ok");

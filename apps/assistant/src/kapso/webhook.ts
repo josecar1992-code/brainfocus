@@ -19,6 +19,14 @@ export function verifySignature(rawBody: Buffer, header: string | undefined, sec
   return actual.byteLength === expected.byteLength && timingSafeEqual(actual, expected);
 }
 
+export interface InboundMedia {
+  kind: "image" | "document" | "audio" | "video" | "unknown";
+  url?: string;
+  id?: string;
+  contentType?: string;
+  filename?: string;
+}
+
 export interface InboundMessage {
   messageId: string;
   /** E.164 con "+", ej. +50687686207 */
@@ -28,6 +36,8 @@ export interface InboundMessage {
   text: string;
   timestampMs: number;
   contactName?: string;
+  /** Adjunto (imagen/documento/etc.) si el mensaje trae uno. */
+  media?: InboundMedia;
   /** El evento original tal cual llegó, por si hay que reenviarlo a OpenClaw. */
   rawEvent: Record<string, unknown>;
 }
@@ -67,6 +77,23 @@ function extractText(message: Rec, type: string): string {
   return "";
 }
 
+function extractMedia(message: Rec, type: string): InboundMedia | undefined {
+  const direct = asRec(message[type]);
+  const kapso = asRec(message.kapso);
+  const data = asRec(kapso?.mediaData) ?? asRec(kapso?.media_data);
+  const url = str(kapso, "mediaUrl", "media_url") ?? str(data, "url", "downloadUrl", "download_url") ?? str(direct, "link", "url");
+  const id = str(data, "id") ?? str(direct, "id");
+  const contentType = str(data, "mimeType", "mime_type", "contentType", "content_type") ?? str(direct, "mimeType", "mime_type", "contentType", "content_type");
+  const kind: InboundMedia["kind"] =
+    type === "image" || contentType?.startsWith("image/") ? "image"
+    : type === "video" || contentType?.startsWith("video/") ? "video"
+    : type === "audio" || contentType?.startsWith("audio/") ? "audio"
+    : type === "document" || contentType === "application/pdf" ? "document"
+    : "unknown";
+  if (!url && !id && kind === "unknown") return undefined;
+  return { kind, url, id, contentType, filename: str(direct, "filename") };
+}
+
 /** Eventos de mensaje recibido de un webhook de Kapso (suelto o en lote). */
 export function parseWebhook(payload: unknown, eventHeader?: string, batchHeader?: string): InboundMessage[] {
   if (eventHeader && eventHeader !== MESSAGE_RECEIVED_EVENT) return [];
@@ -94,6 +121,7 @@ export function parseWebhook(payload: unknown, eventHeader?: string, batchHeader
       type,
       text: extractText(message, type),
       timestampMs: Number.isFinite(ts) && ts > 0 ? (ts < 1e12 ? ts * 1000 : ts) : Date.now(),
+      media: extractMedia(message, type),
       contactName: str(asRec(message.kapso), "contactName", "contact_name") ?? str(asRec(conversation?.kapso), "contactName", "contact_name"),
       rawEvent: event,
     });

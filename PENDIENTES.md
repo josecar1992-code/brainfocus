@@ -994,3 +994,19 @@ URL del webhook en Kapso (acción manual del usuario).
   términos de OpenClaw. También se excluyen del asistente `enviar_documento` (devuelve una URL para que OpenClaw
   reenvíe el adjunto; aún no se envían archivos) y `consultar_consumos` (solo administrador), además de
   `guardar_documento`. Tests: 51 en el paquete.
+- **Documentos por WhatsApp en el asistente: guardar y enviar (29-oct-2026, solo local).** Corrección a una
+  decisión mía anterior: se habían excluido `guardar_documento` y `enviar_documento` por depender de OpenClaw (el
+  primero lee un archivo del disco del VPS, el segundo devuelve una URL que OpenClaw reenvía), pero sin ellas el
+  módulo Documentos no sirve por Quicks (el caso real es "guardá mi cédula" y luego "mandame mi cédula"). Ahora
+  el asistente tiene su propia versión, con la misma API y permisos: **recibir** — `kapso/webhook.ts` extrae el
+  adjunto (URL de Kapso, tipo, nombre) y `attachments.ts` lo baja al recibirlo (las URLs caducan; máx. 20 MB,
+  solo https, la credencial de Kapso solo se manda a hosts `*.kapso.ai`) y lo guarda en memoria **por usuario**
+  30 min, porque la persona suele mandar la foto y decir el nombre después; `guardar_documento` (descripción
+  y esquema propios, sin rutas de disco) lo sube a `POST /documents/upload`. **Enviar** — `enviar_documento`
+  pide la URL firmada a la API y el asistente manda la imagen o el documento por WhatsApp (`sendMedia` en
+  `kapso/client.ts`, mismo mecanismo de enlace que usa el plugin de OpenClaw); el modelo solo recibe la
+  confirmación, nunca la URL. Con varias coincidencias no manda nada y pregunta cuál. Límites: solo imagen y PDF
+  (lo que ya acepta la API); si el servicio se reinicia el adjunto pendiente se pierde y se pide reenviarlo; el
+  envío solo funciona con la ventana de 24 h abierta (siempre lo está cuando la persona lo pide). Si el usuario
+  no tiene el módulo Documentos habilitado, la API devuelve 403 y Quicks lo dice. Tests: `documents.test.ts`
+  (64 en el paquete). Solo queda excluida `consultar_consumos` (exclusiva del administrador).
