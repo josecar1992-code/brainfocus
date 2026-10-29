@@ -1010,3 +1010,15 @@ URL del webhook en Kapso (acción manual del usuario).
   envío solo funciona con la ventana de 24 h abierta (siempre lo está cuando la persona lo pide). Si el usuario
   no tiene el módulo Documentos habilitado, la API devuelve 403 y Quicks lo dice. Tests: `documents.test.ts`
   (64 en el paquete). Solo queda excluida `consultar_consumos` (exclusiva del administrador).
+- **Variables del asistente creadas en el servidor (29-oct-2026, sin levantar el servicio).** Se creó
+  `/opt/brainfocus/apps/assistant/.env` (permisos 600) con un script que copia los secretos dentro del servidor sin
+  imprimirlos: Supabase desde `apps/api/.env`, y la llave y el secreto del webhook de Kapso desde
+  `channels.kapso-whatsapp` de `openclaw.json`. Se generó `ASSISTANT_SERVICE_KEY` (openssl) y se agregó igual a
+  `apps/api/.env` (con respaldo `.env.bak-<fecha>`); **la API aún no se reinició, así que la credencial de servicio
+  sigue cerrada** hasta el próximo despliegue. `FORWARD_NUMBERS` = número del dueño, `DROP_NUMBERS` = los dos de
+  QuickWash, `OPENCLAW_WEBHOOK_URL` = `http://host.docker.internal:18789/kapso/webhook` (gateway en `0.0.0.0:18789`,
+  `webhookPath` `/kapso/webhook`). **Falta `DASHSCOPE_API_KEY`**: la de Qwen no está en archivos de configuración;
+  OpenClaw la guarda en su almacén de credenciales (`~/.openclaw/state/openclaw.sqlite`, perfil `qwen:standard`,
+  la misma de `qwencloud`/`modelstudio`), así que se pega a mano desde la consola de Alibaba (Model Studio →
+  API keys) o se copia del almacén. Nota: `openclaw models status` imprime fragmentos enmascarados (inicio/final)
+  de las llaves; no usarlo en sesiones donde la salida se comparte.
