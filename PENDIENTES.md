@@ -727,11 +727,17 @@ No implementado todavía — este documento es la lista de trabajo, no un change
   recurrentes funcionen por esta vía (el código sí pasa `kind:"cron"` explícito en esa ruta, el
   default `"at"` solo aplica a los de un disparo). `admin-http-rpc` no tiene garantía de estabilidad
   entre versiones de OpenClaw: revisarlo en la próxima actualización.
-  _(pendiente: cruzar `reminders` con `sent_at is null and remind_at > now()` contra
-  `openclaw cron list --all` por si quedaron recordatorios del 23–24-oct sin cron.)_
+  Revisado 29-oct-2026: los 17 `reminders` pendientes tienen su cron (y backup cuando aplica) en
+  `openclaw cron list --all`; sin huérfanos.
 - **Los Dockerfiles ignoran los `package-lock.json`.** `apps/api/Dockerfile` y `apps/mcp/Dockerfile`
   copian solo `package.json` y hacen `npm install`, así que el lockfile del repo no fija nada: lo que
   corre en producción depende de la fecha de build y de la capa cacheada (api conserva el árbol del
   10-sep: `body-parser` 1.20.8; mcp se reconstruyó el 27-oct con SDK 1.32.2). Un `npm audit fix`
-  sobre el lockfile (como el del 27-oct en el VPS) no cambia lo que corre. _(pendiente de decisión:
-  pasar a `COPY package-lock.json` + `npm ci`, y reconstruir api sin caché para recoger parches.)_
+  sobre el lockfile (como el del 27-oct en el VPS) no cambia lo que corre. ✅ Resuelto 29-oct-2026:
+  los dos Dockerfiles ahora hacen `COPY package.json package-lock.json` + `npm ci` (api conserva
+  `--legacy-peer-deps`), y los lockfiles del repo se reemplazaron por los del `npm audit fix
+  --omit=dev` del VPS (proxy-addr crítica corregida; quedan 3 vulns api / 2 mcp, moderate/high, sin
+  críticas). Verificado local: `npm ci`, `tsc`, 21 tests de api y build de mcp. Desde ahora, subir una
+  dependencia = `npm update <pkg>` aquí, commitear el lockfile y reconstruir; el VPS ya no debe
+  correr `npm install` a mano. Recordatorios del 23–24-oct revisados: los 17 pendientes tienen su
+  cron en OpenClaw, sin huérfanos.
