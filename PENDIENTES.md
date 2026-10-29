@@ -842,3 +842,12 @@ Kapso hoy atendidos por tu Quicks, con tus datos).
 - **Enrutamiento del webhook:** usuario registrado en Focusbrain → servicio nuevo con su `user_id`; número del
   dueño → reenvío a OpenClaw (transición); personal de QuickWash → descartar; cualquier otro → mensaje de
   registro sin acceso a datos.
+- **✅ Quicks ya no responde al personal de QuickWash (29-oct-2026, hecho por la sesión de OpenClaw):** se
+  quitaron `+50663083397` y `+50660740401` de `channels["kapso-whatsapp"].allowFrom` (solo queda
+  `+50687686207`); con `dmSecurity=allowlist` sus mensajes entrantes se descartan sin respuesta
+  (journal: "sender is not in kapso allowFrom"). Aplicado en caliente, sin reiniciar el gateway. Respaldo:
+  `/root/backups/kapso-allowfrom-20261029-1242/openclaw.json`. Los avisos/plantillas de QuickWash salen por la
+  ruta saliente de Kapso, que no usa `allowFrom`. **Falta verificar con tráfico real:** (a) que el primer
+  mensaje entrante del personal aparezca descartado en el journal; (b) que el próximo aviso de QuickWash a esos
+  números se entregue. Revertir: `openclaw config set channels.kapso-whatsapp.allowFrom
+  '["+50687686207","+50663083397","+50660740401"]' --strict-json`.
