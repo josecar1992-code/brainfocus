@@ -54,7 +54,7 @@ describe("toolset", () => {
   it("rechaza herramientas excluidas, JSON inválido y argumentos inválidos sin llamar al handler", async () => {
     const handler = vi.fn(async () => ({}));
     const ts = buildToolset(table(handler), API);
-    expect(await ts.execute(USER, "guardar_documento", "{}")).toContain("desconocida");
+    for (const name of ["guardar_documento", "enviar_documento", "consultar_consumos"]) expect(await ts.execute(USER, name, "{}")).toContain("desconocida");
     expect(await ts.execute(USER, "crear_tarea", "no json")).toContain("no es JSON");
     expect(await ts.execute(USER, "crear_tarea", "{}")).toContain("inválidos");
     expect(handler).not.toHaveBeenCalled();

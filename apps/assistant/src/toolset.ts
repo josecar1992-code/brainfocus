@@ -11,9 +11,11 @@ export interface ToolDef {
 }
 export type ToolTable = Record<string, ToolDef>;
 
-// Herramientas del MCP que NO aplican al asistente: leen archivos del disco del VPS (adjuntos que
-// OpenClaw deja en /root/.openclaw/media) y aquí no existe esa ruta.
-export const EXCLUDED_TOOLS = new Set(["guardar_documento"]);
+// Herramientas del MCP que NO aplican al asistente:
+//  - guardar_documento: lee archivos del disco del VPS (adjuntos que OpenClaw deja en /root/.openclaw/media).
+//  - enviar_documento: devuelve una URL para que OpenClaw reenvíe el adjunto; el asistente aún no envía archivos.
+//  - consultar_consumos: gasto del servidor, solo del administrador (la credencial del asistente no tiene ese scope).
+export const EXCLUDED_TOOLS = new Set(["guardar_documento", "enviar_documento", "consultar_consumos"]);
 
 export interface ApiAccess {
   baseUrl: string;

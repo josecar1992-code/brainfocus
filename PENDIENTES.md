@@ -982,3 +982,15 @@ URL del webhook en Kapso (acción manual del usuario).
   `ConsumosPage.tsx`. Tests: `usageByUser.test.ts` (57 en la API). Para verlo hay que redesplegar api y web.
   Nota de proceso: una primera versión generada por script dejó las regex de fecha sin `\` (`d{4}`) y habría
   rechazado toda fecha; se detectó al revisar el diff, antes del commit.
+- **Prompt del asistente basado en las reglas de Quicks (29-oct-2026, solo local).** Se leyeron `AGENTS.md` y
+  `SOUL.md` del workspace de OpenClaw (solo lectura) y se llevó a `apps/assistant/src/prompt.ts` lo que es regla
+  de *funcionamiento*: anti-invención (no confirmar sin llamar la herramienta en el turno), no responder de memoria
+  datos en vivo (el asistente no tiene web), obediencia a instrucciones explícitas, fechas (usar `*_costa_rica`,
+  offset `-06:00`, no calcular a mano el día de la semana), "módulo de agenda" = evento, ids reales para completar
+  tareas y verificar después, notas tal cual, nunca terminar sin responder, formato de WhatsApp. **Se dejó fuera**
+  todo lo personal o específico de OpenClaw: nombres y teléfonos (José, QuickWash, Meylin), `memorias.md`, reglas
+  de cron/`delivery`, owners, plantilla de reintento y heartbeats; el nuevo asistente entrega los avisos por su
+  cuenta (despachador), no por cron. `prompt.test.ts` falla si el prompt llega a contener datos personales o
+  términos de OpenClaw. También se excluyen del asistente `enviar_documento` (devuelve una URL para que OpenClaw
+  reenvíe el adjunto; aún no se envían archivos) y `consultar_consumos` (solo administrador), además de
+  `guardar_documento`. Tests: 51 en el paquete.
