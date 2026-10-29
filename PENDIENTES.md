@@ -1072,3 +1072,12 @@ URL del webhook en Kapso (acción manual del usuario).
   llegó como letra "n") ni asumir que el archivo termina en salto de línea (las dos variables quedaron pegadas en
   una línea y el API no las podía leer como número); verificar siempre con `grep -n` y `printenv` dentro del
   contenedor después de reiniciar.
+- **✅ Consumos por usuario ahora incluye al dueño (29-oct-2026).** La sección "Quicks por usuario" solo leía
+  `assistant_usage`, y el dueño usa Quicks por OpenClaw, así que su fila no aparecía. `GET /consumos/por-usuario`
+  (`apps/api/src/routes/consumos.ts`) ahora suma una fila para `OPENCLAW_OWNER_USER_ID` con lo que OpenClaw ya
+  exporta a `consumos` (`proveedor=qwen`, `origen=openclaw-export`, por `fecha` CR dentro del rango): llamadas,
+  tokens (entrada + caché leído, salida) y el costo **real** que calculó OpenClaw, no una estimación por tokens.
+  Funciones `ownerUsageFromOpenclaw` y `mergeUsage` en `services/usageByUser.ts` (con tests). La pantalla
+  (`ConsumosPage.tsx`) rotula esa fila como "Quicks en OpenClaw" y aclara que sus tokens incluyen caché, por lo que
+  no es comparable token a token con las filas del asistente (estimadas, sin descuento de caché). Depende de que el
+  export diario de OpenClaw siga corriendo; el día en curso aparece cuando se exporte.

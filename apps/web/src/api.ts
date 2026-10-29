@@ -292,6 +292,8 @@ export interface UsageByUser {
     prompt_tokens: number;
     completion_tokens: number;
     estimated_usd: number | null;
+    /** "openclaw" = Quicks del dueño (costo real exportado); ausente = asistente compartido (estimado por tokens). */
+    source?: "openclaw";
   }>;
 }
 

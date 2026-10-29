@@ -5,7 +5,7 @@ import { supabaseAdmin } from "../supabaseClient.js";
 import { logAgentAction } from "../services/agentActions.js";
 import { parseLimit } from "../utils/pagination.js";
 import { env } from "../env.js";
-import { aggregateUsage, crRangeBounds } from "../services/usageByUser.js";
+import { aggregateUsage, crRangeBounds, mergeUsage, ownerUsageFromOpenclaw } from "../services/usageByUser.js";
 
 // Gasto real por proveedor (IA, mensajería, hosting, ...). Esquema genérico
 // a propósito — ver comentario en supabase/schema.sql — así que este router
@@ -54,10 +54,28 @@ consumosRouter.get("/por-usuario", requireAdmin, requireScope("consumos:read"), 
       .limit(50000);
     if (error) throw error;
 
-    const usage = aggregateUsage(data ?? [], {
+    const assistantUsage = aggregateUsage(data ?? [], {
       inputPerMillionUsd: env.qwenPriceInputPerMillionUsd,
       outputPerMillionUsd: env.qwenPriceOutputPerMillionUsd,
     });
+
+    // Quicks del dueño corre en OpenClaw, no en el asistente: su consumo ya se exporta a `consumos` (por día, en
+    // fechas CR) y se suma como una fila más para ver a todos segmentados.
+    let ownerUsage = null;
+    if (env.openclawOwnerUserId) {
+      const { data: oc, error: ocErr } = await supabaseAdmin
+        .from("consumos")
+        .select("costo_usd, detalle")
+        .eq("user_id", env.openclawOwnerUserId)
+        .eq("proveedor", "qwen")
+        .eq("origen", "openclaw-export")
+        .gte("fecha", range.data.desde)
+        .lte("fecha", range.data.hasta)
+        .limit(1000);
+      if (ocErr) throw ocErr;
+      ownerUsage = ownerUsageFromOpenclaw(env.openclawOwnerUserId, oc ?? []);
+    }
+    const usage = mergeUsage(assistantUsage, ownerUsage);
 
     const { data: authUsers, error: uErr } = await supabaseAdmin.auth.admin.listUsers({ perPage: 200 });
     if (uErr) throw uErr;

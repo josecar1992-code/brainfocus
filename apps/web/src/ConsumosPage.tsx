@@ -112,7 +112,8 @@ function UsagePerUser({ desde, hasta }: { desde: string; hasta: string }) {
             <div className="min-w-0">
               <p className="text-sm text-white/85 font-medium truncate">{u.email ?? u.user_id}</p>
               <p className="text-[11px] text-white/35">
-                {nf(u.turns)} mensajes · {nf(u.prompt_tokens + u.completion_tokens)} tokens
+                {u.source === "openclaw" ? `${nf(u.llm_calls)} llamadas · Quicks en OpenClaw · ` : `${nf(u.turns)} mensajes · `}
+                {nf(u.prompt_tokens + u.completion_tokens)} tokens
               </p>
             </div>
             <p className="text-sm font-semibold text-electric-cyan flex-shrink-0">
@@ -125,7 +126,7 @@ function UsagePerUser({ desde, hasta }: { desde: string; hasta: string }) {
         {data.priced
           ? "Estimado por tokens según la tarifa configurada; el cobro real es el total de arriba."
           : "Solo tokens: falta configurar el precio por millón de tokens para estimar el costo."}{" "}
-        No incluye tus mensajes de Quicks en OpenClaw.
+        Tu fila (Quicks en OpenClaw) usa el costo real exportado y sus tokens incluyen el caché.
       </p>
     </div>
   );
