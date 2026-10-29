@@ -885,3 +885,22 @@ URL del webhook en Kapso (acción manual del usuario).
   `tools/list` = 35 herramientas (incluye `listar_eventos`/`editar_evento`/`borrar_evento`), `hora_actual`
   responde y `listar_tareas` (estado pending, solo lectura) llama a la API y devuelve las 33 pendientes.
   No hizo falta reiniciar el gateway (la lista de herramientas no cambió).
+
+- **Credencial servicio-a-servicio para el asistente (29-oct-2026, sin desplegar).** El asistente multiusuario
+  (`apps/assistant`) necesita llamar a la API en nombre de *cualquier* usuario según el número de WhatsApp que
+  escribe, algo que una API key (atada a un dueño) no permite. Se añadió en `apps/api/src/middleware/auth.ts` una
+  rama `X-Service-Key` + `X-On-Behalf-Of: <uuid>`: la clave se compara en tiempo constante contra
+  `ASSISTANT_SERVICE_KEY` (`env.ts`; vacía = ruta cerrada), se rechaza si llega `X-Forwarded-For` (solo red
+  interna de Docker, nunca por el proxy público), el usuario debe existir y estar `active`, y el contexto sale
+  como `agent` con scopes fijos (`ASSISTANT_SCOPES`: sin `consumos`, sin admin) y los módulos del perfil. El
+  `userId` lo fija el servidor a partir del número, nunca el modelo. `AuthContext.agent.apiKeyId` pasa a
+  `string | null` (`agent_actions.api_key_id` ya era nullable). Tests: `apps/api/src/serviceAuth.test.ts`
+  (45 en total en la API). **Para desplegar:** generar un valor largo aleatorio y ponerlo como
+  `ASSISTANT_SERVICE_KEY` en `apps/api/.env`; no desplegar hasta probar el asistente completo.
+- **Asistente: núcleo del agente (29-oct-2026, solo local).** `apps/assistant/src`: `llm/qwen.ts` (cliente Qwen
+  vía DashScope, `enable_thinking:false`, devuelve tokens), `toolset.ts` (adaptador sobre
+  `@brainfocus/focusbrain-tools`; excluye `guardar_documento`, reescribe "Ahora mismo en Costa Rica es:" en cada
+  turno porque en un servicio de larga duración la del módulo queda vieja, valida argumentos con zod),
+  `agent.ts` (bucle de herramientas, máx. 6 iteraciones, acumula consumo), `prompt.ts` (reglas generales).
+  Tests en `agent.test.ts` (19 en el paquete). Falta: almacenamiento de conversación/consumo, `index.ts`,
+  reenvío al webhook de OpenClaw, Dockerfile/compose.

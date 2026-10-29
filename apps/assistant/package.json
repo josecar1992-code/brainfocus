@@ -10,6 +10,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@brainfocus/focusbrain-tools": "file:../../packages/focusbrain-tools",
     "@brainfocus/shared-time": "file:../../packages/shared-time",
     "@supabase/supabase-js": "^2.45.0",
     "dotenv": "^16.4.5",

@@ -18,6 +18,9 @@ export const env = {
     .split(",")
     .map((e) => e.trim().toLowerCase())
     .filter(Boolean),
+  // Credencial servicio-a-servicio del asistente multiusuario (apps/assistant): permite actuar EN NOMBRE de
+  // un usuario ya identificado por el servicio (X-On-Behalf-Of). Vacía = esa vía de acceso queda cerrada.
+  assistantServiceKey: process.env.ASSISTANT_SERVICE_KEY ?? "",
   // Gateway de OpenClaw (tool `cron` sobre POST /tools/invoke) para el aviso
   // real de WhatsApp/Telegram. Opcionales a propósito: sin ellos, los
   // recordatorios se siguen guardando y viendo en la app, solo que sin

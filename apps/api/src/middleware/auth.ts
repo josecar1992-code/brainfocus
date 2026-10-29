@@ -1,9 +1,26 @@
 import type { NextFunction, Request, Response } from "express";
-import { createHash } from "node:crypto";
+import { createHash, timingSafeEqual } from "node:crypto";
 import { env } from "../env.js";
 import { supabaseAdmin } from "../supabaseClient.js";
 import { getProfileAccess } from "../services/profiles.js";
 import { isModuleAllowed, moduleForResource } from "../utils/modules.js";
+
+// Recursos que el asistente multiusuario puede tocar en nombre de un usuario. Quedan fuera
+// 'consumos' (administración del servidor) y las API keys (solo las administra el dueño por JWT).
+const ASSISTANT_SCOPES = [
+  "tasks", "subtasks", "lists", "projects", "reminders", "recurring_reminders", "events", "notes",
+  "documents", "nutrition", "exercise", "vehicles", "vehicle_maintenance", "vehicle_mileage",
+  "routines", "routine_completions", "settings",
+].map((r) => `${r}:*`);
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function serviceKeyMatches(provided: string): boolean {
+  if (!env.assistantServiceKey) return false;
+  const a = Buffer.from(provided);
+  const b = Buffer.from(env.assistantServiceKey);
+  return a.byteLength === b.byteLength && timingSafeEqual(a, b);
+}
 
 export function hashApiKey(rawKey: string): string {
   return createHash("sha256").update(rawKey).digest("hex");
@@ -40,6 +57,32 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
       }
 
       req.auth = { type: "user", userId, isAdmin: inAllowlist || Boolean(profile?.isAdmin), modules: profile?.modules ?? null };
+      return next();
+    }
+
+    // Servicio-a-servicio (apps/assistant): el servicio ya identificó al usuario por su número de
+    // WhatsApp y pide actuar en su nombre. Se acepta SOLO si: (1) la clave coincide, (2) la petición
+    // no pasó por un proxy público (Caddy siempre agrega X-Forwarded-For; el servicio llama directo por
+    // la red interna de Docker) y (3) el usuario existe con perfil 'active'.
+    const serviceKey = req.header("x-service-key");
+    if (serviceKey) {
+      if (!serviceKeyMatches(serviceKey) || req.header("x-forwarded-for")) {
+        return res.status(401).json({ error: "Credencial de servicio inválida" });
+      }
+      const onBehalfOf = req.header("x-on-behalf-of") ?? "";
+      if (!UUID_RE.test(onBehalfOf)) return res.status(400).json({ error: "X-On-Behalf-Of inválido" });
+      const profile = await getProfileAccess(onBehalfOf);
+      if (!profile || profile.status !== "active") {
+        return res.status(403).json({ error: "Esta cuenta no tiene acceso a Focusbrain" });
+      }
+      req.auth = {
+        type: "agent",
+        userId: onBehalfOf,
+        apiKeyId: null,
+        scopes: ASSISTANT_SCOPES,
+        isAdmin: false,
+        modules: profile.modules,
+      };
       return next();
     }
 

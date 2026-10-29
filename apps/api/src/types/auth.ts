@@ -7,7 +7,7 @@ interface AccessInfo {
 
 export type AuthContext =
   | ({ type: "user"; userId: string } & AccessInfo)
-  | ({ type: "agent"; userId: string; apiKeyId: string; scopes: string[] } & AccessInfo);
+  | ({ type: "agent"; userId: string; apiKeyId: string | null; scopes: string[] } & AccessInfo);
 
 declare global {
   namespace Express {
