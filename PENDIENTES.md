@@ -1160,3 +1160,9 @@ URL del webhook en Kapso (acción manual del usuario).
   guardar el nombre, Quicks responde en ese mismo mensaje con un saludo y una lista corta, por áreas, de lo que puede
   hacer según las herramientas realmente disponibles (que ya están filtradas por módulos), y pregunta por dónde
   empezar. Cambio en `apps/assistant/src/prompt.ts` (rama "sin nombre"), con test en `prompt.test.ts`.
+- **✅ Bienvenida con lista de capacidades verificada en producción y cuenta de prueba borrada (30-oct-2026).** Con
+  `ecosistemadigitalcr` (nombre y conversación borrados antes): "Hola" → pregunta el nombre; "Matute" → lo guarda y en
+  el mismo mensaje saluda y lista lo que puede hacer por áreas, cerrando con "¿Por dónde querés empezar?". La cuenta se
+  borró otra vez por completo (0 filas en todas las tablas, sin archivos en el almacenamiento). **Detalle menor
+  pendiente:** el modelo usó `**negrita**` de Markdown en las viñetas; WhatsApp solo entiende `*negrita*`, así que
+  los asteriscos dobles se ven literales. Reforzar en `prompt.ts` (sección Estilo) o aceptar.
