@@ -28,7 +28,7 @@ const fmt = (iso: string | null) =>
     ? new Date(iso).toLocaleString("es-CR", { timeZone: CR_TIMEZONE, dateStyle: "medium", timeStyle: "short" })
     : "—";
 
-function UserCard({ user, selfId }: { user: AdminUser; selfId: string | undefined }) {
+function UserCard({ user, selfId, defaultLimit }: { user: AdminUser; selfId: string | undefined; defaultLimit: number | undefined }) {
   const qc = useQueryClient();
   const [phone, setPhone] = useState(user.whatsapp_phone ?? "");
   const [limit, setLimit] = useState(user.daily_message_limit?.toString() ?? "");
@@ -179,7 +179,7 @@ function UserCard({ user, selfId }: { user: AdminUser; selfId: string | undefine
           <input
             value={limit}
             onChange={(e) => setLimit(e.target.value)}
-            placeholder="General"
+            placeholder={defaultLimit ? `General (${defaultLimit})` : "General"}
             inputMode="numeric"
             className="bg-night-blue/60 border border-electric-cyan/15 rounded-lg px-2.5 py-1.5 text-sm text-white/90 w-28"
           />
@@ -192,7 +192,7 @@ function UserCard({ user, selfId }: { user: AdminUser; selfId: string | undefine
           </button>
         </form>
         <p className="text-[11px] text-white/30">
-          Máximo de mensajes por día (hora de Costa Rica). Vacío = el límite general del asistente. Al pasarlo, Quicks avisa y
+          Máximo de mensajes por día (hora de Costa Rica). Vacío = el límite general{defaultLimit ? ` (${defaultLimit} por día)` : ""}. Al pasarlo, Quicks avisa y
           responde de nuevo a medianoche.
         </p>
       </div>
@@ -204,6 +204,7 @@ function UserCard({ user, selfId }: { user: AdminUser; selfId: string | undefine
 
 export function AdminPage() {
   const { data: me } = useQuery({ queryKey: ["me"], queryFn: api.me });
+  const { data: config } = useQuery({ queryKey: ["admin-config"], queryFn: api.adminConfig });
   const { data: users, isLoading, isError } = useQuery({ queryKey: ["admin-users"], queryFn: api.adminListUsers });
 
   const order = { pending: 0, active: 1, blocked: 2 } as const;
@@ -230,7 +231,7 @@ export function AdminPage() {
       {isError && <p className="text-sm text-red-300">No se pudo cargar la lista de usuarios.</p>}
       <div className="space-y-3">
         {sorted.map((u) => (
-          <UserCard key={u.id} user={u} selfId={me?.userId} />
+          <UserCard key={u.id} user={u} selfId={me?.userId} defaultLimit={config?.daily_message_limit_default} />
         ))}
       </div>
     </div>

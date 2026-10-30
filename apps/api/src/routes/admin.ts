@@ -4,6 +4,7 @@ import { requireAdmin } from "../middleware/auth.js";
 import { supabaseAdmin } from "../supabaseClient.js";
 import { invalidateProfileAccess } from "../services/profiles.js";
 import { OPTIONAL_MODULES } from "../utils/modules.js";
+import { env } from "../env.js";
 
 // Alta y gestión de usuarios: SOLO el administrador, y solo desde la sesión web (no con API keys ni la
 // credencial del asistente — un agente nunca debe poder darse o dar acceso). El registro no es público:
@@ -41,6 +42,11 @@ export const userPatchSchema = z
   })
   .partial()
   .strict();
+
+// Valores generales que la pantalla de Usuarios necesita mostrar (hoy, el límite diario por defecto).
+adminRouter.get("/config", (_req, res) => {
+  res.json({ daily_message_limit_default: env.dailyMessageLimit });
+});
 
 adminRouter.get("/users", async (_req, res, next) => {
   try {

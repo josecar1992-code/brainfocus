@@ -365,6 +365,7 @@ async function createEventReminders(input: {
 export const api = {
   checkAccess: () => request<Task[]>("/tasks?limit=1"),
   me: () => request<Me>("/me"),
+  adminConfig: () => request<{ daily_message_limit_default: number }>("/admin/config"),
   adminListUsers: () => request<AdminUser[]>("/admin/users"),
   adminUpdateUser: (id: string, patch: AdminUserPatch) =>
     request<{ ok: true }>(`/admin/users/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),

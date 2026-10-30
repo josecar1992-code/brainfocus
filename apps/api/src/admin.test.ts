@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 
 vi.mock("./supabaseClient.js", () => ({ supabaseAdmin: {} }));
-vi.mock("./env.js", () => ({ env: { allowedEmails: [], supabaseUrl: "http://x", supabaseServiceRoleKey: "x" } }));
+vi.mock("./env.js", () => ({ env: { allowedEmails: [], dailyMessageLimit: 50, supabaseUrl: "http://x", supabaseServiceRoleKey: "x" } }));
 
 const { userPatchSchema, normalizePhone, adminRouter } = await import("./routes/admin.js");
 
@@ -55,5 +55,12 @@ describe("acceso al router", () => {
     expect((await run({ type: "user", userId: "b", isAdmin: false, modules: null })).status).toBe(403);
     expect((await run({ type: "agent", userId: "a", apiKeyId: null, scopes: [], isAdmin: true, modules: null })).status).toBe(403);
     expect((await run(undefined)).status).toBe(401);
+  });
+
+  it("/config devuelve el límite diario general para mostrarlo en Usuarios", () => {
+    const layer = (adminRouter as any).stack.find((l: any) => l.route?.path === "/config");
+    let body: unknown;
+    layer.route.stack[0].handle({}, { json: (b: unknown) => (body = b) });
+    expect(body).toEqual({ daily_message_limit_default: 50 });
   });
 });

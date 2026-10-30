@@ -1189,3 +1189,9 @@ URL del webhook en Kapso (acción manual del usuario).
   en cada mensaje (`store.dailyMessageLimit`) y tiene prioridad sobre el general, así que el cambio aplica de inmediato
   sin reiniciar. Solo desde la sesión web del administrador (un agente no puede subirse su propio límite). Tests en
   `admin.test.ts` y `handler.test.ts`. Pendiente: mostrar en la tarjeta cuántos mensajes lleva hoy y el aviso al 80 %.
+- **✅ La pantalla de Usuarios muestra el límite diario general (30-oct-2026).** Con el campo vacío ahora se lee
+  "General (50)" en el placeholder y "Vacío = el límite general (50 por día)" en la ayuda. Nuevo `GET /admin/config`
+  (solo administrador, sesión web) devuelve `daily_message_limit_default`. **Ojo con la duplicación:** el que aplica de
+  verdad lo lee el asistente de su `.env` (`DAILY_MESSAGE_LIMIT`, 50 por defecto) y el API lee la MISMA variable de su
+  propio `.env` solo para mostrarla (`apps/api/src/env.ts`); si algún día se cambia el general, hay que ponerlo en los
+  dos `.env` o la pantalla mostrará un número distinto al real. Test en `admin.test.ts`.

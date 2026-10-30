@@ -41,5 +41,8 @@ export const env = {
   // muestran tokens. Tomarlos de la tarifa de Alibaba Cloud del modelo en uso (no están en el repo a propósito).
   qwenPriceInputPerMillionUsd: process.env.QWEN_PRICE_INPUT_PER_M_USD ? Number(process.env.QWEN_PRICE_INPUT_PER_M_USD) : null,
   qwenPriceOutputPerMillionUsd: process.env.QWEN_PRICE_OUTPUT_PER_M_USD ? Number(process.env.QWEN_PRICE_OUTPUT_PER_M_USD) : null,
+  // Solo para mostrarlo en la pantalla de Usuarios: el que aplica de verdad lo lee el asistente de SU propio .env.
+  // Si se cambia allá, hay que poner el mismo valor aquí (mismo nombre de variable, mismo 50 por defecto).
+  dailyMessageLimit: Number(process.env.DAILY_MESSAGE_LIMIT) > 0 ? Number(process.env.DAILY_MESSAGE_LIMIT) : 50,
   openclawOwnerUserId: process.env.OPENCLAW_OWNER_USER_ID ?? "",
 };
