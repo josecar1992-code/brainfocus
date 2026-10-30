@@ -49,6 +49,8 @@ export function createQwenClient(cfg: QwenConfig): LlmClient {
           messages,
           ...(tools.length ? { tools, tool_choice: "auto" } : {}),
           temperature: 0.3,
+          // Tope de salida por llamada: contiene el costo si alguien pide textos largos (cuota diaria aparte, en handler).
+          max_tokens: 800,
           // Qwen3 en modo "thinking" exige streaming; para respuestas de WhatsApp (cortas y con herramientas)
           // se apaga: más rápido y más barato.
           enable_thinking: false,

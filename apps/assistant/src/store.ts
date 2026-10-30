@@ -32,6 +32,17 @@ export function createStore(url: string, serviceRoleKey: string): Store {
       check((await db.from("profiles").update({ display_name: name }).eq("id", userId)).error);
     },
 
+    async countUserMessagesSince(userId, sinceIso) {
+      const { count, error } = await db
+        .from("assistant_messages")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .eq("role", "user")
+        .gte("created_at", sinceIso);
+      check(error);
+      return count ?? 0;
+    },
+
     async saveUserMessage(userId, content, waMessageId) {
       const { error } = await db.from("assistant_messages").insert({ user_id: userId, role: "user", content, wa_message_id: waMessageId });
       if (error?.code === "23505") return false;

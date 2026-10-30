@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { createHandler, UNSUPPORTED_TEXT, ERROR_TEXT, type Store } from "./handler.js";
+import { createHandler, UNSUPPORTED_TEXT, ERROR_TEXT, TOO_LONG_TEXT, MAX_INPUT_CHARS, limitText, type Store } from "./handler.js";
 import type { InboundMessage } from "./kapso/webhook.js";
 
 const OWNER = "+50611111111";
@@ -11,7 +11,7 @@ const msg = (from: string, text = "hola", id = "m1"): InboundMessage => ({
   messageId: id, from, type: "text", text, timestampMs: 1, rawEvent: {},
 });
 
-function setup(over: Partial<Store> = {}) {
+function setup(over: Partial<Store> = {}, dailyMessageLimit?: number) {
   const seen = new Set<string>();
   const store: Store = {
     lookupUser: async (p) => (p === FRIEND ? { userId: "u-friend", status: "active" } : null),
@@ -27,7 +27,7 @@ function setup(over: Partial<Store> = {}) {
   const runAgent = vi.fn(async () => ({ reply: "ok", usage: { promptTokens: 1, completionTokens: 1, llmCalls: 1 } }));
   const h = createHandler({
     routing: { dropNumbers: new Set([STAFF]), forwardNumbers: new Set([OWNER]) },
-    store, runAgent, model: "m", send, forward,
+    store, runAgent, model: "m", send, forward, dailyMessageLimit,
   });
   return { h, store, send, forward, runAgent };
 }
@@ -84,5 +84,35 @@ describe("handler", () => {
     t.runAgent.mockRejectedValueOnce(new Error("secreto interno"));
     await t.h.handle(msg(FRIEND));
     expect(t.send).toHaveBeenCalledWith(FRIEND, ERROR_TEXT);
+  });
+
+  it("corta al llegar al tope diario: avisa, no llama al modelo ni guarda el mensaje", async () => {
+    const countUserMessagesSince = vi.fn(async () => 50);
+    const t = setup({ countUserMessagesSince }, 50);
+    await t.h.handle(msg(FRIEND, "otra más", "m9"));
+    expect(t.send).toHaveBeenCalledWith(FRIEND, limitText(50));
+    expect(t.runAgent).not.toHaveBeenCalled();
+    expect(t.store.saveUserMessage).not.toHaveBeenCalled();
+    // el conteo es del día de Costa Rica, con offset explícito
+    expect(countUserMessagesSince).toHaveBeenCalledWith("u-friend", expect.stringMatching(/T00:00:00-06:00$/));
+  });
+
+  it("bajo el tope sigue atendiendo normal", async () => {
+    const t = setup({ countUserMessagesSince: vi.fn(async () => 49) }, 50);
+    await t.h.handle(msg(FRIEND, "hola", "m10"));
+    expect(t.runAgent).toHaveBeenCalledOnce();
+  });
+
+  it("rechaza mensajes demasiado largos sin gastar modelo ni cuota", async () => {
+    const t = setup({ countUserMessagesSince: vi.fn(async () => 0) }, 50);
+    await t.h.handle(msg(FRIEND, "x".repeat(MAX_INPUT_CHARS + 1), "m11"));
+    expect(t.send).toHaveBeenCalledWith(FRIEND, TOO_LONG_TEXT);
+    expect(t.runAgent).not.toHaveBeenCalled();
+    expect(t.store.saveUserMessage).not.toHaveBeenCalled();
+  });
+
+  it("el texto del límite dice el número y que se restablece a medianoche", () => {
+    expect(limitText(50)).toContain("50");
+    expect(limitText(50)).toContain("medianoche");
   });
 });

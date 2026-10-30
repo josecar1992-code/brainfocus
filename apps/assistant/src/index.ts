@@ -33,6 +33,7 @@ const handler = createHandler({
       ctx,
       modules: await store.enabledModules(userId),
     }),
+  dailyMessageLimit: env.dailyMessageLimit,
   attachments: createAttachmentStore({ kapsoApiKey: env.kapso.apiKey }),
   sendMedia: async (to, doc) => {
     const kind = doc.mimeType?.startsWith("image/") ? "image" : "document";

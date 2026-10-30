@@ -37,4 +37,10 @@ describe("nombre de la persona", () => {
   it("indica el formato de WhatsApp (negrita con un solo asterisco)", () => {
     expect(buildSystemPrompt("2026-10-29T10:00:00-06:00")).toContain("UN solo asterisco");
   });
+
+  it("limita el alcance a la organización personal pero tolera charla breve", () => {
+    const p = buildSystemPrompt("2026-10-29T10:00:00-06:00");
+    expect(p).toContain("No sos un chat de propósito general");
+    expect(p).toContain("una o dos frases");
+  });
 });

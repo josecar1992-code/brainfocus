@@ -18,5 +18,7 @@ export const env = {
   // Números que se reenvían a OpenClaw (el dueño, mientras sigue en Quicks de OpenClaw) y los que se descartan (personal de QuickWash).
   forwardNumbers: process.env.FORWARD_NUMBERS,
   dropNumbers: process.env.DROP_NUMBERS,
+  // Tope de mensajes por persona y por día (hora de Costa Rica). Al pasarlo, el asistente corta hasta la medianoche.
+  dailyMessageLimit: Number(process.env.DAILY_MESSAGE_LIMIT) > 0 ? Number(process.env.DAILY_MESSAGE_LIMIT) : 50,
   openclawWebhookUrl: process.env.OPENCLAW_WEBHOOK_URL ?? "http://host.docker.internal:18789/kapso/webhook",
 };

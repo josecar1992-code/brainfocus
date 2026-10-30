@@ -1166,3 +1166,18 @@ URL del webhook en Kapso (acción manual del usuario).
   borró otra vez por completo (0 filas en todas las tablas, sin archivos en el almacenamiento). **Detalle corregido (30-oct-2026):** el modelo usó
   `**negrita**` de Markdown en las viñetas y WhatsApp solo entiende `*negrita*` (los asteriscos dobles se ven
   literales). `prompt.ts` (sección Estilo) ahora exige un solo asterisco para negrita y guion para viñetas, con test.
+- **✅ Límites de consumo del asistente: alcance, tope diario y topes de tamaño (30-oct-2026).** Para que Quicks no
+  se use como un chat de propósito general y el consumo no se dispare (una llamada ≈ 8.000 tokens ≈ $0.0035; un uso
+  sin freno de 500 mensajes/día sería ~$50/mes por persona). Decisiones del usuario: (1) fuera de tema se tolera
+  charla breve y respuestas de una o dos frases, pero no textos largos ni tareas ajenas; (2) tope inicial de **50
+  mensajes por persona y por día**; (3) al pasarlo se corta hasta la medianoche con el aviso "Has excedido el límite
+  de peticiones diarias (50). Tu corte se restablece a la medianoche (hora de Costa Rica)". Implementación
+  (`apps/assistant/src`): `prompt.ts` sección "Alcance"; `handler.ts` cuenta los mensajes del usuario del día de
+  Costa Rica (`{hoyEnCR()}T00:00:00-06:00`, vía `store.countUserMessagesSince`) ANTES de guardar o llamar al modelo,
+  así que los mensajes bloqueados no gastan modelo ni cuentan; rechaza entradas de más de 1.500 caracteres
+  (`MAX_INPUT_CHARS`); historial reenviado al modelo bajado de 20 a 10 mensajes (`HISTORY_LIMIT`); `llm/qwen.ts`
+  `max_tokens: 800` por llamada. El tope se configura con `DAILY_MESSAGE_LIMIT` (por defecto 50, en
+  `apps/assistant/.env`; reiniciar el asistente al cambiarlo). El dueño no pasa por aquí (usa OpenClaw). Un mensaje
+  que usa herramientas puede costar 2 llamadas al modelo pero cuenta como 1 del tope. **Pendiente:** medir una
+  semana de uso real para afinar el 50; no se hizo limitador de ráfagas (el tope diario ya acota el abuso); ajuste
+  del límite por usuario en la pantalla de Usuarios y aviso al 80 % quedan como mejora futura.

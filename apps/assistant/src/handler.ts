@@ -2,6 +2,7 @@ import { runTurn, type TurnResult } from "./agent.js";
 import type { AttachmentStore, CaptureResult } from "./attachments.js";
 import type { ToolContext } from "./toolset.js";
 import type { InboundMessage } from "./kapso/webhook.js";
+import { CR_OFFSET, hoyEnCR } from "@brainfocus/shared-time";
 import { resolveRoute, type RouteDeps } from "./router.js";
 
 export interface Store {
@@ -9,6 +10,8 @@ export interface Store {
   /** Guarda el mensaje del usuario; false si ese wa_message_id ya se procesó (reintento del webhook). */
   saveUserMessage(userId: string, content: string, waMessageId: string): Promise<boolean>;
   saveAssistantMessage(userId: string, content: string): Promise<void>;
+  /** Mensajes del usuario guardados desde sinceIso (para el tope diario). */
+  countUserMessagesSince(userId: string, sinceIso: string): Promise<number>;
   /** Módulos opcionales habilitados del usuario (null = todos). */
   enabledModules(userId: string): Promise<string[] | null>;
   /** Nombre con el que Quicks llama a la persona (null si todavía no lo dio). */
@@ -31,13 +34,20 @@ export interface HandlerDeps {
   /** Para documentos: bajar y guardar el adjunto recibido, y mandar un archivo de vuelta. Sin esto, los adjuntos no se soportan. */
   attachments?: AttachmentStore;
   sendMedia?: (to: string, doc: { url: string; name: string; mimeType: string | null }) => Promise<void>;
+  /** Tope de mensajes por persona y por día (día de Costa Rica). Sin valor = sin tope. */
+  dailyMessageLimit?: number;
   model: string;
   send: (to: string, text: string) => Promise<unknown>;
   forward: (msg: InboundMessage) => Promise<void>;
   log?: (msg: string, extra?: unknown) => void;
 }
 
-const HISTORY_LIMIT = 20;
+// El historial se reenvía completo en cada llamada al modelo: menos mensajes = menos tokens por llamada.
+const HISTORY_LIMIT = 10;
+export const MAX_INPUT_CHARS = 1500;
+export const TOO_LONG_TEXT = "Ese mensaje es muy largo para mí. ¿Me lo resumes o me lo mandas en partes más cortas?";
+export const limitText = (limit: number) =>
+  `Has excedido el límite de peticiones diarias (${limit}). Tu corte se restablece a la medianoche (hora de Costa Rica).`;
 export const UNSUPPORTED_TEXT = "Por ahora solo puedo leer mensajes de texto y notas de voz. ¿Me lo escribís?";
 export const MEDIA_FAILED_TEXT: Record<Extract<CaptureResult, { ok: false }>["reason"], string> = {
   "no-url": "No pude recibir ese archivo. ¿Me lo mandás de nuevo?",
@@ -92,6 +102,18 @@ ${note}` : note;
             if (!text) {
               await deps.send(msg.from, UNSUPPORTED_TEXT);
               return;
+            }
+            if (text.length > MAX_INPUT_CHARS) {
+              await deps.send(msg.from, TOO_LONG_TEXT);
+              return;
+            }
+            if (deps.dailyMessageLimit) {
+              const dayStart = `${hoyEnCR()}T00:00:00${CR_OFFSET}`;
+              if ((await deps.store.countUserMessagesSince(userId, dayStart)) >= deps.dailyMessageLimit) {
+                log("tope diario alcanzado", { userId });
+                await deps.send(msg.from, limitText(deps.dailyMessageLimit));
+                return;
+              }
             }
             const history = await deps.store.history(userId, HISTORY_LIMIT);
             if (!(await deps.store.saveUserMessage(userId, text, msg.messageId))) return; // duplicado
