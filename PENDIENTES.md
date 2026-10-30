@@ -1223,3 +1223,12 @@ URL del webhook en Kapso (acción manual del usuario).
   Listas que lo creado por Quicks aparezca con su insignia y lo marcado se vea tachado. Verificar en el journal de OpenClaw
   / logs del API que no haya 403 de permisos. También falta ver la pantalla Listas en un navegador (no se pudo verificar
   visualmente: requiere sesión) y probar el módulo con una cuenta de otro usuario (que NO vea las listas del dueño).
+- **Investigado (30-oct-2026): no llegaron las "3 noticias" de las 8 AM del módulo Asistente.** El cron
+  `brainfocus:asistente:6e8d5b2f…` (id OpenClaw `e4fbe0b3…`, "Dame 3 noticias actuales: 1 internacional, 1 nacional y 1 de
+  tecnología, con links", creado el 21-oct, usa `web_search`/`web_fetch`) corrió a las 08:00 y falló en la segunda llamada al
+  modelo: DashScope devolvió 400 *"Input data may contain inappropriate content"* (filtro de moderación de Alibaba sobre
+  el texto de entrada, que en ese turno incluía los resultados de la búsqueda de noticias). No es un fallo de la app, de
+  Kapso ni de los cambios de ayer. Fue el primer error del job (`consecutiveErrors: 1`), así que es intermitente: depende
+  de qué noticias traiga la búsqueda ese día. El aviso de falla por Telegram quedó "not-requested" (no se dispara con un
+  solo error). Sin cambios hechos. Mejoras posibles: reintento automático a los pocos minutos si falla, y alerta al primer
+  error en vez de esperar varios.
