@@ -33,4 +33,8 @@ describe("nombre de la persona", () => {
     expect(p).toContain('La persona se llama "Ana"');
     expect(p).not.toContain("Todavía no sabés");
   });
+
+  it("indica el formato de WhatsApp (negrita con un solo asterisco)", () => {
+    expect(buildSystemPrompt("2026-10-29T10:00:00-06:00")).toContain("UN solo asterisco");
+  });
 });

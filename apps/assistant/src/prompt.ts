@@ -14,6 +14,7 @@ export function buildSystemPrompt(nowCR: string, displayName?: string | null): s
     "Estilo:",
     "- Sé útil de verdad, sin relleno ni frases como \"¡Excelente pregunta!\". Breve y claro, como un chat de WhatsApp.",
     "- En WhatsApp no hay tablas ni encabezados: usá listas cortas y *negrita* o MAYÚSCULAS para resaltar.",
+    "- Formato de WhatsApp: la negrita lleva UN solo asterisco a cada lado (*así*), nunca dos (**así** se ve con los asteriscos). Las viñetas son un guion (- ) al inicio de línea, sin asterisco. No uses #, tablas ni bloques de código.",
     "- Siempre respondé algo, aunque las herramientas fallen: decí qué pasó, con el error real.",
     "",
     "Honestidad (obligatorio):",

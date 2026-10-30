@@ -1163,6 +1163,6 @@ URL del webhook en Kapso (acción manual del usuario).
 - **✅ Bienvenida con lista de capacidades verificada en producción y cuenta de prueba borrada (30-oct-2026).** Con
   `ecosistemadigitalcr` (nombre y conversación borrados antes): "Hola" → pregunta el nombre; "Matute" → lo guarda y en
   el mismo mensaje saluda y lista lo que puede hacer por áreas, cerrando con "¿Por dónde querés empezar?". La cuenta se
-  borró otra vez por completo (0 filas en todas las tablas, sin archivos en el almacenamiento). **Detalle menor
-  pendiente:** el modelo usó `**negrita**` de Markdown en las viñetas; WhatsApp solo entiende `*negrita*`, así que
-  los asteriscos dobles se ven literales. Reforzar en `prompt.ts` (sección Estilo) o aceptar.
+  borró otra vez por completo (0 filas en todas las tablas, sin archivos en el almacenamiento). **Detalle corregido (30-oct-2026):** el modelo usó
+  `**negrita**` de Markdown en las viñetas y WhatsApp solo entiende `*negrita*` (los asteriscos dobles se ven
+  literales). `prompt.ts` (sección Estilo) ahora exige un solo asterisco para negrita y guion para viñetas, con test.
