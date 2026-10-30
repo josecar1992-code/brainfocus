@@ -1214,3 +1214,12 @@ URL del webhook en Kapso (acción manual del usuario).
   `checklists:write`, `checklist_items:read`, `checklist_items:write` — esa key tiene scopes explícitos y sin esto sus
   herramientas de listas darían 403; (4) reiniciar `openclaw.service` para que cargue las herramientas nuevas (tarda
   ~2 min). Prompt del asistente actualizado para nombrar las listas entre sus capacidades.
+- **✅ Módulo Listas desplegado (30-oct-2026, noche); prueba con Quicks pendiente para mañana.** Servidor en `563a64c`: migración
+  corrida, API/web/asistente/MCP reconstruidos y tablas `checklists`/`checklist_items` verificadas. La API key `quicks-agent`
+  recibió los 4 scopes nuevos (`checklists:read|write`, `checklist_items:read|write`; pasó de 25 a 29, sin tocar los demás) y
+  OpenClaw se reinició para cargar las herramientas (tarda ~2 min en volver a responder).
+  **Pendiente (31-oct-2026):** probar de punta a punta con Quicks por WhatsApp: (1) "crea una lista de compras con leche, pan y
+  café"; (2) "ya compré la leche" (debe marcarla); (3) "agrega huevos a la lista de compras"; y revisar en la pestaña
+  Listas que lo creado por Quicks aparezca con su insignia y lo marcado se vea tachado. Verificar en el journal de OpenClaw
+  / logs del API que no haya 403 de permisos. También falta ver la pantalla Listas en un navegador (no se pudo verificar
+  visualmente: requiere sesión) y probar el módulo con una cuenta de otro usuario (que NO vea las listas del dueño).
