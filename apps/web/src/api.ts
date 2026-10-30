@@ -278,9 +278,10 @@ export interface AdminUser {
   enabled_modules: string[] | null;
   whatsapp_phone: string | null;
   whatsapp_last_inbound_at: string | null;
+  daily_message_limit: number | null;
 }
 
-export type AdminUserPatch = Partial<Pick<AdminUser, "status" | "enabled_modules" | "whatsapp_phone">>;
+export type AdminUserPatch = Partial<Pick<AdminUser, "status" | "enabled_modules" | "whatsapp_phone" | "daily_message_limit">>;
 
 export interface UsageByUser {
   priced: boolean;

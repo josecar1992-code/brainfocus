@@ -14,6 +14,8 @@ export interface Store {
   countUserMessagesSince(userId: string, sinceIso: string): Promise<number>;
   /** Módulos opcionales habilitados del usuario (null = todos). */
   enabledModules(userId: string): Promise<string[] | null>;
+  /** Límite diario propio de la persona (null = el general). */
+  dailyMessageLimit?(userId: string): Promise<number | null>;
   /** Nombre con el que Quicks llama a la persona (null si todavía no lo dio). */
   displayName(userId: string): Promise<string | null>;
   setDisplayName(userId: string, name: string): Promise<void>;
@@ -107,11 +109,12 @@ ${note}` : note;
               await deps.send(msg.from, TOO_LONG_TEXT);
               return;
             }
-            if (deps.dailyMessageLimit) {
+            const limit = (await deps.store.dailyMessageLimit?.(userId)) ?? deps.dailyMessageLimit;
+            if (limit) {
               const dayStart = `${hoyEnCR()}T00:00:00${CR_OFFSET}`;
-              if ((await deps.store.countUserMessagesSince(userId, dayStart)) >= deps.dailyMessageLimit) {
+              if ((await deps.store.countUserMessagesSince(userId, dayStart)) >= limit) {
                 log("tope diario alcanzado", { userId });
-                await deps.send(msg.from, limitText(deps.dailyMessageLimit));
+                await deps.send(msg.from, limitText(limit));
                 return;
               }
             }

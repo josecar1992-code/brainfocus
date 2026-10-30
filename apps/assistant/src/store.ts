@@ -22,6 +22,12 @@ export function createStore(url: string, serviceRoleKey: string): Store {
       return (data?.enabled_modules as string[] | null | undefined) ?? null;
     },
 
+    async dailyMessageLimit(userId) {
+      const { data, error } = await db.from("profiles").select("daily_message_limit").eq("id", userId).maybeSingle();
+      check(error);
+      return (data?.daily_message_limit as number | null | undefined) ?? null;
+    },
+
     async displayName(userId) {
       const { data, error } = await db.from("profiles").select("display_name").eq("id", userId).maybeSingle();
       check(error);

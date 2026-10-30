@@ -31,6 +31,7 @@ const fmt = (iso: string | null) =>
 function UserCard({ user, selfId }: { user: AdminUser; selfId: string | undefined }) {
   const qc = useQueryClient();
   const [phone, setPhone] = useState(user.whatsapp_phone ?? "");
+  const [limit, setLimit] = useState(user.daily_message_limit?.toString() ?? "");
   const [error, setError] = useState<string | null>(null);
   const isSelf = user.id === selfId;
 
@@ -158,6 +159,41 @@ function UserCard({ user, selfId }: { user: AdminUser; selfId: string | undefine
         </form>
         <p className="text-[11px] text-white/30">
           Quicks solo responde a números vinculados aquí y con la cuenta activa; a cualquier otro lo ignora.
+        </p>
+      </div>
+
+      <div className="space-y-1.5">
+        <p className="text-xs font-medium text-white/60">Mensajes diarios a Quicks</p>
+        <form
+          className="flex flex-wrap items-center gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const n = Number(limit);
+            if (limit.trim() !== "" && (!Number.isInteger(n) || n < 1 || n > 5000)) {
+              setError("El límite debe ser un número entero entre 1 y 5000");
+              return;
+            }
+            update.mutate({ daily_message_limit: limit.trim() === "" ? null : n });
+          }}
+        >
+          <input
+            value={limit}
+            onChange={(e) => setLimit(e.target.value)}
+            placeholder="General"
+            inputMode="numeric"
+            className="bg-night-blue/60 border border-electric-cyan/15 rounded-lg px-2.5 py-1.5 text-sm text-white/90 w-28"
+          />
+          <button
+            type="submit"
+            disabled={update.isPending || limit.trim() === (user.daily_message_limit?.toString() ?? "")}
+            className="rounded-lg border border-electric-cyan/40 text-electric-cyan text-xs font-semibold px-3 py-1.5 hover:bg-electric-cyan/10 disabled:opacity-40"
+          >
+            Guardar límite
+          </button>
+        </form>
+        <p className="text-[11px] text-white/30">
+          Máximo de mensajes por día (hora de Costa Rica). Vacío = el límite general del asistente. Al pasarlo, Quicks avisa y
+          responde de nuevo a medianoche.
         </p>
       </div>
 

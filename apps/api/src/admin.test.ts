@@ -28,6 +28,11 @@ describe("userPatchSchema", () => {
     expect(userPatchSchema.safeParse({ is_admin: true }).success).toBe(false);
     expect(userPatchSchema.safeParse({ id: "x" }).success).toBe(false);
   });
+  it("límite diario: entero entre 1 y 5000, o null para el general", () => {
+    expect(userPatchSchema.parse({ daily_message_limit: 80 })).toEqual({ daily_message_limit: 80 });
+    expect(userPatchSchema.parse({ daily_message_limit: null })).toEqual({ daily_message_limit: null });
+    for (const bad of [0, -1, 5001, 1.5, "50"]) expect(userPatchSchema.safeParse({ daily_message_limit: bad }).success).toBe(false);
+  });
   it("rechaza módulos que no existen, estado inválido y teléfono inválido", () => {
     expect(userPatchSchema.safeParse({ enabled_modules: ["consumos"] }).success).toBe(false);
     expect(userPatchSchema.safeParse({ status: "root" }).success).toBe(false);

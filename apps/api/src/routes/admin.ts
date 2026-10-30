@@ -27,6 +27,8 @@ export const userPatchSchema = z
     status: z.enum(["pending", "active", "blocked"]),
     // null = todos los módulos opcionales; [] = ninguno.
     enabled_modules: z.array(z.enum(OPTIONAL_MODULES)).nullable(),
+    // Mensajes por día (día de Costa Rica) que puede mandarle al asistente; null = el límite general.
+    daily_message_limit: z.number().int().min(1).max(5000).nullable(),
     whatsapp_phone: z
       .string()
       .nullable()
@@ -46,7 +48,7 @@ adminRouter.get("/users", async (_req, res, next) => {
     if (error) throw error;
     const { data: profiles, error: pErr } = await supabaseAdmin
       .from("profiles")
-      .select("id, status, is_admin, enabled_modules, whatsapp_phone, whatsapp_last_inbound_at");
+      .select("id, status, is_admin, enabled_modules, whatsapp_phone, whatsapp_last_inbound_at, daily_message_limit");
     if (pErr) throw pErr;
     const byId = new Map((profiles ?? []).map((p) => [p.id as string, p]));
     res.json(
@@ -63,6 +65,7 @@ adminRouter.get("/users", async (_req, res, next) => {
           enabled_modules: (p?.enabled_modules as string[] | null | undefined) ?? null,
           whatsapp_phone: (p?.whatsapp_phone as string | null | undefined) ?? null,
           whatsapp_last_inbound_at: (p?.whatsapp_last_inbound_at as string | null | undefined) ?? null,
+          daily_message_limit: (p?.daily_message_limit as number | null | undefined) ?? null,
         };
       }),
     );

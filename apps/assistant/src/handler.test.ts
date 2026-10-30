@@ -115,4 +115,17 @@ describe("handler", () => {
     expect(limitText(50)).toContain("50");
     expect(limitText(50)).toContain("medianoche");
   });
+
+  it("usa el límite propio de la persona por encima del general", async () => {
+    const t = setup({ countUserMessagesSince: vi.fn(async () => 5), dailyMessageLimit: vi.fn(async () => 5) }, 50);
+    await t.h.handle(msg(FRIEND, "hola", "m12"));
+    expect(t.send).toHaveBeenCalledWith(FRIEND, limitText(5));
+    expect(t.runAgent).not.toHaveBeenCalled();
+  });
+
+  it("sin límite propio usa el general", async () => {
+    const t = setup({ countUserMessagesSince: vi.fn(async () => 5), dailyMessageLimit: vi.fn(async () => null) }, 50);
+    await t.h.handle(msg(FRIEND, "hola", "m13"));
+    expect(t.runAgent).toHaveBeenCalledOnce();
+  });
 });

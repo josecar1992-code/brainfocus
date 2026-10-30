@@ -23,6 +23,7 @@ create table if not exists public.profiles (
   enabled_modules text[], -- null = todos los módulos
   whatsapp_phone text, -- E.164, identifica al remitente en WhatsApp
   whatsapp_last_inbound_at timestamptz, -- ventana de 24 h de WhatsApp
+  daily_message_limit integer check (daily_message_limit is null or daily_message_limit > 0), -- null = límite general del asistente
   display_name text, -- cómo lo llama Quicks (lo pregunta en el primer mensaje)
   created_at timestamptz not null default now()
 );

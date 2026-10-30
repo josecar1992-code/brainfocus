@@ -1181,3 +1181,11 @@ URL del webhook en Kapso (acción manual del usuario).
   que usa herramientas puede costar 2 llamadas al modelo pero cuenta como 1 del tope. **Pendiente:** medir una
   semana de uso real para afinar el 50; no se hizo limitador de ráfagas (el tope diario ya acota el abuso); ajuste
   del límite por usuario en la pantalla de Usuarios y aviso al 80 % quedan como mejora futura.
+- **✅ Límite de mensajes diarios ajustable por usuario en Usuarios (30-oct-2026).** En la tarjeta de cada usuario hay un
+  campo "Mensajes diarios a Quicks": un entero de 1 a 5000, o vacío = el límite general del asistente
+  (`DAILY_MESSAGE_LIMIT`, 50). Columna nueva `profiles.daily_message_limit` (migración
+  `supabase/migrations/20261030_limite_mensajes_diarios.sql`, **correr en Supabase antes de desplegar**; también en
+  `schema.sql`). `admin.ts` lo valida (`userPatchSchema` estricto) y lo devuelve en `GET /admin/users`; el asistente lo lee
+  en cada mensaje (`store.dailyMessageLimit`) y tiene prioridad sobre el general, así que el cambio aplica de inmediato
+  sin reiniciar. Solo desde la sesión web del administrador (un agente no puede subirse su propio límite). Tests en
+  `admin.test.ts` y `handler.test.ts`. Pendiente: mostrar en la tarjeta cuántos mensajes lleva hoy y el aviso al 80 %.
