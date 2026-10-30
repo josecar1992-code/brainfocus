@@ -26,6 +26,7 @@ describe("nombre de la persona", () => {
     const p = buildSystemPrompt("2026-10-29T10:00:00-06:00", null);
     expect(p).toContain("Todavía no sabés cómo se llama");
     expect(p).toContain("guardar_nombre");
+    expect(p).toContain("todo lo que podés hacer");
   });
   it("con nombre, lo usa y no vuelve a preguntarlo", () => {
     const p = buildSystemPrompt("2026-10-29T10:00:00-06:00", "Ana");

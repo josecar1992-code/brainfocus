@@ -1151,3 +1151,12 @@ URL del webhook en Kapso (acción manual del usuario).
   (activo, módulo Documentos, nombre "Bob"), 12 acciones de agente, 8 mensajes y 13 registros de consumo del asistente,
   sin archivos en el almacenamiento. Se borró con `auth.admin.deleteUser` (cascada) y se verificó 0 filas en todas las
   tablas; antes se comprobó que no era la cuenta del dueño. Se perdió su historial de consumo de prueba (13 llamadas).
+- **✅ Flujo completo de usuario nuevo probado en producción y mejora de bienvenida (29-oct-2026).** Con la cuenta
+  `ecosistemadigitalcr` recreada: registro → activación → número vinculado → "Hola" (Quicks pregunta el nombre) →
+  "Bob Dylan" (lo guarda y la llama por él) → "¿Qué puedes hacer?" (lista de capacidades). Un número no registrado
+  fue descartado en silencio (log "mensaje de número no registrado descartado"). Observación: una cuenta nueva queda
+  con `enabled_modules = null` (todos los módulos) y por eso gasta ~8.100 tokens por llamada en vez de ~5.500;
+  conviene decidir si el alta interna debe empezar con módulos acotados. **Mejora (pedida por el usuario):** al
+  guardar el nombre, Quicks responde en ese mismo mensaje con un saludo y una lista corta, por áreas, de lo que puede
+  hacer según las herramientas realmente disponibles (que ya están filtradas por módulos), y pregunta por dónde
+  empezar. Cambio en `apps/assistant/src/prompt.ts` (rama "sin nombre"), con test en `prompt.test.ts`.
