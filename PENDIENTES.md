@@ -1126,3 +1126,23 @@ URL del webhook en Kapso (acción manual del usuario).
   el evento sí se creó y solo se perdió la respuesta (timeout): si existe, se usa; si no, se borra la tarea recién
   creada y se propaga el error. **Limpieza:** se borraron las 3 tareas sueltas (estado hecha, sin eventos,
   recordatorios ni subtareas, verificado antes) y se conservó la que tiene su evento.
+- **✅ Estado desplegado y verificado en producción (29-oct-2026, noche).** Servidor en `5fb8c29`: API, asistente, MCP y
+  web reconstruidos; OpenClaw reiniciado (`systemctl restart openclaw.service`, **tarda ~2 min en volver a
+  responder** por sus fases de arranque; mientras tanto no contesta nada, aunque el comando no imprima salida).
+  Resultados medidos:
+  - *Herramientas por módulo:* la cuenta de prueba (solo Documentos) bajó de 7.632 a ~5.500–6.000 tokens de entrada
+    por llamada (-27 %). Menos de lo estimado: el resto es el núcleo de herramientas + prompt + historial. Quicks de
+    OpenClaw promedia ~10.200 por llamada (con caché), así que el asistente no consume más que lo ya conocido.
+  - *Nombre:* la migración `20261029_asistente_nombre.sql` ya está corrida; la cuenta de prueba preguntó el nombre,
+    lo guardó ("Bob") y luego la llamó por él.
+  - *Consumos:* precios Qwen cargados (0.40/1.60) y fila del dueño visible; coincide con la base (28 días, $2.48,
+    928 llamadas en el mes).
+  - *Cancelación de crons + `mover_rutina`:* caso real con la "Rutina Gimnasio": Quicks la movió en una sola llamada,
+    el journal mostró "cron: job removed" (x2: aviso y respaldo) y el API "aviso cancelado"; al volver a moverla
+    quedaron creados el aviso nuevo y su respaldo (vistos en `openclaw cron list`), sin avisos viejos sueltos.
+  - *Web:* el bundle publicado contiene el rollback de `createEvent`.
+  Decisiones del usuario que se mantienen (09-ago-2026): anti-duplicado de recordatorios por título exacto, y editar
+  una rutina no reprograma la ocurrencia de hoy (ahora se puede mover con `mover_rutina`).
+  **Pendiente real:** probar el asistente con una persona de confianza (activarla en Usuarios, vincular su
+  número, que escriba primero al número del negocio) — es la única forma de ver la pregunta del nombre en un primer
+  mensaje real y la ruta de un número desconocido.
