@@ -618,16 +618,33 @@ export const api = {
       }),
     });
 
-    const event = await request<Event>("/events", {
-      method: "POST",
-      body: JSON.stringify({
-        title: input.title,
-        description: input.description,
-        starts_at: input.starts_at,
-        task_id: task.id,
-        project_id: input.project_id || undefined,
-      }),
-    });
+    let event: Event;
+    try {
+      event = await request<Event>("/events", {
+        method: "POST",
+        body: JSON.stringify({
+          title: input.title,
+          description: input.description,
+          starts_at: input.starts_at,
+          task_id: task.id,
+          project_id: input.project_id || undefined,
+        }),
+      });
+    } catch (err) {
+      // Si falla crear el evento, la tarea recién creada no puede quedar sola: al reintentar se creaba OTRA tarea y
+      // quedaban duplicadas sueltas (4 "Clásico español" el 24-oct-2026). Pero el POST pudo haber funcionado y solo
+      // perderse la respuesta (timeout): por eso primero se mira si ya existe un evento de esa tarea. Si existe, se
+      // usa ese; si no, se borra la tarea y se propaga el error.
+      let existing: Event | undefined;
+      try {
+        [existing] = await request<Event[]>(`/events?task_id=${task.id}&limit=1`);
+        if (!existing) await request<void>(`/tasks/${task.id}`, { method: "DELETE" });
+      } catch {
+        // mejor esfuerzo: si ni siquiera se puede consultar, se deja la tarea y se reporta el error original
+      }
+      if (!existing) throw err;
+      event = existing;
+    }
 
     await createEventReminders({
       eventId: event.id,

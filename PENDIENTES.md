@@ -1115,3 +1115,14 @@ URL del webhook en Kapso (acción manual del usuario).
   coincidencia o ambiguos, y rutinas sin ocurrencia pendiente. También la usa el asistente (módulo `rutinas`, mapa
   `TOOL_MODULE`). **Para que Quicks (OpenClaw) la vea hay que reconstruir la imagen del MCP y reiniciar
   `openclaw.service`** (ver nota de depuración de OpenClaw).
+- **🐞 → ✅ Crear un evento desde la web dejaba tareas duplicadas sueltas si fallaba el evento (29-oct-2026,
+  recordado por el usuario: fin de semana del Clásico).** Evidencia: 4 tareas "Clásico español" creadas el 24-oct
+  (17:01:50, 17:01:57, 20:23:15, 20:26:27) y un solo evento (enlazado a la última), todas con `created_by=user`
+  (la app web, no Quicks). **Causa probable** (no se pudo confirmar, los logs de ese día ya no existen):
+  `createEvent` (`apps/web/src/api.ts`) crea primero la tarea y después el evento; si el `POST /events` fallaba (las
+  caídas intermitentes VPS↔Supabase ya anotadas), la tarea quedaba sola y cada reintento creaba otra. No tiene que
+  ver con el anti-duplicado de recordatorios por título (punto de arriba, sin cambios): aquí no hubo
+  recordatorios duplicados. **Fix:** si falla el `POST /events`, primero se consulta `GET /events?task_id=<id>` por si
+  el evento sí se creó y solo se perdió la respuesta (timeout): si existe, se usa; si no, se borra la tarea recién
+  creada y se propaga el error. **Limpieza:** se borraron las 3 tareas sueltas (estado hecha, sin eventos,
+  recordatorios ni subtareas, verificado antes) y se conservó la que tiene su evento.
