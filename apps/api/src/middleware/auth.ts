@@ -8,7 +8,7 @@ import { isModuleAllowed, moduleForResource } from "../utils/modules.js";
 // Recursos que el asistente multiusuario puede tocar en nombre de un usuario. Quedan fuera
 // 'consumos' (administración del servidor) y las API keys (solo las administra el dueño por JWT).
 const ASSISTANT_SCOPES = [
-  "tasks", "subtasks", "lists", "projects", "reminders", "recurring_reminders", "events", "notes",
+  "tasks", "subtasks", "lists", "projects", "reminders", "recurring_reminders", "events", "notes", "checklists", "checklist_items",
   "documents", "nutrition", "exercise", "vehicles", "vehicle_maintenance", "vehicle_mileage",
   "routines", "routine_completions", "settings",
 ].map((r) => `${r}:*`);

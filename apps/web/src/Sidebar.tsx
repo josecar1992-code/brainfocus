@@ -8,6 +8,7 @@ import {
   IconCheckSquare,
   IconFile,
   IconFolder,
+  IconListCheck,
   IconLogOut,
   IconNote,
   IconRepeat,
@@ -26,6 +27,7 @@ export type ModuleKey =
   | "rutinas"
   | "proyectos"
   | "notas"
+  | "listas"
   | "documentos"
   | "vehiculos"
   | "consumos"
@@ -42,6 +44,7 @@ export const MODULES: { key: ModuleKey; label: string; icon: ComponentType<SVGPr
   { key: "proyectos", label: "Proyectos", icon: IconFolder },
   { key: "rutinas", label: "Rutinas", icon: IconRepeat },
   { key: "notas", label: "Notas y memorias", icon: IconNote },
+  { key: "listas", label: "Listas", icon: IconListCheck },
   { key: "documentos", label: "Documentos", icon: IconFile },
   { key: "vehiculos", label: "Vehículos", icon: IconCar },
   { key: "consumos", label: "Consumos", icon: IconChartBar },
@@ -53,7 +56,7 @@ export const MODULES: { key: ModuleKey; label: string; icon: ComponentType<SVGPr
 // Módulos que ve cada persona: Consumos y Usuarios son solo del administrador, y los opcionales dependen de
 // lo que el administrador le habilitó (modules null = todos). El servidor igual lo hace cumplir; esto es solo UX.
 const ADMIN_ONLY: ModuleKey[] = ["consumos", "usuarios"];
-const OPTIONAL: ModuleKey[] = ["proyectos", "rutinas", "notas", "documentos", "vehiculos"];
+const OPTIONAL: ModuleKey[] = ["proyectos", "rutinas", "notas", "listas", "documentos", "vehiculos"];
 export function visibleModules(me: { isAdmin: boolean; modules: string[] | null } | null): typeof MODULES {
   if (!me) return MODULES.filter((m) => !ADMIN_ONLY.includes(m.key));
   return MODULES.filter((m) => {

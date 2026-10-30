@@ -1195,3 +1195,22 @@ URL del webhook en Kapso (acción manual del usuario).
   verdad lo lee el asistente de su `.env` (`DAILY_MESSAGE_LIMIT`, 50 por defecto) y el API lee la MISMA variable de su
   propio `.env` solo para mostrarla (`apps/api/src/env.ts`); si algún día se cambia el general, hay que ponerlo en los
   dos `.env` o la pantalla mostrará un número distinto al real. Test en `admin.test.ts`.
+- **✅ Módulo nuevo "Listas" (30-oct-2026, pedido del usuario: p. ej. la lista de compras).** Listas con ítems que se marcan con
+  check. Es un módulo opcional (`listas`) como Notas o Documentos: se habilita por usuario en Usuarios. **Nombres:** las tablas
+  se llaman `checklists` y `checklist_items` porque `lists` ya es la tabla de categorías de tareas. **Qué hay:** migración
+  `supabase/migrations/20261030_listas_checklists.sql` (y `schema.sql`; ítems en cascada al borrar la lista, RLS por
+  usuario); API `/checklists` y `/checklist-items` (`routes/checklists.ts`, `checklistItems.ts`) con `checklist_id`
+  validado como propio en `ownedRefs.ts` (nadie agrega ítems a la lista de otro) y módulo ligado en `utils/modules.ts`;
+  pantalla `apps/web/src/ChecklistsPage.tsx` (crear lista, agregar ítem con Enter, marcar al instante con rollback si
+  falla, ítems marcados al fondo, "Quitar los N marcados", borrar con `ConfirmDialog`, badge de Quicks); icono nuevo en
+  la barra lateral. **Quicks:** 7 herramientas en `packages/focusbrain-tools` (`listar_listas`, `ver_lista`, `crear_lista`,
+  `agregar_items_lista`, `marcar_items_lista`, `quitar_items_lista`, `borrar_lista`): buscan la lista y cada ítem por
+  texto parcial sin importar tildes/mayúsculas; si hay varias coincidencias lo devuelven como "ambiguo" para que Quicks
+  pregunte, y nunca marcan por posición. Mapeadas al módulo `listas` para el asistente de los demás usuarios.
+  Verificado: tsc de api/web/assistant, tests (api 65, asistente 82) y las herramientas contra un API simulado en
+  memoria (crear, duplicado, agregar, marcar con ambiguo/no encontrado, desmarcar, quitar, borrar). **No se vio la pantalla
+  en un navegador** (requiere iniciar sesión). **Para desplegar:** (1) correr la migración en Supabase; (2) reconstruir
+  api, web, assistant y mcp; (3) **agregar a la API key de Quicks (OpenClaw) los scopes** `checklists:read`,
+  `checklists:write`, `checklist_items:read`, `checklist_items:write` — esa key tiene scopes explícitos y sin esto sus
+  herramientas de listas darían 403; (4) reiniciar `openclaw.service` para que cargue las herramientas nuevas (tarda
+  ~2 min). Prompt del asistente actualizado para nombrar las listas entre sus capacidades.

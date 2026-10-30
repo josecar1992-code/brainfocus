@@ -252,6 +252,30 @@ create table if not exists public.notes (
 );
 
 -- ============================================================
+-- Listas (módulo "listas"): listas con ítems que se marcan con check, ej. lista de compras.
+-- Se llaman checklists porque `lists` ya es la tabla de categorías de tareas.
+-- ============================================================
+create table if not exists public.checklists (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  title text not null,
+  created_by text not null default 'user' check (created_by in ('user','agent')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.checklist_items (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  checklist_id uuid not null references public.checklists(id) on delete cascade,
+  text text not null,
+  done boolean not null default false,
+  created_by text not null default 'user' check (created_by in ('user','agent')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- ============================================================
 -- Nutrición
 -- ============================================================
 create table if not exists public.nutrition_logs (
@@ -447,6 +471,9 @@ create index if not exists idx_recurring_reminders_user on public.recurring_remi
 create index if not exists idx_reminders_event on public.reminders(event_id);
 create index if not exists idx_events_starts on public.events(user_id, starts_at);
 create index if not exists idx_notes_user on public.notes(user_id);
+create index if not exists idx_checklists_user on public.checklists(user_id);
+create index if not exists idx_checklist_items_user on public.checklist_items(user_id);
+create index if not exists idx_checklist_items_list on public.checklist_items(checklist_id);
 create unique index if not exists idx_documents_user_name on public.documents(user_id, name);
 create index if not exists idx_documents_user on public.documents(user_id);
 create index if not exists idx_nutrition_user on public.nutrition_logs(user_id, logged_at);
@@ -478,6 +505,8 @@ alter table public.recurring_reminders enable row level security;
 alter table public.events enable row level security;
 alter table public.documents enable row level security;
 alter table public.notes enable row level security;
+alter table public.checklists enable row level security;
+alter table public.checklist_items enable row level security;
 alter table public.nutrition_logs enable row level security;
 alter table public.exercise_logs enable row level security;
 alter table public.vehicles enable row level security;
@@ -496,7 +525,7 @@ declare
 begin
   for t in select unnest(array[
     'api_keys','agent_actions','lists','projects','tasks','subtasks',
-    'reminders','recurring_reminders','events','notes','documents','nutrition_logs','exercise_logs',
+    'reminders','recurring_reminders','events','notes','checklists','checklist_items','documents','nutrition_logs','exercise_logs',
     'vehicles','vehicle_maintenance','vehicle_mileage_logs','routines','routine_completions','consumos'
   ])
   loop

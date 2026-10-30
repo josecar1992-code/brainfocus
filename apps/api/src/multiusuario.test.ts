@@ -71,6 +71,8 @@ describe("módulos por usuario", () => {
     expect(moduleForResource("vehicle_mileage")).toBe("vehiculos");
     expect(moduleForResource("routine_completions")).toBe("rutinas");
     expect(moduleForResource("documents")).toBe("documentos");
+    expect(moduleForResource("checklists")).toBe("listas");
+    expect(moduleForResource("checklist_items")).toBe("listas");
   });
 });
 

@@ -110,6 +110,22 @@ export interface Note {
   created_by: "user" | "agent";
 }
 
+export interface Checklist {
+  id: string;
+  title: string;
+  created_at: string;
+  created_by: "user" | "agent";
+}
+
+export interface ChecklistItem {
+  id: string;
+  checklist_id: string;
+  text: string;
+  done: boolean;
+  created_at: string;
+  created_by: "user" | "agent";
+}
+
 export interface Vehicle {
   id: string;
   brand: string;
@@ -555,6 +571,18 @@ export const api = {
   updateNote: (id: string, input: { title?: string; content: string; project_id?: string | null }) =>
     request<Note>(`/notes/${id}`, { method: "PATCH", body: JSON.stringify(input) }),
   deleteNote: (id: string) => request<void>(`/notes/${id}`, { method: "DELETE" }),
+
+  // Listas con ítems que se marcan (módulo "listas").
+  listChecklists: () => request<Checklist[]>("/checklists?limit=200"),
+  createChecklist: (title: string) =>
+    request<Checklist>("/checklists", { method: "POST", body: JSON.stringify({ title }) }),
+  deleteChecklist: (id: string) => request<void>(`/checklists/${id}`, { method: "DELETE" }),
+  listChecklistItems: () => request<ChecklistItem[]>("/checklist-items?limit=1000"),
+  createChecklistItem: (checklist_id: string, text: string) =>
+    request<ChecklistItem>("/checklist-items", { method: "POST", body: JSON.stringify({ checklist_id, text }) }),
+  setChecklistItemDone: (id: string, done: boolean) =>
+    request<ChecklistItem>(`/checklist-items/${id}`, { method: "PATCH", body: JSON.stringify({ done }) }),
+  deleteChecklistItem: (id: string) => request<void>(`/checklist-items/${id}`, { method: "DELETE" }),
 
   listVehicles: () => request<Vehicle[]>("/vehicles"),
   createVehicle: (input: NewVehicle) => request<Vehicle>("/vehicles", { method: "POST", body: JSON.stringify(input) }),

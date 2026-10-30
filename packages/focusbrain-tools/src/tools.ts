@@ -120,6 +120,45 @@ interface Routine {
   current_event_id: string | null;
 }
 
+interface Checklist {
+  id: string;
+  title: string;
+}
+
+interface ChecklistItem {
+  id: string;
+  checklist_id: string;
+  text: string;
+  done: boolean;
+}
+
+const sinTildes = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+
+/** Busca una lista del usuario por id, nombre exacto o parte del nombre (sin importar mayúsculas ni tildes). */
+async function buscarLista(nombre: string): Promise<Checklist> {
+  const listas = await apiRequest<Checklist[]>("/checklists?limit=200");
+  const q = sinTildes(nombre);
+  const exacta = listas.filter((l) => l.id === nombre || sinTildes(l.title) === q);
+  const found = exacta.length > 0 ? exacta : listas.filter((l) => sinTildes(l.title).includes(q));
+  if (found.length === 0) throw new Error(`No encontré ninguna lista que se llame "${nombre}". Podés crearla con crear_lista.`);
+  if (found.length > 1) throw new Error(`Hay varias listas que calzan (${found.map((l) => l.title).join(", ")}). Preguntale cuál.`);
+  return found[0];
+}
+
+const itemsDeLista = (checklistId: string) =>
+  apiRequest<ChecklistItem[]>(`/checklist-items?checklist_id=${checklistId}&limit=500`);
+
+type ItemMatch = { kind: "none" } | { kind: "one"; item: ChecklistItem } | { kind: "many"; matches: ChecklistItem[] };
+
+/** Un ítem por su texto: coincidencia exacta primero; si no, por parte del texto. Varias = ambiguo (se le pregunta al usuario). */
+function buscarItem(items: ChecklistItem[], buscado: string): ItemMatch {
+  const q = sinTildes(buscado);
+  const exactos = items.filter((i) => sinTildes(i.text) === q);
+  const found = exactos.length > 0 ? exactos : items.filter((i) => sinTildes(i.text).includes(q));
+  if (found.length === 0) return { kind: "none" };
+  return found.length === 1 ? { kind: "one", item: found[0] } : { kind: "many", matches: found };
+}
+
 // TWO_HOURS_MS, horaActualCR, isoACostaRica y formatReminderTitle vienen de
 // @brainfocus/shared-time (09-ago-2026) — eran casi idénticas a su
 // equivalente en apps/web/src/api.ts y ya habían empezado a divergir, ver
@@ -1112,6 +1151,180 @@ export const tools = {
         body: JSON.stringify({ starts_at: `${args.fecha}T${hora}:00${CR_OFFSET}` }),
       });
       return { rutina: rutina.title, nueva_fecha_hora_costa_rica: isoACostaRica(evento.starts_at) };
+    },
+  },
+
+  listar_listas: {
+    description:
+      "Lista las listas con ítems del usuario (ej. 'Compras'): cuántos ítems tiene cada una y cuántos están marcados. " +
+      "No son las categorías de las tareas (`listar_categorias`) ni las notas.",
+    inputSchema: { type: "object", properties: {} },
+    argsSchema: z.object({}),
+    handler: async () => {
+      const [listas, items] = await Promise.all([
+        apiRequest<Checklist[]>("/checklists?limit=200"),
+        apiRequest<ChecklistItem[]>("/checklist-items?limit=1000&fields=id,checklist_id,done"),
+      ]);
+      return listas.map((l) => {
+        const propios = items.filter((i) => i.checklist_id === l.id);
+        return { id: l.id, titulo: l.title, total: propios.length, marcados: propios.filter((i) => i.done).length };
+      });
+    },
+  },
+
+  ver_lista: {
+    description:
+      "Muestra los ítems de una lista (ej. la lista de compras) con su estado: `hecho` true = marcado. " +
+      "`lista` es el nombre (o parte del nombre) o el id.",
+    inputSchema: {
+      type: "object",
+      properties: { lista: { type: "string", description: "Nombre de la lista, ej. 'compras'" } },
+      required: ["lista"],
+    },
+    argsSchema: z.object({ lista: z.string().min(1) }),
+    handler: async (args: { lista: string }) => {
+      const lista = await buscarLista(args.lista);
+      const items = await itemsDeLista(lista.id);
+      return { lista: lista.title, items: items.map((i) => ({ id: i.id, texto: i.text, hecho: i.done })) };
+    },
+  },
+
+  crear_lista: {
+    description:
+      "Crea una lista con ítems que se marcan con check (ej. 'lista de compras'), opcionalmente con sus primeros " +
+      "ítems. Si ya existe una lista con ese nombre, usar `agregar_items_lista` en vez de crear otra.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        titulo: { type: "string", description: "ej. 'Compras'" },
+        items: { type: "array", items: { type: "string" }, description: "Ítems iniciales, uno por elemento." },
+      },
+      required: ["titulo"],
+    },
+    argsSchema: z.object({
+      titulo: z.string().min(1).max(120),
+      items: z.array(z.string().min(1).max(300)).max(100).optional(),
+    }),
+    handler: async (args: { titulo: string; items?: string[] }) => {
+      const existentes = await apiRequest<Checklist[]>("/checklists?limit=200");
+      if (existentes.some((l) => l.title.toLowerCase() === args.titulo.trim().toLowerCase())) {
+        throw new Error(`Ya existe una lista "${args.titulo}". Usá agregar_items_lista para sumarle ítems.`);
+      }
+      const lista = await apiRequest<Checklist>("/checklists", { method: "POST", body: JSON.stringify({ title: args.titulo.trim() }) });
+      for (const texto of args.items ?? []) {
+        await apiRequest("/checklist-items", { method: "POST", body: JSON.stringify({ checklist_id: lista.id, text: texto.trim() }) });
+      }
+      return { id: lista.id, titulo: lista.title, items_agregados: (args.items ?? []).length };
+    },
+  },
+
+  agregar_items_lista: {
+    description:
+      "Agrega uno o varios ítems a una lista que ya existe (ej. 'agregá leche y pan a la lista de compras'). Un ítem " +
+      "por elemento del arreglo. Si la lista no existe, crearla primero con `crear_lista`.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        lista: { type: "string", description: "Nombre de la lista, ej. 'compras'" },
+        items: { type: "array", items: { type: "string" }, description: "Los ítems a agregar." },
+      },
+      required: ["lista", "items"],
+    },
+    argsSchema: z.object({ lista: z.string().min(1), items: z.array(z.string().min(1).max(300)).min(1).max(100) }),
+    handler: async (args: { lista: string; items: string[] }) => {
+      const lista = await buscarLista(args.lista);
+      for (const texto of args.items) {
+        await apiRequest("/checklist-items", { method: "POST", body: JSON.stringify({ checklist_id: lista.id, text: texto.trim() }) });
+      }
+      return { lista: lista.title, agregados: args.items.length };
+    },
+  },
+
+  marcar_items_lista: {
+    description:
+      "Marca (o desmarca) ítems de una lista, ej. 'ya compré la leche'. Cada ítem se busca por su texto (basta una " +
+      "parte). Devuelve cuáles marcó, cuáles no encontró y cuáles eran ambiguos (varias coincidencias): para esos, " +
+      "preguntale al usuario cuál. `hecho` por defecto es true; mandar false para desmarcar.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        lista: { type: "string", description: "Nombre de la lista, ej. 'compras'" },
+        items: { type: "array", items: { type: "string" }, description: "Texto (o parte) de cada ítem." },
+        hecho: { type: "boolean", description: "true = marcar (default), false = desmarcar." },
+      },
+      required: ["lista", "items"],
+    },
+    argsSchema: z.object({
+      lista: z.string().min(1),
+      items: z.array(z.string().min(1)).min(1).max(100),
+      hecho: z.boolean().optional(),
+    }),
+    handler: async (args: { lista: string; items: string[]; hecho?: boolean }) => {
+      const lista = await buscarLista(args.lista);
+      const items = await itemsDeLista(lista.id);
+      const hecho = args.hecho ?? true;
+      const marcados: string[] = [];
+      const no_encontrados: string[] = [];
+      const ambiguos: Array<{ buscado: string; coincidencias: string[] }> = [];
+      for (const buscado of args.items) {
+        const r = buscarItem(items, buscado);
+        if (r.kind === "none") no_encontrados.push(buscado);
+        else if (r.kind === "many") ambiguos.push({ buscado, coincidencias: r.matches.map((m) => m.text) });
+        else {
+          await apiRequest(`/checklist-items/${r.item.id}`, { method: "PATCH", body: JSON.stringify({ done: hecho }) });
+          marcados.push(r.item.text);
+        }
+      }
+      return { lista: lista.title, accion: hecho ? "marcados" : "desmarcados", afectados: marcados, no_encontrados, ambiguos };
+    },
+  },
+
+  quitar_items_lista: {
+    description:
+      "Quita ítems de una lista (los borra). Cada ítem se busca por su texto. Para solo marcarlos como comprados/hechos " +
+      "usar `marcar_items_lista`, no esta. Confirmá con el usuario antes si no fue explícito.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        lista: { type: "string", description: "Nombre de la lista, ej. 'compras'" },
+        items: { type: "array", items: { type: "string" }, description: "Texto (o parte) de cada ítem a quitar." },
+      },
+      required: ["lista", "items"],
+    },
+    argsSchema: z.object({ lista: z.string().min(1), items: z.array(z.string().min(1)).min(1).max(100) }),
+    handler: async (args: { lista: string; items: string[] }) => {
+      const lista = await buscarLista(args.lista);
+      const items = await itemsDeLista(lista.id);
+      const quitados: string[] = [];
+      const no_encontrados: string[] = [];
+      const ambiguos: Array<{ buscado: string; coincidencias: string[] }> = [];
+      for (const buscado of args.items) {
+        const r = buscarItem(items, buscado);
+        if (r.kind === "none") no_encontrados.push(buscado);
+        else if (r.kind === "many") ambiguos.push({ buscado, coincidencias: r.matches.map((m) => m.text) });
+        else {
+          await apiRequest(`/checklist-items/${r.item.id}`, { method: "DELETE" });
+          quitados.push(r.item.text);
+        }
+      }
+      return { lista: lista.title, quitados, no_encontrados, ambiguos };
+    },
+  },
+
+  borrar_lista: {
+    description:
+      "Borra una lista completa con todos sus ítems. Es irreversible: pedí confirmación al usuario antes de llamarla " +
+      "y mencioná cuántos ítems tiene (`ver_lista` o `listar_listas`).",
+    inputSchema: {
+      type: "object",
+      properties: { lista: { type: "string", description: "Nombre de la lista o su id." } },
+      required: ["lista"],
+    },
+    argsSchema: z.object({ lista: z.string().min(1) }),
+    handler: async (args: { lista: string }) => {
+      const lista = await buscarLista(args.lista);
+      await apiRequest(`/checklists/${lista.id}`, { method: "DELETE" });
+      return { borrada: lista.title };
     },
   },
 

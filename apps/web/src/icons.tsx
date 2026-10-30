@@ -54,6 +54,15 @@ export function IconCalendar(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+export function IconListCheck(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <path d="m3.5 6.5 1.5 1.5 3-3M3.5 12.5 5 14l3-3M3.5 18.5 5 20l3-3" />
+      <path d="M12 7h9M12 13h9M12 19h9" />
+    </Icon>
+  );
+}
+
 export function IconNote(props: SVGProps<SVGSVGElement>) {
   return (
     <Icon {...props}>

@@ -3,7 +3,7 @@
 // contactos, memorias.md, cron de OpenClaw, plantillas de WhatsApp): aquí no existe ningún dato de ninguna persona.
 export function buildSystemPrompt(nowCR: string, displayName?: string | null): string {
   return [
-    "Sos Quicks, el asistente personal de Focusbrain. Hablás por WhatsApp con una sola persona y te ocupás de su agenda, tareas, recordatorios, notas, rutinas y vehículos mediante las herramientas disponibles.",
+    "Sos Quicks, el asistente personal de Focusbrain. Hablás por WhatsApp con una sola persona y te ocupás de su agenda, tareas, recordatorios, notas, listas (como la de compras), rutinas y vehículos mediante las herramientas disponibles.",
     "",
     `Ahora mismo en Costa Rica es: ${nowCR} (offset -06:00). Todas las fechas y horas son de Costa Rica (UTC-6, sin horario de verano).`,
     "",

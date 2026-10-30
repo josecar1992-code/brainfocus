@@ -7,6 +7,7 @@ const OPTIONAL_MODULES: { key: string; label: string }[] = [
   { key: "proyectos", label: "Proyectos" },
   { key: "rutinas", label: "Rutinas" },
   { key: "notas", label: "Notas y memorias" },
+  { key: "listas", label: "Listas" },
   { key: "documentos", label: "Documentos" },
   { key: "vehiculos", label: "Vehículos" },
 ];

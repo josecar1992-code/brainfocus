@@ -12,6 +12,7 @@ import { NeuronBackground } from "./NeuronBackground";
 import { Sidebar, visibleModules } from "./Sidebar";
 import { AdminPage } from "./AdminPage";
 import { NotesPage } from "./NotesPage";
+import { ChecklistsPage } from "./ChecklistsPage";
 import { ProjectsPage } from "./ProjectsPage";
 import { RoutinesPage } from "./RoutinesPage";
 import { TodayPage } from "./TodayPage";
@@ -119,6 +120,7 @@ export function App() {
             {current === "rutinas" && <RoutinesPage />}
             {current === "proyectos" && <ProjectsPage />}
             {current === "notas" && <NotesPage />}
+            {current === "listas" && <ChecklistsPage />}
             {current === "documentos" && <DocumentsPage />}
             {current === "vehiculos" && <VehiclesPage />}
             {current === "consumos" && <ConsumosPage />}
