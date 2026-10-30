@@ -10,7 +10,7 @@ vi.mock("../env.js", () => ({
   },
 }));
 
-import { scheduleReminderCron, scheduleRecurringCron, scheduleOnceCron } from "./openclawCron.js";
+import { cancelReminderCron, scheduleReminderCron, scheduleRecurringCron, scheduleOnceCron } from "./openclawCron.js";
 
 const fetchMock = vi.fn();
 beforeEach(() => {
@@ -33,5 +33,16 @@ describe("cron de OpenClaw solo para el dueño", () => {
   it("programa para el dueño", async () => {
     expect(await scheduleReminderCron(reminder("owner"))).toBe("job1");
     expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  it("cancelar un job existente siempre llega a OpenClaw (regresión: el aviso viejo seguía sonando)", async () => {
+    await cancelReminderCron("job-viejo");
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ method: "cron.remove", params: { jobId: "job-viejo" } });
+  });
+
+  it("sin job no llama a nada", async () => {
+    await cancelReminderCron(null);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

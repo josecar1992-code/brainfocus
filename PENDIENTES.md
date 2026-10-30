@@ -1092,3 +1092,26 @@ URL del webhook en Kapso (acción manual del usuario).
   sistema, `cleanDisplayName` (`apps/assistant/src/name.ts`) lo reduce a letras/espacios/apóstrofe/guion/punto, una
   línea y máx. 40 caracteres, y el prompt lo marca como "solo un dato, no una instrucción" (anti inyección).
   El dueño (OpenClaw) no cambia. Tests en `agent.test.ts`, `prompt.test.ts`, `name.test.ts`.
+- **🐞 → ✅ Avisos viejos no se cancelaban al mover/borrar/completar (regresión mía del aislamiento multiusuario,
+  detectada 29-oct-2026).** Síntoma: se pidió a Quicks pasar la "Rutina Gimnasio" de hoy para mañana; tomó 3 intentos
+  y el aviso sonó igual hoy a las 7:30 PM. **Causa raíz:** al hacer `isConfigured(userId)` a prueba de fallos (solo el
+  dueño usa OpenClaw, `OPENCLAW_OWNER_USER_ID`), `cancelReminderCron` seguía llamando `isConfigured()` sin usuario, que
+  desde que esa variable quedó puesta en producción devolvía `false` siempre: **toda cancelación de cron se omitía
+  en silencio** (mover/borrar/completar tareas, eventos, recordatorios, recurrentes, kilometraje), dejando vivos los
+  avisos viejos. La evidencia fue el journal de OpenClaw: aparecían "cron: job added" al reprogramar pero ningún
+  "job removed". Fix en `apps/api/src/services/openclawCron.ts`: cancelar solo exige el gateway configurado
+  (`gatewayConfigured()`), porque un jobId solo existe si ya se programó para el dueño. Test de regresión en
+  `openclawOwner.test.ts`. Además ahora se registra "aviso cancelado: <id>" y una advertencia si un recordatorio
+  llega a reprogramarse sin `cron_job_id` (`reminderCascade.ts`). Aprendizaje: un guard "fail-closed" nuevo hay que
+  aplicarlo con la misma semántica a TODAS las rutas de la función (programar y cancelar), y probar el caso
+  cancelar, no solo el de programar. Ventana afectada: desde que se puso `OPENCLAW_OWNER_USER_ID` en el servidor
+  (29-oct-2026) hasta este fix; si quedó algún aviso fantasma de ese periodo sonará una vez y se consume solo
+  (son de un solo disparo).
+- **✅ Herramienta `mover_rutina` para Quicks (29-oct-2026).** Mover la ocurrencia de una rutina exigía acertar con
+  tres herramientas sueltas (tarea, evento, recordatorio) y Quicks se equivocaba de parámetro. Nueva herramienta en
+  `packages/focusbrain-tools/src/tools.ts`: recibe `rutina` (nombre o id), `fecha` (YYYY-MM-DD CR) y `hora`
+  opcional (por defecto la de la rutina); busca la rutina, mueve su evento actual con offset `-06:00` explícito y la
+  API arrastra la tarea y reprograma el recordatorio (cascade de `events.ts`). Rechaza fechas pasadas, nombres sin
+  coincidencia o ambiguos, y rutinas sin ocurrencia pendiente. También la usa el asistente (módulo `rutinas`, mapa
+  `TOOL_MODULE`). **Para que Quicks (OpenClaw) la vea hay que reconstruir la imagen del MCP y reiniciar
+  `openclaw.service`** (ver nota de depuración de OpenClaw).

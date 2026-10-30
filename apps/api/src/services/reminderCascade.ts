@@ -61,6 +61,7 @@ export async function rescheduleRemindersForEvent(
     const offsetMs = new Date(r.remind_at).getTime() - oldStartMs;
     const newRemindAt = new Date(newStartMs + offsetMs).toISOString();
 
+    if (!r.cron_job_id) console.warn("[reminderCascade] recordatorio " + r.id + " sin cron_job_id: no hay aviso viejo que cancelar");
     await cancelReminderCron(r.cron_job_id);
     await cancelReminderCron(r.backup_cron_job_id);
 

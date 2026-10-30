@@ -26,6 +26,7 @@ const TOOL_MODULE: Record<string, string> = {
   crear_proyecto: "proyectos",
   listar_rutinas: "rutinas",
   crear_rutina: "rutinas",
+  mover_rutina: "rutinas",
   crear_nota: "notas",
   buscar_notas: "notas",
   guardar_documento: "documentos",

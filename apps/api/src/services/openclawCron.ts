@@ -107,8 +107,12 @@ interface ReminderForCron {
   channel: string | null;
 }
 
+function gatewayConfigured(): boolean {
+  return Boolean(env.openclawGatewayUrl && env.openclawGatewayToken);
+}
+
 function isConfigured(userId?: string): boolean {
-  if (!env.openclawGatewayUrl || !env.openclawGatewayToken) return false;
+  if (!gatewayConfigured()) return false;
   // Aislamiento multiusuario: el destino de OpenClaw es el teléfono del dueño, así que solo el dueño lo usa.
   if (env.openclawOwnerUserId && userId !== env.openclawOwnerUserId) return false;
   return true;
@@ -357,9 +361,13 @@ export async function scheduleOnceCron(input: OnceCronInput): Promise<string | n
 
 /** Cancelación best-effort: no debe bloquear que una tarea/evento se complete o se borre. */
 export async function cancelReminderCron(jobId: string | null): Promise<void> {
-  if (!jobId || !isConfigured()) return;
+  // Cancelar NO exige ser el dueño: un jobId solo existe si ya se programó para el dueño (ver isConfigured arriba), y
+  // lo que se cancela es ese job concreto. Antes usaba isConfigured() sin userId, que con el aislamiento
+  // multiusuario devolvía false siempre y dejaba vivos los avisos viejos (rutina movida de día, 29-oct-2026).
+  if (!jobId || !gatewayConfigured()) return;
   try {
     await invoke("cron", "remove", { jobId });
+    console.log("[openclawCron] aviso cancelado: " + jobId);
   } catch (err) {
     console.error(`[openclawCron] No se pudo cancelar ${jobId}:`, err);
   }

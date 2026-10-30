@@ -117,6 +117,7 @@ interface Routine {
   start_date: string;
   crear_recordatorio: boolean;
   current_occurrence_date: string | null;
+  current_event_id: string | null;
 }
 
 // TWO_HOURS_MS, horaActualCR, isoACostaRica y formatReminderTitle vienen de
@@ -1071,6 +1072,47 @@ export const tools = {
           crear_recordatorio: args.crear_recordatorio,
         }),
       }),
+  },
+
+  mover_rutina: {
+    description:
+      "Mueve la ocurrencia pendiente de una rutina a otro día (ej. 'pasá la rutina de gimnasio de hoy para mañana'). " +
+      "Mueve de una sola vez la tarea, el evento de la agenda y el recordatorio, y cancela el aviso viejo: usar ESTA " +
+      "herramienta para rutinas, no editar_tarea/editar_evento sueltas. Mantiene la hora de la rutina salvo que se " +
+      "pida otra. Después de mover, confirmá con la fecha y hora que devuelve (`nueva_fecha_hora_costa_rica`). " +
+      AHORA_CR,
+    inputSchema: {
+      type: "object",
+      properties: {
+        rutina: { type: "string", description: "Nombre de la rutina (o su id). ej. 'gimnasio'" },
+        fecha: { type: "string", description: "YYYY-MM-DD (día de Costa Rica) al que se mueve." },
+        hora: { type: "string", description: "HH:MM, 24 horas. Opcional: si no se manda se conserva la hora de la rutina." },
+      },
+      required: ["rutina", "fecha"],
+    },
+    argsSchema: z.object({
+      rutina: z.string().min(1),
+      fecha: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      hora: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+    }),
+    handler: async (args: { rutina: string; fecha: string; hora?: string }) => {
+      if (args.fecha < hoyEnCR()) throw new Error("Esa fecha ya pasó; elegí hoy o un día futuro.");
+      const rutinas = await apiRequest<Routine[]>("/routines");
+      const q = args.rutina.trim().toLowerCase();
+      const found = rutinas.filter((r) => r.id === args.rutina || r.title.toLowerCase().includes(q));
+      if (found.length === 0) throw new Error(`No encontré ninguna rutina que se llame "${args.rutina}".`);
+      if (found.length > 1) {
+        throw new Error(`Hay varias rutinas que calzan (${found.map((r) => r.title).join(", ")}). Preguntale cuál.`);
+      }
+      const rutina = found[0];
+      if (!rutina.current_event_id) throw new Error(`La rutina "${rutina.title}" no tiene una ocurrencia pendiente para mover.`);
+      const hora = args.hora ?? rutina.time_of_day.slice(0, 5);
+      const evento = await apiRequest<Event>(`/events/${rutina.current_event_id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ starts_at: `${args.fecha}T${hora}:00${CR_OFFSET}` }),
+      });
+      return { rutina: rutina.title, nueva_fecha_hora_costa_rica: isoACostaRica(evento.starts_at) };
+    },
   },
 
   guardar_documento: {
