@@ -1146,3 +1146,8 @@ URL del webhook en Kapso (acción manual del usuario).
   **Pendiente real:** probar el asistente con una persona de confianza (activarla en Usuarios, vincular su
   número, que escriba primero al número del negocio) — es la única forma de ver la pregunta del nombre en un primer
   mensaje real y la ruta de un número desconocido.
+- **Cuenta de prueba `ecosistemadigitalcr@gmail.com` borrada por completo (29-oct-2026, a pedido del usuario)** para repetir
+  el flujo desde cero (registro → pendiente → activación en Usuarios → vincular número → primer mensaje). Tenía perfil
+  (activo, módulo Documentos, nombre "Bob"), 12 acciones de agente, 8 mensajes y 13 registros de consumo del asistente,
+  sin archivos en el almacenamiento. Se borró con `auth.admin.deleteUser` (cascada) y se verificó 0 filas en todas las
+  tablas; antes se comprobó que no era la cuenta del dueño. Se perdió su historial de consumo de prueba (13 llamadas).
