@@ -1230,5 +1230,15 @@ URL del webhook en Kapso (acción manual del usuario).
   el texto de entrada, que en ese turno incluía los resultados de la búsqueda de noticias). No es un fallo de la app, de
   Kapso ni de los cambios de ayer. Fue el primer error del job (`consecutiveErrors: 1`), así que es intermitente: depende
   de qué noticias traiga la búsqueda ese día. El aviso de falla por Telegram quedó "not-requested" (no se dispara con un
-  solo error). Sin cambios hechos. Mejoras posibles: reintento automático a los pocos minutos si falla, y alerta al primer
+  solo error). Mejoras posibles: reintento automático a los pocos minutos si falla, y alerta al primer
   error en vez de esperar varios.
+- **Cron de noticias endurecido (30-oct-2026)**, configuración en OpenClaw (VPS, no vive en el repo), con
+  `openclaw cron edit e4fbe0b3-64fd-4794-ad64-45babdca4cd6`:
+  - `--failure-alert --failure-alert-after 1 --failure-alert-channel telegram --failure-alert-to 7843485332
+    --failure-alert-cooldown 1h`: ahora avisa por Telegram al **primer** error (antes el umbral por defecto era 2).
+  - `--fallbacks google/gemini-3.1-flash-lite`: si el modelo principal (Qwen/DashScope) rechaza la petición, reintenta con
+    Gemini, que no pasa por el filtro de moderación de Alibaba. OpenClaw no reintenta el mismo día los jobs recurrentes,
+    así que el fallback de modelo es lo que hace de reintento.
+  - Verificado con `openclaw cron show --json` que ambos ajustes quedaron guardados (horario, delivery y tools intactos).
+    No se disparó el job a mano (hoy ya no hacía falta mandar las noticias). **Por confirmar**: el primer disparo real
+    de mañana 8 AM, y si el fallback produce un mensaje bien formado por WhatsApp.
