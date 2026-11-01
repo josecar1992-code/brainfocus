@@ -1242,3 +1242,13 @@ URL del webhook en Kapso (acción manual del usuario).
   - Verificado con `openclaw cron show --json` que ambos ajustes quedaron guardados (horario, delivery y tools intactos).
     No se disparó el job a mano (hoy ya no hacía falta mandar las noticias). **Por confirmar**: el primer disparo real
     de mañana 8 AM, y si el fallback produce un mensaje bien formado por WhatsApp.
+- **Investigado y borrado (31-oct-2026): recordatorio "Hacé la barba" que salió como plantilla de WhatsApp.** El cron
+  OpenClaw `ded02c90…` (miércoles y sábados 19:00, creado a mano el 30-jul) tenía la entrega por **Telegram** pero el
+  texto pedía "enviá un mensaje a José por WhatsApp". Un turno atado a Telegram no puede usar la tool `message` hacia
+  otro canal (el gateway lo bloquea con "Cross-context messaging denied"): el miércoles 28-oct falló y avisó el error por
+  Telegram; el sábado 31-oct Quicks improvisó con la tool `whatsapp-template__enviar_plantilla_recordatorio` (Meta
+  respondió `accepted`) y el resumen de Telegram "enviado por WhatsApp" fue cierto. Causa raíz: cron que mezcla canales
+  (entrega Telegram + instrucción de enviar por WhatsApp). Aprendizaje: un recordatorio por WhatsApp debe tener
+  `delivery.channel = kapso-whatsapp` (como "Tomar creatina") para salir como mensaje normal y no depender de plantilla.
+  Se borró el cron (`openclaw cron rm`) porque el aviso ya existe en Focusbrain; la limpieza de su sesión dio timeout del
+  gateway, sin efecto práctico. Configuración del VPS, no vive en el repo.
