@@ -1263,3 +1263,12 @@ URL del webhook en Kapso (acción manual del usuario).
   `services/openclawCron.ts` (`usesOpenclawCron`), `apps/web/src/ReminderBadge.tsx`, `api.ts`. Aprendizaje: el teléfono
   de un usuario nuevo se vincula en su propia fila de Usuarios; si se pone en otra, sus mensajes de WhatsApp operan sobre
   la cuenta equivocada (y los crons del dueño le avisan al dueño). Datos corregidos a mano: teléfono de Kim movido a su perfil.
+- **PENDIENTE (decisión del 2-nov-2026): que cada usuario ingrese su propio número de WhatsApp.** Motivo: el error de Kim
+  (su número quedó en el perfil del dueño porque el admin lo escribe a mano en Usuarios y se equivocó de fila). Diseño
+  acordado: el número deja de ser un campo que el administrador llena al aprobar; **cada usuario lo registra él mismo la
+  primera vez que entra a la app, ya aprobado**, en una pantalla/aviso de primer ingreso (o en Configuración) que lo pida
+  hasta que exista. El administrador **sigue pudiendo ver y editar** el número en Usuarios (para correcciones), pero ya
+  no es el flujo normal. A decidir al implementarlo: validar formato +506 y que no esté repetido en otro perfil
+  (`profiles.whatsapp_phone` único, rechazar con mensaje claro), y si el cambio de número por el propio usuario requiere
+  confirmación (para que nadie se apropie del número de otro). Hasta que exista, el admin debe verificar la fila (correo)
+  antes de guardar el teléfono.
