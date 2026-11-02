@@ -1272,3 +1272,6 @@ URL del webhook en Kapso (acción manual del usuario).
   (`profiles.whatsapp_phone` único, rechazar con mensaje claro), y si el cambio de número por el propio usuario requiere
   confirmación (para que nadie se apropie del número de otro). Hasta que exista, el admin debe verificar la fila (correo)
   antes de guardar el teléfono.
+  - **Añadido (2-nov-2026):** el número también debe poder **editarse desde Configuración** por el propio usuario, para que
+    corrija solo un error de tipeo sin pedirle al administrador. Aplican las mismas validaciones (formato +506, único) y la
+    decisión pendiente de si el cambio pide confirmación.
