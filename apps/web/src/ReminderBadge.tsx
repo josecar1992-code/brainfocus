@@ -1,4 +1,5 @@
-import { type Reminder } from "./api";
+import { useQuery } from "@tanstack/react-query";
+import { api, type Reminder } from "./api";
 import { IconBell, IconBellOff, IconCheckCircle } from "./icons";
 
 function formatDateTime(iso: string) {
@@ -16,6 +17,11 @@ function formatDateTime(iso: string) {
  * aviso real (cron falló o no se programó) sea visible dondequiera que se muestre,
  * no solo desde Agenda. */
 export function ReminderBadge({ reminder, iconOnly }: { reminder: Reminder; iconOnly?: boolean }) {
+  const { data: me } = useQuery({ queryKey: ["me"], queryFn: api.me, staleTime: 5 * 60_000 });
+  // Sin cron_job_id: el dueño sí depende del cron, pero los demás usuarios los envía el despachador del asistente
+  // por WhatsApp (si tienen teléfono vinculado) — ahí "sin cron" es lo normal, no una falla.
+  const viaDispatcher = !reminder.cron_job_id && me?.reminderDelivery === "whatsapp";
+  const noPhone = !reminder.cron_job_id && me?.reminderDelivery === "none";
   if (reminder.sent_at) {
     const title = `Recordatorio ya enviado (${formatDateTime(reminder.sent_at)})`;
     if (iconOnly)
@@ -34,7 +40,7 @@ export function ReminderBadge({ reminder, iconOnly }: { reminder: Reminder; icon
       </span>
     );
   }
-  if (reminder.cron_job_id) {
+  if (reminder.cron_job_id || viaDispatcher) {
     const title = `Recordatorio programado para ${formatDateTime(reminder.remind_at)}`;
     if (iconOnly)
       return (
@@ -52,7 +58,9 @@ export function ReminderBadge({ reminder, iconOnly }: { reminder: Reminder; icon
       </span>
     );
   }
-  const title = `Recordatorio guardado para ${formatDateTime(reminder.remind_at)}, pero sin aviso automático (OpenClaw no configurado o falló)`;
+  const title = noPhone
+    ? `Recordatorio guardado para ${formatDateTime(reminder.remind_at)}, pero no se enviará: vinculá tu WhatsApp para recibir avisos`
+    : `Recordatorio guardado para ${formatDateTime(reminder.remind_at)}, pero sin aviso automático (OpenClaw no configurado o falló)`;
   if (iconOnly)
     return (
       <span title={title} className="flex-shrink-0">

@@ -1252,3 +1252,14 @@ URL del webhook en Kapso (acción manual del usuario).
   `delivery.channel = kapso-whatsapp` (como "Tomar creatina") para salir como mensaje normal y no depender de plantilla.
   Se borró el cron (`openclaw cron rm`) porque el aviso ya existe en Focusbrain; la limpieza de su sesión dio timeout del
   gateway, sin efecto práctico. Configuración del VPS, no vive en el repo.
+- **Etiqueta "Sin aviso" corregida para usuarios que no son el dueño (2-nov-2026).** Caso real: Kim creó un evento con
+  recordatorio desde la app y no le llegó, y la app decía "Sin aviso". Dos causas: (1) su número de WhatsApp estaba
+  guardado por error en el perfil del dueño y su perfil real no tenía teléfono, y el despachador del asistente
+  (`dispatcher.ts`) solo atiende perfiles activos con `whatsapp_phone`; (2) `ReminderBadge` mostraba "Sin aviso" siempre
+  que `cron_job_id` fuera nulo, pero los usuarios que no son el dueño nunca tienen cron (los entrega el despachador), así
+  que la etiqueta mentía incluso cuando el aviso sí iba a salir. Ahora `GET /me` devuelve `reminderDelivery`
+  (`cron` = dueño, `whatsapp` = despachador con teléfono vinculado, `none` = sin teléfono) y `ReminderBadge` muestra
+  "Programado" para `whatsapp` y "Sin aviso" con el motivo "vinculá tu WhatsApp" para `none`. Archivos: `apps/api/src/index.ts`,
+  `services/openclawCron.ts` (`usesOpenclawCron`), `apps/web/src/ReminderBadge.tsx`, `api.ts`. Aprendizaje: el teléfono
+  de un usuario nuevo se vincula en su propia fila de Usuarios; si se pone en otra, sus mensajes de WhatsApp operan sobre
+  la cuenta equivocada (y los crons del dueño le avisan al dueño). Datos corregidos a mano: teléfono de Kim movido a su perfil.

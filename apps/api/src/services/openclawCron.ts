@@ -118,6 +118,11 @@ function isConfigured(userId?: string): boolean {
   return true;
 }
 
+/** true si los recordatorios de este usuario los entrega un cron de OpenClaw (solo el dueño); el resto va por el despachador del asistente. */
+export function usesOpenclawCron(userId: string): boolean {
+  return isConfigured(userId);
+}
+
 // OpenClaw 2026.10.5 (actualización del 23/24-oct-2026): cron ya no funciona por
 // `POST /tools/invoke` (exige identidad de run de agente). Se usa el plugin
 // `admin-http-rpc` en `POST /api/v1/admin/rpc` con `{ method: "cron.<action>", params }`.

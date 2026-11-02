@@ -3,6 +3,8 @@ import express from "express";
 import helmet from "helmet";
 import morgan from "morgan";
 import { env } from "./env.js";
+import { supabaseAdmin } from "./supabaseClient.js";
+import { usesOpenclawCron } from "./services/openclawCron.js";
 import { authenticate } from "./middleware/auth.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { adminRouter } from "./routes/admin.js";
@@ -49,9 +51,18 @@ app.use(authenticate);
 
 // Quién soy y qué puedo ver: la web lo usa para ocultar módulos no habilitados
 // (la restricción real se aplica en el servidor, ver requireScope/requireAdmin).
-app.get("/me", (req, res) => {
+// reminderDelivery: cómo se entregan sus recordatorios — "cron" (OpenClaw, el dueño), "whatsapp" (despachador del
+// asistente, necesita teléfono vinculado) o "none" (sin teléfono: se guardan pero nunca se envían). La web lo usa para
+// que la etiqueta "Sin aviso" no mienta con los usuarios que sí reciben avisos sin cron.
+app.get("/me", async (req, res) => {
   const { userId, isAdmin, modules } = req.auth!;
-  res.json({ userId, isAdmin, modules });
+  let reminderDelivery: "cron" | "whatsapp" | "none" | undefined;
+  if (usesOpenclawCron(userId)) reminderDelivery = "cron";
+  else {
+    const { data, error } = await supabaseAdmin.from("profiles").select("whatsapp_phone").eq("id", userId).maybeSingle();
+    if (!error) reminderDelivery = data?.whatsapp_phone ? "whatsapp" : "none";
+  }
+  res.json({ userId, isAdmin, modules, reminderDelivery });
 });
 
 app.use("/internal/api-keys", apiKeysRouter);

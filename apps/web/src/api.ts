@@ -282,6 +282,8 @@ export interface Me {
   isAdmin: boolean;
   /** Módulos opcionales habilitados; null = todos. */
   modules: string[] | null;
+  /** Cómo se entregan sus recordatorios; undefined si el servidor no lo pudo determinar. */
+  reminderDelivery?: "cron" | "whatsapp" | "none";
 }
 
 export interface AdminUser {
