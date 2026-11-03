@@ -79,6 +79,15 @@ describe("ventana de 24 h", () => {
     expect(t.sendText).toHaveBeenCalledWith("+506999", expect.stringContaining("Respondeme"));
     expect(t.store.markKeepaliveSent).toHaveBeenCalledOnce();
   });
+
+  it("no manda keep-alive a un número que atiende OpenClaw", async () => {
+    const store = { dueUsers: async () => [], keepaliveCandidates: async () => [{ userId: "u", phone: "+506999", lastInboundAt: NOW - 23.5 * H }], markKeepaliveSent: vi.fn(async () => {}) } as unknown as DispatchStore;
+    const sendText = vi.fn(async () => {});
+    const d = createDispatcher({ store, sendText, sendTemplate: vi.fn(), runJob: vi.fn(), now: () => NOW, skipKeepalive: new Set(["+506999"]) });
+    await d.tick();
+    expect(sendText).not.toHaveBeenCalled();
+    expect(store.markKeepaliveSent).not.toHaveBeenCalled();
+  });
 });
 
 const job = (o: Partial<DueJob> = {}): DueJob => ({

@@ -1275,3 +1275,12 @@ URL del webhook en Kapso (acción manual del usuario).
   - **Añadido (2-nov-2026):** el número también debe poder **editarse desde Configuración** por el propio usuario, para que
     corrija solo un error de tipeo sin pedirle al administrador. Aplican las mismas validaciones (formato +506, único) y la
     decisión pendiente de si el cambio pide confirmación.
+- **Keep-alive duplicado al dueño corregido (2-nov-2026).** Quicks mandó "Respondeme cualquier cosa para mantener abierta
+  nuestra conversación…" aunque el último mensaje del dueño era de las 10 am. Causa: el despachador del asistente
+  (`dispatcher.ts`) manda ese aviso a cualquier perfil activo con teléfono cuyo `whatsapp_last_inbound_at` tenga ~23 h.
+  Los mensajes del dueño se reenvían a OpenClaw (FORWARD_NUMBERS) y **no** actualizan ese campo; el valor que había era el
+  de los mensajes de Kim del 2-nov 03:04 UTC, de cuando su número estaba por error en el perfil del dueño (ver entrada
+  de Kim), así que a las 23 h exactas (3-nov 02:04 UTC) el despachador creyó que la ventana se iba a cerrar. OpenClaw ya
+  tiene su propio keep-alive para el dueño (cron "Han pasado 23h…"). Fix: `createDispatcher` recibe `skipKeepalive`
+  (los FORWARD_NUMBERS) y no manda keep-alive a esos números (`dispatcher.ts`, `index.ts`, test en `dispatcher.test.ts`).
+  Aprendizaje: el error del teléfono en el perfil equivocado dejó un dato viejo que disparó otro mecanismo.

@@ -77,6 +77,7 @@ const dispatcher = createDispatcher({
     return r.reply;
   },
   record: (userId, text) => store.saveAssistantMessage(userId, text),
+  skipKeepalive: parseNumberList(env.forwardNumbers),
   log,
 });
 setInterval(() => dispatcher.tick().catch((err) => log("fallo el ciclo de recordatorios", err instanceof Error ? err.message : err)), 60_000);

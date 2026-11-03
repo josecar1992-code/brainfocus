@@ -68,6 +68,8 @@ export interface DispatchDeps {
   runJob: (userId: string, prompt: string) => Promise<string>;
   /** Deja lo enviado en el historial de la conversación, para que la respuesta del usuario tenga contexto. */
   record?: (userId: string, text: string) => Promise<void>;
+  /** Números que atiende OpenClaw (FORWARD_NUMBERS): su keep-alive lo manda OpenClaw, y aquí no se ve su último mensaje. */
+  skipKeepalive?: ReadonlySet<string>;
   now?: () => number;
   log?: (msg: string, extra?: unknown) => void;
 }
@@ -162,6 +164,7 @@ export function createDispatcher(deps: DispatchDeps) {
         }
       }
       for (const c of await deps.store.keepaliveCandidates(nowMs)) {
+        if (deps.skipKeepalive?.has(c.phone)) continue;
         try {
           await deps.sendText(c.phone, KEEPALIVE_TEXT);
           await deps.store.markKeepaliveSent(c.userId, nowMs);
