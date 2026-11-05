@@ -1294,3 +1294,12 @@ URL del webhook en Kapso (acción manual del usuario).
   `/etc/systemd/system/whatsapp-keepalive.timer`, respaldo `.bak-20261104`); la ventana de error baja de 30 a 2 min.
   Verificado: tras el cambio reprogramó el aviso a 5-nov 16:31 CR. Config del VPS, no vive en el repo. Si se quiere
   eliminar la carrera por completo: que el script mande el saludo él mismo tras comprobar las 23 h reales, sin cron `at`.
+- **"Cron receipt authority is unavailable" en recordatorios de WhatsApp (4-nov-2026).** El cron "Rutina: Lavar Ropa" de las
+  19:30 falló al enviar por WhatsApp: el gateway de OpenClaw rechazó la tool `message` con *"Cron receipt authority is
+  unavailable; wait for Gateway settlement or restart"*, y el aviso llegó por Telegram (fallback + respaldo de 4 min después)
+  con el texto del error. Mismo error en 27-oct, 30-oct y tres veces el 4-nov (09:30, 12:04, 19:30), siempre junto con
+  *"System event queue is full (20 pending)"* en la sesión `kapso-whatsapp:direct`. No es de Focusbrain ni del cambio del timer
+  del keep-alive (dos de las tres ocurrencias del 4-nov son anteriores). Es un fallo de la versión fijada de OpenClaw
+  (2026.10.5), cuya actualización a 10.8 había fallado. Acción: `systemctl restart openclaw.service` a las 20:00 (4-nov);
+  tardó ~3 min en volver, crons cargados. **Por vigilar**: si reaparece tras el reinicio, es una falla recurrente de la
+  versión y hay que reintentar la actualización de OpenClaw; buscar con `journalctl -u openclaw | grep "receipt authority"`.
