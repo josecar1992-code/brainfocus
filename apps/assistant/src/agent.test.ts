@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { z } from "zod";
-import { runTurn } from "./agent.js";
+import { runTurn, UNVERIFIED_REPLY } from "./agent.js";
 import { buildToolset, type ToolTable } from "./toolset.js";
 import type { LlmClient, LlmResult } from "./llm/qwen.js";
 
@@ -139,5 +139,38 @@ describe("guardar_nombre", () => {
     const out = JSON.parse(await ts().execute(USER, "guardar_nombre", JSON.stringify({ nombre: "1234" }), ctx));
     expect(out.error).toMatch(/Nombre inválido/);
     expect(saved).toEqual([]);
+  });
+});
+
+describe("guardia contra confirmaciones sin herramienta", () => {
+  const msg = (content: string) => ({ message: { role: "assistant" as const, content }, usage: u });
+  const call = { message: { role: "assistant" as const, content: null, tool_calls: [{ id: "c1", type: "function" as const, function: { name: "crear_tarea", arguments: '{"title":"x"}' } }] }, usage: u };
+
+  it("si afirma haber guardado sin herramienta, la reintenta y deja que llame la herramienta", async () => {
+    const handler = vi.fn(async (a: any) => a);
+    const llm = scripted([msg("Listo, Kim. Ya creé la tarea."), call, msg("Listo, Kim. Creé la tarea.")]);
+    const r = await runTurn(llm, buildToolset(table(handler), API), { userId: USER, systemPrompt: "s", history: [], userText: "crea una tarea" });
+    expect(handler).toHaveBeenCalledOnce();
+    expect(r.reply).toBe("Listo, Kim. Creé la tarea.");
+    expect(r.usage.llmCalls).toBe(3);
+  });
+
+  it("si insiste sin herramienta, responde que NO quedó hecho", async () => {
+    const llm = scripted([msg("Listo, ya guardé la nota."), msg("Listo, guardé la nota.")]);
+    const r = await runTurn(llm, buildToolset(table(), API), { userId: USER, systemPrompt: "s", history: [], userText: "guarda" });
+    expect(r.reply).toBe(UNVERIFIED_REPLY);
+  });
+
+  it("no toca respuestas normales ni preguntas ('¿querés que guarde…?') ni turnos con herramienta", async () => {
+    for (const text of ["Kim, ¿querés que guarde esta imagen con el nombre Visa?", "De nada, Kim. ¿Necesitás algo más?", "Dale. Avisame cuando lo tengas y lo registro."]) {
+      const llm = scripted([msg(text)]);
+      const r = await runTurn(llm, buildToolset(table(), API), { userId: USER, systemPrompt: "s", history: [], userText: "x" });
+      expect(r.reply).toBe(text);
+      expect(r.usage.llmCalls).toBe(1);
+    }
+    const llm = scripted([call, msg("Listo, creé la tarea.")]);
+    const r = await runTurn(llm, buildToolset(table(), API), { userId: USER, systemPrompt: "s", history: [], userText: "x" });
+    expect(r.reply).toBe("Listo, creé la tarea.");
+    expect(r.usage.llmCalls).toBe(2);
   });
 });

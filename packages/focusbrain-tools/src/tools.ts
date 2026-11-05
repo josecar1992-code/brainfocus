@@ -988,6 +988,27 @@ export const tools = {
     handler: () => apiRequest<Category[]>("/lists?limit=100"),
   },
 
+  crear_categoria: {
+    description:
+      "Crea una categoría nueva (las categorías agrupan tareas: ej. \"Compras de hogar\", \"Trabajo\"). Primero usar " +
+      "`listar_categorias` para no duplicar una que ya existe con ese nombre. Devuelve el id para usarlo como `categoria_id`. " +
+      "No confundir con las listas con ítems marcables (`crear_lista`).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        nombre: { type: "string", description: "Nombre de la categoría." },
+        color: { type: "string", description: "Color en hex (ej. #00d2ff), opcional." },
+      },
+      required: ["nombre"],
+    },
+    argsSchema: z.object({ nombre: z.string().min(1).max(60), color: z.string().optional() }),
+    handler: (args: { nombre: string; color?: string }) =>
+      apiRequest<Category>("/lists", {
+        method: "POST",
+        body: JSON.stringify({ name: args.nombre, ...(args.color ? { color: args.color } : {}) }),
+      }),
+  },
+
   listar_proyectos: {
     description:
       "Lista los proyectos del usuario (id, nombre, descripción, estado) — usar esto primero para " +

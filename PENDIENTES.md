@@ -1303,3 +1303,19 @@ URL del webhook en Kapso (acción manual del usuario).
   (2026.10.5), cuya actualización a 10.8 había fallado. Acción: `systemctl restart openclaw.service` a las 20:00 (4-nov);
   tardó ~3 min en volver, crons cargados. **Por vigilar**: si reaparece tras el reinicio, es una falla recurrente de la
   versión y hay que reintentar la actualización de OpenClaw; buscar con `journalctl -u openclaw | grep "receipt authority"`.
+- **Evaluación de Kim (5-nov-2026) y correcciones.** Revisando 31 turnos de Kim con Quicks: 6 veces el modelo confirmó
+  "Listo, guardé/creé…" **sin llamar ninguna herramienta** (turnos con `llm_calls = 1` en `assistant_usage`, sin el `POST`
+  correspondiente en los logs de la API): la nota Bonvoy (1.ª vez), los documentos "Pasaporte" y "Visa" (y dos "reemplacé
+  Visa") y la tarea "Desear éxitos a José". El prompt ya prohibía confirmar sin herramienta, pero Qwen lo ignora en
+  mensajes cortos que siguen a un adjunto o a una petición previa. Además Kim pidió 3 veces crear la categoría "Compras de
+  hogar" y no existía la herramienta. Cambios:
+  - **Guardia anti-confirmación falsa** en `apps/assistant/src/agent.ts` (`CLAIM_RE`, `VERIFY_NUDGE`, `UNVERIFIED_REPLY`):
+    si en el turno no se ejecutó ninguna herramienta y la respuesta afirma haber hecho algo (formas en pasado con tilde:
+    "guardé", "creé", "Listo…"), se le pide verificar una vez; si insiste sin herramienta, responde "No pude confirmar que
+    eso quedara hecho, así que no lo guardé". No toca preguntas ("¿querés que guarde…?") ni turnos con herramienta. Cuesta
+    una llamada extra al modelo solo en esos casos. Tests en `agent.test.ts` (86 en el paquete). Solo cubre al asistente
+    (usuarios no dueños); el Quicks del dueño (OpenClaw) no pasa por este código.
+  - **Herramienta `crear_categoria`** (`packages/focusbrain-tools/src/tools.ts`, `POST /lists`): disponible para el asistente
+    y, tras reconstruir el MCP y reiniciar OpenClaw, para el Quicks del dueño (la key `quicks-agent` necesitó el scope
+    `lists:write`).
+  - Datos perdidos de Kim (Pasaporte, Visa, tarea "Desear éxitos a José"): hay que volver a mandarlos.
