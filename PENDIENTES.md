@@ -1284,3 +1284,13 @@ URL del webhook en Kapso (acción manual del usuario).
   tiene su propio keep-alive para el dueño (cron "Han pasado 23h…"). Fix: `createDispatcher` recibe `skipKeepalive`
   (los FORWARD_NUMBERS) y no manda keep-alive a esos números (`dispatcher.ts`, `index.ts`, test en `dispatcher.test.ts`).
   Aprendizaje: el error del teléfono en el perfil equivocado dejó un dato viejo que disparó otro mecanismo.
+- **Saludo de Quicks minutos después de un mensaje del dueño: corregido (4-nov-2026).** Quicks mandó "Hola! 👋 Todo bien?"
+  a las 17:38 aunque el dueño había escrito a las 17:31. No es el keep-alive del despachador del asistente (ese se corrigió el
+  2-nov) sino el script externo de OpenClaw `/root/.openclaw/scripts/whatsapp-keepalive/index.js`: deja un cron `at` a
+  23 h del último mensaje y solo lo mueve cuando corre su timer (`whatsapp-keepalive.timer`, cada 30 min). Con el mensaje
+  de ayer a las 18:38 el aviso quedó para hoy 17:38; el dueño escribió a las 17:31 pero la última corrida del timer fue a
+  las 17:27 y la siguiente a las 17:57, así que el aviso viejo se disparó antes de moverse. Pasa siempre que el aviso cae
+  dentro de los 30 min posteriores a un mensaje. Fix: el timer ahora corre cada **2 min** (`OnUnitActiveSec=2min` en
+  `/etc/systemd/system/whatsapp-keepalive.timer`, respaldo `.bak-20261104`); la ventana de error baja de 30 a 2 min.
+  Verificado: tras el cambio reprogramó el aviso a 5-nov 16:31 CR. Config del VPS, no vive en el repo. Si se quiere
+  eliminar la carrera por completo: que el script mande el saludo él mismo tras comprobar las 23 h reales, sin cron `at`.
