@@ -1319,3 +1319,10 @@ URL del webhook en Kapso (acción manual del usuario).
     y, tras reconstruir el MCP y reiniciar OpenClaw, para el Quicks del dueño (la key `quicks-agent` necesitó el scope
     `lists:write`).
   - Datos perdidos de Kim (Pasaporte, Visa, tarea "Desear éxitos a José"): hay que volver a mandarlos.
+- **OpenClaw reiniciado de nuevo (4-nov-2026, 21:01) para cargar `crear_categoria`; el error "Cron receipt authority" reapareció
+  ~1 h después del reinicio anterior.** El reinicio de las 20:00 no fue una solución duradera: a las 21:01:23 (cron de
+  revisión de tareas por Telegram) volvió a fallar la tool `message` con el mismo error (la revisión se entregó igual, con
+  fallback). Tras el reinicio de las 21:01 el gateway volvió a las 21:03. Pendiente real: reintentar la actualización de
+  OpenClaw (fijado en 2026.10.5) o reportar el bug; mientras tanto el fallback a Telegram evita perder avisos. No se
+  verificó todavía que la herramienta `crear_categoria` aparezca en el Quicks del dueño: probarla pidiéndole que cree una
+  categoría.
