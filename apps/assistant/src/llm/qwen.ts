@@ -24,7 +24,7 @@ export interface LlmResult {
 
 export interface LlmClient {
   model: string;
-  chat(messages: ChatMessage[], tools: ToolSpec[]): Promise<LlmResult>;
+  chat(messages: ChatMessage[], tools: ToolSpec[], opts?: { maxTokens?: number }): Promise<LlmResult>;
 }
 
 export interface QwenConfig {
@@ -40,7 +40,7 @@ export function createQwenClient(cfg: QwenConfig): LlmClient {
   const model = cfg.model ?? DEFAULT_MODEL;
   return {
     model,
-    async chat(messages, tools) {
+    async chat(messages, tools, opts) {
       const res = await fetch(`${cfg.baseUrl ?? DEFAULT_BASE}/chat/completions`, {
         method: "POST",
         headers: { Authorization: `Bearer ${cfg.apiKey}`, "Content-Type": "application/json" },
@@ -50,7 +50,7 @@ export function createQwenClient(cfg: QwenConfig): LlmClient {
           ...(tools.length ? { tools, tool_choice: "auto" } : {}),
           temperature: 0.3,
           // Tope de salida por llamada: contiene el costo si alguien pide textos largos (cuota diaria aparte, en handler).
-          max_tokens: 800,
+          max_tokens: opts?.maxTokens ?? 800,
           // Qwen3 en modo "thinking" exige streaming; para respuestas de WhatsApp (cortas y con herramientas)
           // se apaga: más rápido y más barato.
           enable_thinking: false,

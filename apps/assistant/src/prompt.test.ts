@@ -44,3 +44,20 @@ describe("nombre de la persona", () => {
     expect(p).toContain("una o dos frases");
   });
 });
+
+describe("modo job (tareas programadas)", () => {
+  it("quita el límite de alcance y la negativa de internet, y nunca pregunta el nombre", () => {
+    const job = buildSystemPrompt("2026-11-06T00:00:00-06:00", null, "job");
+    expect(job).toContain("Tarea programada:");
+    expect(job).toContain("buscar_web");
+    expect(job).not.toContain("No tenés acceso a internet");
+    expect(job).not.toContain("No sos un chat de propósito general");
+    expect(job).not.toContain("cómo le gusta que le digas");
+  });
+  it("el chat directo sigue limitado", () => {
+    const chat = buildSystemPrompt("2026-11-06T00:00:00-06:00", "Kim");
+    expect(chat).toContain("No sos un chat de propósito general");
+    expect(chat).toContain("No tenés acceso a internet");
+    expect(chat).not.toContain("buscar_web");
+  });
+});

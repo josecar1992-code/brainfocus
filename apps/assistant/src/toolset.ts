@@ -4,6 +4,7 @@ import { apiUpload, runWithApi } from "@brainfocus/focusbrain-tools";
 import { cleanDisplayName } from "./name.js";
 import type { Attachment } from "./attachments.js";
 import type { ToolSpec } from "./llm/qwen.js";
+import { WEB_SPECS, searchWeb, readPage } from "./web.js";
 
 // Forma mínima de cada entrada de la tabla de herramientas compartida (packages/focusbrain-tools).
 export interface ToolDef {
@@ -96,12 +97,12 @@ const SEND_DESCRIPTION_SUFFIX =
 
 export interface Toolset {
   /** modules: los habilitados del usuario (null o sin pasar = todos). */
-  specs(modules?: string[] | null): ToolSpec[];
+  specs(modules?: string[] | null, opts?: { web?: boolean }): ToolSpec[];
   /** Ejecuta una herramienta EN NOMBRE de userId. El userId lo pone el servidor, nunca el modelo. */
-  execute(userId: string, name: string, rawArgs: string, ctx?: ToolContext): Promise<string>;
+  execute(userId: string, name: string, rawArgs: string, ctx?: ToolContext, opts?: { web?: boolean }): Promise<string>;
 }
 
-export function buildToolset(table: ToolTable, api: ApiAccess, opts: { now?: () => string } = {}): Toolset {
+export function buildToolset(table: ToolTable, api: ApiAccess, opts: { now?: () => string; braveApiKey?: string } = {}): Toolset {
   const now = opts.now ?? horaActualCR;
   const names = [...Object.keys(table).filter((n) => !EXCLUDED_TOOLS.has(n)), "guardar_nombre"];
   const apiCtx = (userId: string) => ({
@@ -140,21 +141,32 @@ export function buildToolset(table: ToolTable, api: ApiAccess, opts: { now?: () 
   }
 
   return {
-    specs(modules) {
+    specs(modules, extra) {
       // La descripción trae "Ahora mismo en Costa Rica es: <hora>" fijada al cargar el módulo; en un servicio
       // de larga duración eso queda viejo, así que se reescribe con la hora real en cada turno.
       const fresh = `Ahora mismo en Costa Rica es: ${now()} (offset -06:00).`;
       const offered = names.filter((n) => !modules || !TOOL_MODULE[n] || modules.includes(TOOL_MODULE[n]));
-      return offered.map((name) => {
+      const web = extra?.web ? WEB_SPECS.filter((s) => s.function.name !== "buscar_web" || opts.braveApiKey) : [];
+      return [...offered.map((name) => {
         if (name === "guardar_nombre") return { type: "function" as const, function: { name, ...NAME_SPEC } };
         if (name === "guardar_documento") return { type: "function" as const, function: { name, ...SAVE_SPEC } };
         const description =
           table[name].description.replace(STALE_NOW, fresh) + (name === "enviar_documento" ? SEND_DESCRIPTION_SUFFIX : "");
         return { type: "function" as const, function: { name, description, parameters: table[name].inputSchema } };
-      });
+      }), ...web];
     },
 
-    async execute(userId, name, rawArgs, ctx) {
+    async execute(userId, name, rawArgs, ctx, extra) {
+      if (name === "buscar_web" || name === "leer_pagina") {
+        if (!extra?.web || (name === "buscar_web" && !opts.braveApiKey)) return JSON.stringify({ error: `Herramienta desconocida: ${name}` });
+        try {
+          const a = JSON.parse(rawArgs || "{}") as { consulta?: string; url?: string };
+          if (name === "buscar_web") return JSON.stringify(await searchWeb(opts.braveApiKey!, String(a.consulta ?? "")));
+          return JSON.stringify(await readPage(String(a.url ?? "")));
+        } catch (err) {
+          return JSON.stringify({ error: err instanceof Error ? err.message : String(err) });
+        }
+      }
       if (!names.includes(name)) return JSON.stringify({ error: `Herramienta desconocida: ${name}` });
 
       let args: unknown;

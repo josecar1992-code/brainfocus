@@ -1326,3 +1326,21 @@ URL del webhook en Kapso (acción manual del usuario).
   OpenClaw (fijado en 2026.10.5) o reportar el bug; mientras tanto el fallback a Telegram evita perder avisos. No se
   verificó todavía que la herramienta `crear_categoria` aparezca en el Quicks del dueño: probarla pidiéndole que cree una
   categoría.
+- **Tareas programadas del módulo Asistente liberadas, chat directo sigue limitado (6-nov-2026).** Kim dejó instrucciones
+  diarias en el módulo Asistente (3 noticias internacionales, un capítulo de Marcos desde YouVersion, un devocional) y Quicks
+  las rechazó: "no tengo acceso a internet", "se sale de mi trabajo". Causas: (1) esas instrucciones las ejecuta el
+  despachador (`runJob` en `apps/assistant/src/index.ts`) con el MISMO prompt restringido del chat; (2) no existían
+  herramientas de internet; (3) `runJob` no pasaba el nombre, así que Quicks volvía a preguntárselo en cada ejecución
+  ("¿Cómo te gusta que te diga?") y, al contestar Kim en el chat, mi guardia anti-confirmación-falsa bloqueaba respuestas
+  inocentes como "Listo, te llamaré Kim" (3 veces el 6-nov, "No pude confirmar que eso quedara hecho"). Cambios:
+  - `prompt.ts`: `buildSystemPrompt(now, name, mode)`. Modo `"job"`: sin límite de alcance, sin la negativa de internet, sin
+    preguntar el nombre; cumple la instrucción completa y cita fuentes. El modo `"chat"` no cambia.
+  - `web.ts` (nuevo): herramientas `buscar_web` (Brave Search, `BRAVE_API_KEY` en `apps/assistant/.env`, la misma cuenta que usa
+    OpenClaw) y `leer_pagina` (con protección SSRF: solo http(s) a IPs públicas, redirecciones revalidadas, 1 MB y 6000
+    caracteres). Solo se ofrecen en modo job (`toolset.specs(modules, {web:true})`); en el chat directo se rechazan.
+  - `agent.ts`: `TurnInput.job` → hasta 10 iteraciones, 1500 tokens de salida y sin guardia. La guardia ya no considera un
+    "Listo" suelto como confirmación (solo verbos en pasado con tilde: guardé, creé, etc.).
+  - `index.ts`: `runJob` pasa el nombre real y `job: true`. `enable_search` de DashScope se probó y NO funciona con
+    qwen3.7-plus (respondió "no tengo acceso a internet"), por eso las herramientas propias.
+  Riesgos a vigilar: consumo (una tarea de noticias hace varias llamadas y lee páginas, ~10-30 mil tokens) y que DashScope
+  rechace por moderación (400 "inappropriate content") textos de noticias; sin reintento para usuarios no dueños.

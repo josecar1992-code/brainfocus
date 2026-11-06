@@ -20,5 +20,7 @@ export const env = {
   dropNumbers: process.env.DROP_NUMBERS,
   // Tope de mensajes por persona y por día (hora de Costa Rica). Al pasarlo, el asistente corta hasta la medianoche.
   dailyMessageLimit: Number(process.env.DAILY_MESSAGE_LIMIT) > 0 ? Number(process.env.DAILY_MESSAGE_LIMIT) : 50,
+  // Búsqueda web (Brave) para las instrucciones programadas del módulo Asistente. Sin la clave solo se ofrece leer_pagina.
+  braveApiKey: process.env.BRAVE_API_KEY,
   openclawWebhookUrl: process.env.OPENCLAW_WEBHOOK_URL ?? "http://host.docker.internal:18789/kapso/webhook",
 };

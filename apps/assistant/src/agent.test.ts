@@ -162,7 +162,7 @@ describe("guardia contra confirmaciones sin herramienta", () => {
   });
 
   it("no toca respuestas normales ni preguntas ('¿querés que guarde…?') ni turnos con herramienta", async () => {
-    for (const text of ["Kim, ¿querés que guarde esta imagen con el nombre Visa?", "De nada, Kim. ¿Necesitás algo más?", "Dale. Avisame cuando lo tengas y lo registro."]) {
+    for (const text of ["Kim, ¿querés que guarde esta imagen con el nombre Visa?", "Listo, te llamaré Kim.", "De nada, Kim. ¿Necesitás algo más?", "Dale. Avisame cuando lo tengas y lo registro."]) {
       const llm = scripted([msg(text)]);
       const r = await runTurn(llm, buildToolset(table(), API), { userId: USER, systemPrompt: "s", history: [], userText: "x" });
       expect(r.reply).toBe(text);
@@ -172,5 +172,25 @@ describe("guardia contra confirmaciones sin herramienta", () => {
     const r = await runTurn(llm, buildToolset(table(), API), { userId: USER, systemPrompt: "s", history: [], userText: "x" });
     expect(r.reply).toBe("Listo, creé la tarea.");
     expect(r.usage.llmCalls).toBe(2);
+  });
+});
+
+describe("tareas programadas (job) con internet", () => {
+  const msg = (content: string) => ({ message: { role: "assistant" as const, content }, usage: u });
+  it("solo en modo job se ofrecen buscar_web y leer_pagina, y la guardia no actúa", async () => {
+    const ts = buildToolset(table(), API, { braveApiKey: "k" });
+    expect(ts.specs(null).map((s) => s.function.name)).not.toContain("buscar_web");
+    expect(ts.specs(null, { web: true }).map((s) => s.function.name)).toEqual(expect.arrayContaining(["buscar_web", "leer_pagina"]));
+    expect(JSON.parse(await ts.execute(USER, "buscar_web", '{"consulta":"x"}'))).toEqual({ error: "Herramienta desconocida: buscar_web" });
+    const llm = scripted([msg("Aquí tenés las noticias. Creé un resumen corto.")]);
+    const r = await runTurn(llm, ts, { userId: USER, systemPrompt: "s", history: [], userText: "noticias", job: true });
+    expect(r.reply).toContain("noticias");
+    expect(r.usage.llmCalls).toBe(1);
+  });
+
+  it("sin clave de Brave no ofrece buscar_web pero sí leer_pagina", () => {
+    const names = buildToolset(table(), API).specs(null, { web: true }).map((s) => s.function.name);
+    expect(names).toContain("leer_pagina");
+    expect(names).not.toContain("buscar_web");
   });
 });

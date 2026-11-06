@@ -17,7 +17,7 @@ import { createStore } from "./store.js";
 import { buildToolset, type ToolTable } from "./toolset.js";
 
 const llm = createQwenClient(env.qwen);
-const toolset = buildToolset(tools as unknown as ToolTable, { baseUrl: env.apiBaseUrl, serviceKey: env.serviceKey });
+const toolset = buildToolset(tools as unknown as ToolTable, { baseUrl: env.apiBaseUrl, serviceKey: env.serviceKey }, { braveApiKey: env.braveApiKey });
 const log = (msg: string, extra?: unknown) => console.error(`[assistant] ${msg}`, extra ?? "");
 
 const store = createStore(env.supabaseUrl, env.supabaseServiceRoleKey);
@@ -72,7 +72,13 @@ const dispatcher = createDispatcher({
   sendText: (to, text) => sendText(env.kapso, to, text),
   sendTemplate: (to, name, params) => sendTemplate(env.kapso, to, name, params),
   runJob: async (userId, prompt) => {
-    const r = await runTurn(llm, toolset, { userId, systemPrompt: buildSystemPrompt(horaActualCR()), history: [], userText: prompt });
+    const r = await runTurn(llm, toolset, {
+      userId,
+      systemPrompt: buildSystemPrompt(horaActualCR(), await store.displayName(userId), "job"),
+      history: [],
+      userText: prompt,
+      job: true,
+    });
     await store.logUsage(userId, llm.model, r.usage);
     return r.reply;
   },
