@@ -1344,3 +1344,8 @@ URL del webhook en Kapso (acción manual del usuario).
     qwen3.7-plus (respondió "no tengo acceso a internet"), por eso las herramientas propias.
   Riesgos a vigilar: consumo (una tarea de noticias hace varias llamadas y lee páginas, ~10-30 mil tokens) y que DashScope
   rechace por moderación (400 "inappropriate content") textos de noticias; sin reintento para usuarios no dueños.
+  - **Verificado en vivo (6-nov-2026):** la instrucción "3 noticias internacionales" de Kim, ejecutada en modo job desde el
+    contenedor (sin enviarle nada), devolvió 3 noticias con formato WhatsApp en 5 llamadas al modelo y ~56 mil tokens de
+    entrada (~$0.02). Un primer intento falló porque Brave devolvía 422 con `country=cr` (no soportado): quitado. Límites
+    vistos: la "fuente" suele ser solo la portada del medio (BBC Mundo), no el link del artículo. Sin probar todavía: el
+    capítulo de Marcos desde YouVersion (página con mucho JavaScript, puede no dar texto) ni el devocional.
