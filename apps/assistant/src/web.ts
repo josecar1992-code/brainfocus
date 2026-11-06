@@ -78,7 +78,7 @@ export function htmlToText(html: string): string {
 }
 
 export async function searchWeb(apiKey: string, query: string): Promise<unknown> {
-  const url = `${BRAVE_URL}?q=${encodeURIComponent(query)}&count=5&country=cr&search_lang=es`;
+  const url = `${BRAVE_URL}?q=${encodeURIComponent(query)}&count=5&search_lang=es`;
   const res = await fetch(url, { headers: { Accept: "application/json", "X-Subscription-Token": apiKey }, signal: AbortSignal.timeout(15_000) });
   if (!res.ok) throw new Error(`La búsqueda falló (${res.status})`);
   const data = (await res.json()) as { web?: { results?: Array<{ title?: string; url?: string; description?: string; age?: string }> } };
