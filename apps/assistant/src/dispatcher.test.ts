@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { createDispatcher, windowOpen, templateParams, formatCR, TEMPLATE_NAME, type DispatchStore, type DueUser, type DueJob } from "./dispatcher.js";
+import { createDispatcher, splitMessage, windowOpen, templateParams, formatCR, TEMPLATE_NAME, type DispatchStore, type DueUser, type DueJob } from "./dispatcher.js";
 
 const H = 3600_000;
 const NOW = Date.parse("2026-10-29T16:00:00Z"); // 10:00 en Costa Rica
@@ -132,5 +132,38 @@ describe("formato", () => {
   });
   it("plantilla sin saltos de línea", () => {
     expect(templateParams([rem("r", "a\nb")])[0]).toBe("a b");
+  });
+});
+
+describe("mensajes largos y tope de reintentos", () => {
+  it("splitMessage parte en trozos cortos sin perder texto", () => {
+    const text = Array.from({ length: 30 }, (_, i) => `Párrafo ${i} ${"x".repeat(300)}`).join("\n\n");
+    const parts = splitMessage(text, 3800);
+    expect(parts.length).toBeGreaterThan(1);
+    expect(parts.every((p) => p.length <= 3800)).toBe(true);
+    expect(parts.join("\n\n").replace(/\s+/g, " ")).toBe(text.replace(/\s+/g, " "));
+    expect(splitMessage("corto")).toEqual(["corto"]);
+    expect(splitMessage("a".repeat(9000)).every((p) => p.length <= 3800)).toBe(true);
+  });
+
+  it("un texto largo del agente se manda en varios mensajes", async () => {
+    const t = setup([user({ reminders: [], jobs: [job({ kind: "agent", prompt: "capítulo" })] })]);
+    t.runJob.mockResolvedValueOnce(Array.from({ length: 20 }, () => "y".repeat(500)).join("\n\n"));
+    await t.d.tick();
+    expect(t.sendText.mock.calls.length).toBeGreaterThan(1);
+    for (const c of t.sendText.mock.calls) expect((c as unknown as [string, string])[1].length).toBeLessThanOrEqual(3800);
+  });
+
+  it("si el agente falla, reintenta hasta el tope y luego avisa y deja de reintentar", async () => {
+    const claimed = new Set<string>();
+    const t = setup([user({ reminders: [], jobs: [job({ kind: "agent", prompt: "falla" })] })], {
+      claimJob: vi.fn(async (j: { id: string }) => (claimed.has(j.id) ? false : (claimed.add(j.id), true))),
+      releaseJob: vi.fn(async (j: { id: string }) => void claimed.delete(j.id)),
+    });
+    t.runJob.mockRejectedValue(new Error("boom"));
+    for (let i = 0; i < 5; i++) await t.d.tick();
+    expect(t.runJob).toHaveBeenCalledTimes(3);
+    expect(t.store.releaseJob).toHaveBeenCalledTimes(2); // el 3.º intento no libera: queda descartado por hoy
+    expect(t.sendText).toHaveBeenCalledWith("+506999", expect.stringContaining("No pude enviarte hoy"));
   });
 });

@@ -63,6 +63,7 @@ const JOB_SCOPE = [
   "Tarea programada:",
   "- La persona dejó configurada una instrucción en su módulo Asistente y se ejecuta ahora, sin que haya escrito nada. Cumplila completa: entregá el contenido pedido (noticias, una lectura, un texto), sin rechazarla por \"no ser de tu trabajo\" ni ofrecer otras opciones.",
   "- Tenés internet: buscar_web para encontrar información actual y leer_pagina para leer una página (también una url que dio la persona). Para noticias o datos actuales buscá y leé siempre; no respondas de memoria. Citá la fuente con su link.",
+  "- Todo tiene que caber en UN solo mensaje de WhatsApp (unos 3500 caracteres como máximo). Si el contenido es más largo (un capítulo, un artículo), resumilo y al final incluí el link exacto de la página de donde lo sacaste, para que la persona lo lea completo ahí.",
   "- Respondé directo con el contenido, en formato WhatsApp y breve. No saludes con presentaciones, no preguntes el nombre ni hagas preguntas salvo que sea imposible cumplir la instrucción.",
   "- Si no pudiste conseguirlo (la página no abre, la búsqueda falla), decilo en una línea con el motivo real.",
 ];

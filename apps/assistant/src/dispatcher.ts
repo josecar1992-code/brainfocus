@@ -10,6 +10,26 @@
 export const WINDOW_MS = 24 * 3600_000;
 export const KEEPALIVE_AFTER_MS = 23 * 3600_000;
 export const TEMPLATE_NAME = "recordatorio_general";
+// WhatsApp rechaza (400) un texto de más de 4096 caracteres; se parte en trozos más cortos.
+export const MAX_MESSAGE_CHARS = 3800;
+// Reintentos de una misma instrucción programada en un día antes de rendirse (cada reintento re-ejecuta el agente y cuesta tokens).
+export const MAX_JOB_ATTEMPTS = 3;
+
+/** Parte un texto largo en trozos de a lo sumo `max` caracteres, cortando en saltos de línea o espacios. */
+export function splitMessage(text: string, max = MAX_MESSAGE_CHARS): string[] {
+  const out: string[] = [];
+  let rest = text.trim();
+  while (rest.length > max) {
+    let cut = rest.lastIndexOf("\n\n", max);
+    if (cut < max / 2) cut = rest.lastIndexOf("\n", max);
+    if (cut < max / 2) cut = rest.lastIndexOf(" ", max);
+    if (cut < max / 2) cut = max;
+    out.push(rest.slice(0, cut).trim());
+    rest = rest.slice(cut).trim();
+  }
+  if (rest) out.push(rest);
+  return out;
+}
 export const KEEPALIVE_TEXT =
   "Respondeme cualquier cosa para mantener abierta nuestra conversación y que tus recordatorios te lleguen sin interrupciones.";
 
@@ -111,8 +131,10 @@ export function createDispatcher(deps: DispatchDeps) {
   const log = deps.log ?? (() => {});
   let running = false;
 
+  const jobAttempts = new Map<string, number>();
+
   async function say(u: DueUser, text: string) {
-    await deps.sendText(u.phone, text);
+    for (const part of splitMessage(text)) await deps.sendText(u.phone, part);
     await deps.record?.(u.userId, text).catch((err) => log("no se pudo guardar en el historial", err instanceof Error ? err.message : err));
   }
 
@@ -133,7 +155,17 @@ export function createDispatcher(deps: DispatchDeps) {
           const out = j.kind === "agent" ? await deps.runJob(u.userId, j.prompt) : jobText(j, nowMs);
           if (out.trim().toUpperCase() !== "NADA") await say(u, out); // NADA = el agente no tiene nada que avisar
         } catch (err) {
-          await deps.store.releaseJob(j, u.userId);
+          const key = `${u.userId}:${j.source}:${j.id}:${j.dueAt}`;
+          const attempts = (jobAttempts.get(key) ?? 0) + 1;
+          if (attempts < MAX_JOB_ATTEMPTS) {
+            jobAttempts.set(key, attempts);
+            await deps.store.releaseJob(j, u.userId); // reintenta en el próximo ciclo
+          } else {
+            // Tope alcanzado: se deja reclamado (no se reintenta hoy) y se le avisa a la persona.
+            jobAttempts.delete(key);
+            log(`aviso ${j.id} de ${u.userId} falló ${attempts} veces, se descarta por hoy`, err instanceof Error ? err.message : err);
+            await say(u, `No pude enviarte hoy «${j.label}». Probalo pidiéndomelo directamente por acá si lo necesitás.`).catch(() => {});
+          }
           throw err;
         }
       }

@@ -1372,3 +1372,16 @@ URL del webhook en Kapso (acción manual del usuario).
   - Verificado: sintaxis, `nudgeOutcome` (distingue job fallido, exitoso e inexistente), `message send --dry-run`, y una
     corrida real que guardó el estado. No se pudo probar de punta a punta el reintento ni la alerta (requieren que el aviso
     falle de verdad). Limitación: Meta puede aceptar un envío y no entregarlo; esto solo detecta fallos del job.
+- **Instrucciones programadas del asistente: mensajes largos y bucle de reintentos (11-nov-2026).** Al revisar si el fallo del
+  keep-alive podía repetirse en el despachador del asistente (no puede: no hay cron que cancelar y con la ventana cerrada
+  sale la plantilla), apareció otro bug: la instrucción diaria de Kim "un capítulo de Marcos" (08:35) generaba más de
+  4096 caracteres y Kapso/Meta respondían 400 ("Param text.body must be at most 4096 characters long"); `releaseJob` +
+  reintento cada minuto repitió el fallo 58 veces en 6 mañanas (hasta 18 por día), re-ejecutando el agente y leyendo
+  páginas cada vez (~3 M de tokens, ~$1) y Kim nunca recibió el capítulo. Cambios en `apps/assistant/src/`:
+  - `dispatcher.ts`: `splitMessage` parte todo texto saliente en trozos de ≤3800 caracteres (por párrafo/línea/espacio).
+  - `dispatcher.ts`: tope de `MAX_JOB_ATTEMPTS = 3` reintentos por aviso y día; al llegar se descarta por hoy, se loguea y se
+    le avisa a la persona ("No pude enviarte hoy «…»").
+  - `prompt.ts` (modo job): el contenido debe caber en UN mensaje (~3500 caracteres); si es más largo, se resume y se incluye
+    al final el link exacto de la página de origen para leerlo completo (decisión del dueño). Tests: 96 en el paquete.
+  Pendiente menor: Kim tiene 7 instrucciones recurrentes, 4 de ellas devocionales casi duplicados; limpiar a mano o añadir
+  una advertencia al crear duplicados. El despachador tampoco avisa si el contenedor estaba caído en la hora del keep-alive.
