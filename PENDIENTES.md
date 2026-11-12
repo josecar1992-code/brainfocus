@@ -1397,3 +1397,9 @@ URL del webhook en Kapso (acción manual del usuario).
     `aviso_para_la_persona` para que Quicks lo avise (no bloquea la creación). El prompt de chat explica ambas cosas.
   - Alcance: la herramienta está en el asistente de los usuarios; para el Quicks del dueño (OpenClaw) hace falta reiniciar
     `openclaw.service` después de reconstruir el MCP. Tests: 98 en el paquete del asistente.
+- **Pendiente: reinicio de `openclaw.service` diferido a propósito (11-nov-2026).** Las herramientas `crear_categoria`,
+  `buscar_avisos_duplicados` y el aviso de `posibles_duplicados` de `crear_aviso_asistente` ya están construidas en la imagen del
+  MCP pero el Quicks del dueño (OpenClaw) no las ve hasta el próximo reinicio. Decisión del dueño: no reiniciar solo por esto
+  (cada reinicio corta WhatsApp/Telegram ~3 min y el error "Cron receipt authority" reaparece al rato); hacerlo cuando haya otro
+  motivo y entonces probar: "crea la categoría X" y "revisa si tengo avisos duplicados". El asistente de los demás usuarios ya las
+  tiene. Variable nueva en el VPS: `BRAVE_API_KEY` en `apps/assistant/.env` (ya agregada; documentada en `.env.example`).
