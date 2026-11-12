@@ -1349,3 +1349,14 @@ URL del webhook en Kapso (acción manual del usuario).
     entrada (~$0.02). Un primer intento falló porque Brave devolvía 422 con `country=cr` (no soportado): quitado. Límites
     vistos: la "fuente" suele ser solo la portada del medio (BBC Mundo), no el link del artículo. Sin probar todavía: el
     capítulo de Marcos desde YouVersion (página con mucho JavaScript, puede no dar texto) ni el devocional.
+- **Keep-alive de las 16:13 cancelado por el propio script (11-nov-2026): se cerró la ventana y los recordatorios de la noche no
+  llegaron.** El dueño escribió por última vez el 10-nov 17:13; el aviso "Han pasado 23h…" (cron `22643c76…`) arrancó el 11-nov
+  16:13:41, pero a las 16:13:58 `whatsapp-keepalive/index.js` vio un nudge ya vencido con un job todavía existente y lo canceló
+  ("Cron job removed by operator", el run murió a los 17 s sin enviar). La ventana de 24 h cerró a las 17:13 y los avisos de la
+  noche (creatina 19:00, etc.) quedaron fuera de ventana: OpenClaw los marcó "delivered" porque Kapso aceptó el envío, pero Meta
+  no entrega mensajes libres con la ventana cerrada (no se pudo verificar el estado en Kapso: su API respondió 401 al listar).
+  **Causa raíz: regresión de mi cambio del 4-nov** (timer de 30 a 2 min): antes el script casi nunca coincidía con un job en
+  ejecución; con 2 min lo hace ~15 % de los días. Fix: en `index.js` un nudge vencido hace menos de 15 min no se toca (job en
+  ejecución o por ejecutarse); solo se limpia uno vencido hace más de 15 min. Respaldo `index.js.bak-20261111`. Config del VPS,
+  no vive en el repo. Pendiente de fondo: que el aviso no dependa de un cron `at` externo (ver entrada del 4-nov) y alertar por
+  Telegram si el keep-alive falla. Hasta que el dueño escriba, la ventana sigue cerrada: escribirle algo a Quicks la reabre.
