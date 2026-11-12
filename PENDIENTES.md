@@ -1360,3 +1360,15 @@ URL del webhook en Kapso (acción manual del usuario).
   ejecución o por ejecutarse); solo se limpia uno vencido hace más de 15 min. Respaldo `index.js.bak-20261111`. Config del VPS,
   no vive en el repo. Pendiente de fondo: que el aviso no dependa de un cron `at` externo (ver entrada del 4-nov) y alertar por
   Telegram si el keep-alive falla. Hasta que el dueño escriba, la ventana sigue cerrada: escribirle algo a Quicks la reabre.
+- **Keep-alive de WhatsApp (OpenClaw) con reintento y alerta por Telegram (11-nov-2026).** Tras el fallo del 11-nov (job cancelado por
+  el propio script), `/root/.openclaw/scripts/whatsapp-keepalive/index.js` se reescribió (respaldos `.bak-20261111` y
+  `.bak-20261111b`; config del VPS, no vive en el repo) para que un fallo ya no pase en silencio:
+  - Guarda estado en `state.json` (mensaje real al que corresponde, id del job, intentos, alertas enviadas).
+  - Si el aviso de las 23 h venció hace más de 15 min, la ventana sigue abierta y el job **no** salió bien
+    (`openclaw cron runs <id>` ≠ ok), lo **reintenta** al instante, hasta 2 veces. Un nudge vencido hace menos de 15 min no se
+    toca (es el job corriendo).
+  - Si falla 2 veces, o si la ventana ya cerró sin aviso, manda una **alerta por Telegram** al dueño (`openclaw message send
+    --channel telegram`), una sola vez por ventana: "escribile algo a Quicks para reabrirla".
+  - Verificado: sintaxis, `nudgeOutcome` (distingue job fallido, exitoso e inexistente), `message send --dry-run`, y una
+    corrida real que guardó el estado. No se pudo probar de punta a punta el reintento ni la alerta (requieren que el aviso
+    falle de verdad). Limitación: Meta puede aceptar un envío y no entregarlo; esto solo detecta fallos del job.
