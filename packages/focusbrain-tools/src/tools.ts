@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { CR_OFFSET, formatReminderTitle, horaActualCR, hoyEnCR, isoACostaRica, TWO_HOURS_MS } from "@brainfocus/shared-time";
 import { z } from "zod";
+import { findSimilarAvisos, similarTo } from "./duplicates.js";
 import { apiRequest, apiUpload } from "./apiClient.js";
 
 interface Task {
@@ -493,7 +494,7 @@ export const tools = {
       hora: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(),
       dia_semana: z.number().int().min(0).max(6).optional(),
     }),
-    handler: (args: {
+    handler: async (args: {
       titulo: string;
       es_instruccion?: boolean;
       tipo: "unico" | "recurrente";
@@ -506,12 +507,16 @@ export const tools = {
       const frequency = args.frecuencia
         ? { cada_n_horas: "every_n_hours", diaria: "daily", semanal: "weekly" }[args.frecuencia]
         : undefined;
-      return apiRequest<RecurringReminder>("/recurring-reminders", {
+      const scheduleType = args.tipo === "unico" ? "once" : "recurring";
+      // Antes de crear, se buscan avisos parecidos para poder avisarle a la persona (no bloquea la creación).
+      const existing = await apiRequest<RecurringReminder[]>("/recurring-reminders?limit=100").catch(() => [] as RecurringReminder[]);
+      const parecidos = similarTo(args.titulo, scheduleType, existing);
+      const created = await apiRequest<RecurringReminder>("/recurring-reminders", {
         method: "POST",
         body: JSON.stringify({
           title: args.titulo,
           is_instruction: args.es_instruccion,
-          schedule_type: args.tipo === "unico" ? "once" : "recurring",
+          schedule_type: scheduleType,
           scheduled_at: args.fecha_hora,
           frequency,
           interval_hours: args.cada_cuantas_horas,
@@ -519,6 +524,29 @@ export const tools = {
           day_of_week: args.dia_semana,
         }),
       });
+      if (parecidos.length === 0) return created;
+      return {
+        ...created,
+        aviso_para_la_persona:
+          "Ya existían avisos parecidos a este. Contale cuáles son (título y hora) y preguntale si quiere borrar o pausar alguno; " +
+          "no borres nada sin que lo confirme.",
+        posibles_duplicados: parecidos.map((p) => ({ id: p.id, titulo: p.title, hora: p.time_of_day })),
+      };
+    },
+  },
+
+  buscar_avisos_duplicados: {
+    description:
+      "Revisa los avisos e instrucciones del módulo Asistente de la persona y devuelve los grupos que se parecen " +
+      "(mismo asunto repetido, aunque tengan distinta hora). Usala cuando pida revisar duplicados u ordenar sus avisos. " +
+      "Después contale los grupos (título, hora, id) y preguntale cuál conservar; borrá o pausá SOLO lo que confirme " +
+      "(borrar_aviso_asistente / pausar_aviso_asistente).",
+    inputSchema: { type: "object", properties: {} },
+    argsSchema: z.object({}),
+    handler: async () => {
+      const avisos = await apiRequest<RecurringReminder[]>("/recurring-reminders?limit=100");
+      const grupos = findSimilarAvisos(avisos).map((g) => g.map((a) => ({ id: a.id, titulo: a.title, hora: a.time_of_day, activo: a.active })));
+      return { total_avisos: avisos.length, grupos_duplicados: grupos };
     },
   },
 

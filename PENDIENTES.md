@@ -1385,3 +1385,15 @@ URL del webhook en Kapso (acción manual del usuario).
     al final el link exacto de la página de origen para leerlo completo (decisión del dueño). Tests: 96 en el paquete.
   Pendiente menor: Kim tiene 7 instrucciones recurrentes, 4 de ellas devocionales casi duplicados; limpiar a mano o añadir
   una advertencia al crear duplicados. El despachador tampoco avisa si el contenedor estaba caído en la hora del keep-alive.
+- **Instrucciones programadas: contenido completo + fuente al final, y detección de avisos duplicados (11-nov-2026).**
+  Cambio de decisión del dueño sobre la entrada anterior: en modo job Quicks ya NO resume; entrega el contenido completo (el
+  despachador lo parte en varios mensajes de ≤3800 caracteres) y **siempre termina con una línea "Fuente:" con el link exacto**
+  de donde sacó la información (`apps/assistant/src/prompt.ts`). Además:
+  - Nuevo `packages/focusbrain-tools/src/duplicates.ts` (`findSimilarAvisos`, `similarTo`): compara los títulos de los avisos
+    activos del módulo Asistente quitando palabras de relleno (Jaccard ≥ 0.6 o uno contenido en el otro con ≥ 2 palabras).
+  - Nueva herramienta `buscar_avisos_duplicados`: devuelve los grupos parecidos (ej. los 3 "devocional bíblico" de Kim a
+    distintas horas); Quicks se los cuenta a la persona y pregunta cuál conservar; borra/pausa solo lo que confirme.
+  - `crear_aviso_asistente` ahora busca parecidos antes de crear y, si los hay, devuelve `posibles_duplicados` con un
+    `aviso_para_la_persona` para que Quicks lo avise (no bloquea la creación). El prompt de chat explica ambas cosas.
+  - Alcance: la herramienta está en el asistente de los usuarios; para el Quicks del dueño (OpenClaw) hace falta reiniciar
+    `openclaw.service` después de reconstruir el MCP. Tests: 98 en el paquete del asistente.
