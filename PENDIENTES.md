@@ -1456,3 +1456,12 @@ URL del webhook en Kapso (acción manual del usuario).
   requerir revisar Meta Business → Facturación y pagos → cuenta de WhatsApp Business. Kapso no muestra el problema (solo un
   "Issues" en el health check, de hace 3 meses). Alternativa de Kapso: "Switch to Kapso credits" (cambia la facturación; no
   se tocó). Reintentar un envío de prueba después y confirmar que se levantó.
+- **WhatsApp bloqueado: revisión en Meta Business (13-nov-2026, sigue sin resolverse).** Portfolio "QuickWash CR"
+  (`102673305749206`), cuenta de mensajería "FocusbrainCR" (WABA `1038771715586029`). Verificado en pantalla: saldo pendiente
+  **$0,00** con Visa 5863 (el pago de $0.22 ya se aplicó), número +506 6001 7515 "Quicks" *Conectado*, calidad *Alta*,
+  Kapso asignado como socio con *Acceso total*, 2 de 250 conversaciones iniciadas por la empresa. Aun así Meta sigue
+  devolviendo error 10 / subcódigo 2593181 a cada envío (probado varias veces después del pago). Hallazgo sin confirmar como
+  causa: el panel de WhatsApp Manager indica "Números de teléfono: se agregaron **3 de 2**" (el portfolio, sin verificar, supera
+  el máximo de números) y ofrece "Verifica tu empresa" para subir los límites. Meta también reestructuró cuentas
+  (WhatsApp account vs Messaging account, método de pago por messaging account). Siguiente paso: verificar el negocio en Meta
+  o quitar el número sobrante, y/o contactar al soporte de Meta con el fbtrace_id del error.
