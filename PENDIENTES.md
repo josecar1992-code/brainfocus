@@ -1440,3 +1440,12 @@ URL del webhook en Kapso (acción manual del usuario).
   10 min ("stopped", falso positivo ya conocido) y la cola de eventos del sistema estaba llena (20 pendientes), el mismo
   bug de "Cron receipt authority". Sin fix de código: si se repite, revisar en el panel de Kapso/Meta el estado del número
   y los permisos de la app, y considerar reintento manual. Ese aviso no se reenvió automáticamente.
+- **CORRECCIÓN del diagnóstico anterior (13-nov-2026): NO era transitorio, el envío por WhatsApp está bloqueado a nivel de cuenta.**
+  Un reenvío de prueba (`openclaw message send`) y una llamada directa a la API de Kapso (`POST …/messages` con la
+  `KAPSO_API_KEY` del asistente) fallan igual: Meta devuelve `OAuthException` código **10**, subcódigo **2593181**, *"You do not
+  have the necessary permissions to send messages on behalf of this WhatsApp Business Account"* (no transitorio). El número
+  sigue `CONNECTED`, calidad `GREEN`, tier 250; los envíos de la mañana (hasta las 11:32) sí se entregaron, el primero
+  rechazado fue el de las 17:00. Afecta TODO envío saliente (Quicks del dueño y asistente de Kim). Los mensajes entrantes y el
+  Telegram siguen funcionando. Causa no determinable desde el VPS: hay que revisar en Meta Business / WhatsApp Manager y en el
+  panel de Kapso el estado de la WABA (método de pago, restricción/violación de políticas, permisos del token/system user).
+  Mientras tanto los avisos críticos solo llegan por Telegram.
