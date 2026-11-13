@@ -1449,3 +1449,10 @@ URL del webhook en Kapso (acción manual del usuario).
   Telegram siguen funcionando. Causa no determinable desde el VPS: hay que revisar en Meta Business / WhatsApp Manager y en el
   panel de Kapso el estado de la WABA (método de pago, restricción/violación de políticas, permisos del token/system user).
   Mientras tanto los avisos críticos solo llegan por Telegram.
+- **WhatsApp bloqueado: revisión en Kapso (13-nov-2026).** En el panel de Kapso la WABA `1038771715586029` figura *Approved*,
+  tier 250/día, número `+506 6001 7515` *Connected*, y el financiamiento es **"Paid directly to Meta"** (no créditos de
+  Kapso). El dueño tenía un saldo pendiente de $0.22 en Meta que ya pagó; tras el pago la API seguía devolviendo error 10 /
+  subcódigo 2593181, así que el bloqueo (probable por saldo impago en la facturación de Meta) puede tardar en levantarse o
+  requerir revisar Meta Business → Facturación y pagos → cuenta de WhatsApp Business. Kapso no muestra el problema (solo un
+  "Issues" en el health check, de hace 3 meses). Alternativa de Kapso: "Switch to Kapso credits" (cambia la facturación; no
+  se tocó). Reintentar un envío de prueba después y confirmar que se levantó.
