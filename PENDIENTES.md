@@ -1423,3 +1423,10 @@ URL del webhook en Kapso (acción manual del usuario).
   se arman y muestran con offset `-06:00` / `timeZone: America/Costa_Rica` explícito (regla de CLAUDE.md), nunca con la zona
   del navegador. `tsc` pasa; **por verificar visualmente y desplegar** (no se probó en navegador: requiere sesión).
   Posibles mejoras: tocar un ítem para abrir su detalle/editar, vista semanal, marcar tareas desde el calendario.
+- **Calendario: detalle/edición, marcar hecha y vista semanal (13-nov-2026).** Se resolvieron las 3 mejoras que habían quedado
+  pendientes en `CalendarioPage.tsx`: (1) tocar un ítem abre su detalle reutilizando `EventDetail` (eventos), `TaskDetail`
+  (tareas) y `AvisoModal` (avisos de Quicks, único o recurrente: editar y borrar con `ConfirmDialog`); los recordatorios sueltos
+  siguen siendo solo informativos; (2) tareas, y eventos nacidos de una tarea, tienen checkbox para marcar hecha con la
+  confirmación de `useCompleteTask` (mismo endpoint que Tareas/Agenda/Rutinas, así se refleja en todos); (3) selector
+  Mes/Semana: la semana va de domingo a sábado, con navegación de 7 en 7 días, y el rango consultado a la API se ajusta a la
+  vista. Fechas siempre en hora de Costa Rica explícita. `tsc` pasa; sigue pendiente verlo en navegador y desplegar.

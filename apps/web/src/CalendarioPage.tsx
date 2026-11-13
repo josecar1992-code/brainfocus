@@ -1,12 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { CR_OFFSET, CR_TIMEZONE } from "@brainfocus/shared-time";
-import { NewEventForm } from "./AgendaPage";
-import { api, type NewRecurringReminder } from "./api";
+import { EventDetail, NewEventForm } from "./AgendaPage";
+import { api, type Event, type NewRecurringReminder, type RecurringReminder, type Task } from "./api";
+import { ConfirmDialog } from "./ConfirmDialog";
 import { CornerBrackets } from "./CornerBrackets";
 import { IconPlus } from "./icons";
 import { NewRoutineModal } from "./RoutinesPage";
-import { NewTaskModal } from "./TasksPage";
+import { NewTaskModal, TaskDetail } from "./TasksPage";
+import { useCompleteTask } from "./useCompleteTask";
 
 // Todo lo que está programado, junto: eventos de Agenda, tareas con fecha límite, recordatorios sueltos y avisos
 // del módulo Asistente (únicos y recurrentes). Las rutinas ya aparecen a través de la tarea/evento de su próxima
@@ -23,6 +25,10 @@ interface Item {
   time: string | null; // HH:MM en Costa Rica
   done?: boolean;
   note?: string;
+  // Lo que hay detrás, para abrir el detalle al tocarlo.
+  event?: Event;
+  task?: Task;
+  aviso?: RecurringReminder;
 }
 
 const KIND_STYLE: Record<Kind, { label: string; dot: string; chip: string }> = {
@@ -64,25 +70,38 @@ const inputClass =
   "border border-deep-blue/40 bg-black/20 rounded-lg px-3 py-2 placeholder:text-white/30 focus:outline-none focus:border-electric-cyan/70 transition [color-scheme:dark]";
 
 // Aviso del módulo Asistente (Quicks te escribe por WhatsApp/Telegram): único en una fecha/hora o recurrente.
-function NewAvisoModal({ defaultDate, onClose }: { defaultDate: string; onClose: () => void }) {
+function AvisoModal({ defaultDate, aviso, onClose }: { defaultDate: string; aviso?: RecurringReminder; onClose: () => void }) {
   const queryClient = useQueryClient();
-  const [title, setTitle] = useState("");
-  const [isInstruction, setIsInstruction] = useState(false);
-  const [scheduleType, setScheduleType] = useState<NewRecurringReminder["schedule_type"]>("once");
-  const [date, setDate] = useState(defaultDate);
-  const [time, setTime] = useState("09:00");
-  const [frequency, setFrequency] = useState<NonNullable<NewRecurringReminder["frequency"]>>("daily");
-  const [intervalHours, setIntervalHours] = useState("2");
-  const [dayOfWeek, setDayOfWeek] = useState(String(weekdayOf(defaultDate)));
+  const [title, setTitle] = useState(aviso?.title ?? "");
+  const [isInstruction, setIsInstruction] = useState(aviso?.is_instruction ?? false);
+  const [scheduleType, setScheduleType] = useState<NewRecurringReminder["schedule_type"]>(aviso?.schedule_type ?? "once");
+  const [date, setDate] = useState(aviso?.scheduled_at ? crDate(aviso.scheduled_at) : defaultDate);
+  const [time, setTime] = useState(
+    aviso?.scheduled_at ? crTime(aviso.scheduled_at) : aviso?.time_of_day?.slice(0, 5) ?? "09:00",
+  );
+  const [frequency, setFrequency] = useState<NonNullable<NewRecurringReminder["frequency"]>>(aviso?.frequency ?? "daily");
+  const [intervalHours, setIntervalHours] = useState(String(aviso?.interval_hours ?? 2));
+  const [dayOfWeek, setDayOfWeek] = useState(String(aviso?.day_of_week ?? weekdayOf(defaultDate)));
   const [error, setError] = useState<string | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
+  const done = () => {
+    queryClient.invalidateQueries({ queryKey: ["recurring-reminders"] });
+    onClose();
+  };
   const create = useMutation({
-    mutationFn: api.createRecurringReminder,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["recurring-reminders"] });
-      onClose();
+    mutationFn: (input: NewRecurringReminder) =>
+      aviso ? api.updateRecurringReminder(aviso.id, input) : api.createRecurringReminder(input),
+    onSuccess: done,
+    onError: (err) => setError(err instanceof Error ? err.message : "No se pudo guardar el aviso"),
+  });
+  const remove = useMutation({
+    mutationFn: () => api.deleteRecurringReminder(aviso!.id),
+    onSuccess: done,
+    onError: (err) => {
+      setConfirmingDelete(false);
+      setError(err instanceof Error ? err.message : "No se pudo borrar el aviso");
     },
-    onError: (err) => setError(err instanceof Error ? err.message : "No se pudo crear el aviso"),
   });
 
   function submit(e: React.FormEvent) {
@@ -123,7 +142,7 @@ function NewAvisoModal({ defaultDate, onClose }: { defaultDate: string; onClose:
         className="relative w-full max-w-sm border border-electric-cyan/20 bg-night-blue rounded-2xl p-6 flex flex-col gap-3 shadow-[0_0_60px_-15px_rgba(0,210,255,0.25)]"
       >
         <CornerBrackets />
-        <h2 className="text-lg font-medium mb-1">Nuevo aviso de Quicks</h2>
+        <h2 className="text-lg font-medium mb-1">{aviso ? "Aviso de Quicks" : "Nuevo aviso de Quicks"}</h2>
         <input
           autoFocus
           value={title}
@@ -183,6 +202,15 @@ function NewAvisoModal({ defaultDate, onClose }: { defaultDate: string; onClose:
         )}
         {error && <p className="text-sm text-red-400">{error}</p>}
         <div className="flex justify-end gap-2 mt-1">
+          {aviso && (
+            <button
+              type="button"
+              onClick={() => setConfirmingDelete(true)}
+              className="text-sm text-red-400/80 hover:text-red-400 px-3 py-2 mr-auto"
+            >
+              Borrar
+            </button>
+          )}
           <button type="button" onClick={onClose} className="text-sm text-white/40 hover:text-white/70 px-3 py-2">
             Cancelar
           </button>
@@ -191,30 +219,61 @@ function NewAvisoModal({ defaultDate, onClose }: { defaultDate: string; onClose:
             disabled={create.isPending}
             className="bg-gradient-to-br from-deep-blue via-electric-cyan to-electric-cyan text-night-blue font-semibold rounded-lg px-4 py-2 disabled:opacity-50 hover:brightness-110 transition"
           >
-            {create.isPending ? "Creando..." : "Crear aviso"}
+            {create.isPending ? "Guardando..." : aviso ? "Guardar cambios" : "Crear aviso"}
           </button>
         </div>
       </form>
+      {confirmingDelete && (
+        <ConfirmDialog
+          message={`¿Borrar el aviso "${aviso?.title}"?`}
+          pending={remove.isPending}
+          onCancel={() => setConfirmingDelete(false)}
+          onConfirm={() => remove.mutate()}
+        />
+      )}
     </div>
   );
 }
 
+function addDays(date: string, n: number): string {
+  const d = new Date(`${date}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+type View = "mes" | "semana";
+
 export function CalendarioPage() {
   const today = todayCR();
-  const [year, setYear] = useState(Number(today.slice(0, 4)));
-  const [month, setMonth] = useState(Number(today.slice(5, 7)) - 1);
+  const [view, setView] = useState<View>("mes");
+  // Cualquier fecha dentro del período que se está viendo (mes o semana).
+  const [anchor, setAnchor] = useState(today);
   const [selected, setSelected] = useState<string | null>(today);
   const [menuOpen, setMenuOpen] = useState(false);
   const [creating, setCreating] = useState<CreateKind | null>(null);
+  const [openEvent, setOpenEvent] = useState<Event | null>(null);
+  const [openTask, setOpenTask] = useState<Task | null>(null);
+  const [openAviso, setOpenAviso] = useState<RecurringReminder | null>(null);
+  const completeTask = useCompleteTask();
 
+  const year = Number(anchor.slice(0, 4));
+  const month = Number(anchor.slice(5, 7)) - 1;
   const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
-  const monthStart = ymd(year, month, 1);
-  const monthEnd = ymd(year, month, daysInMonth);
-  const fromIso = `${monthStart}T00:00:00${CR_OFFSET}`;
-  const toIso = `${monthEnd}T23:59:59${CR_OFFSET}`;
 
-  const { data: events } = useQuery({ queryKey: ["events", "calendario", monthStart], queryFn: () => api.listEventsInRange(fromIso, toIso) });
-  const { data: tasks } = useQuery({ queryKey: ["tasks", "calendario", monthStart], queryFn: () => api.listTasksDueBetween(fromIso, toIso) });
+  // Rango visible: el mes completo, o los 7 días (domingo a sábado) de la semana del ancla.
+  const rangeStart = view === "mes" ? ymd(year, month, 1) : addDays(anchor, -weekdayOf(anchor));
+  const rangeEnd = view === "mes" ? ymd(year, month, daysInMonth) : addDays(rangeStart, 6);
+  const rangeDays = useMemo(() => {
+    const out: string[] = [];
+    for (let d = rangeStart; d <= rangeEnd; d = addDays(d, 1)) out.push(d);
+    return out;
+  }, [rangeStart, rangeEnd]);
+  const fromIso = `${rangeStart}T00:00:00${CR_OFFSET}`;
+  const toIso = `${rangeEnd}T23:59:59${CR_OFFSET}`;
+
+  const { data: events } = useQuery({ queryKey: ["events", "calendario", rangeStart, rangeEnd], queryFn: () => api.listEventsInRange(fromIso, toIso) });
+  const { data: tasks } = useQuery({ queryKey: ["tasks", "calendario", rangeStart, rangeEnd], queryFn: () => api.listTasksDueBetween(fromIso, toIso) });
+  const { data: allTasks } = useQuery({ queryKey: ["tasks"], queryFn: api.listTasks });
   const { data: reminders } = useQuery({ queryKey: ["reminders"], queryFn: api.listReminders });
   const { data: avisos } = useQuery({ queryKey: ["recurring-reminders"], queryFn: api.listRecurringReminders });
   const { data: lists } = useQuery({ queryKey: ["lists"], queryFn: api.listLists });
@@ -223,17 +282,17 @@ export function CalendarioPage() {
   const itemsByDay = useMemo(() => {
     const map = new Map<string, Item[]>();
     const add = (item: Item) => {
-      if (item.date < monthStart || item.date > monthEnd) return;
+      if (item.date < rangeStart || item.date > rangeEnd) return;
       map.set(item.date, [...(map.get(item.date) ?? []), item]);
     };
 
     for (const e of events ?? []) {
-      add({ key: `e-${e.id}`, kind: "evento", title: e.title, date: crDate(e.starts_at), time: e.all_day ? null : crTime(e.starts_at), note: e.location ?? undefined });
+      add({ key: `e-${e.id}`, kind: "evento", title: e.title, date: crDate(e.starts_at), time: e.all_day ? null : crTime(e.starts_at), note: e.location ?? undefined, event: e });
     }
     for (const t of tasks ?? []) {
       if (!t.due_date) continue;
       const time = crTime(t.due_date);
-      add({ key: `t-${t.id}`, kind: "tarea", title: t.title, date: crDate(t.due_date), time: time === "23:59" ? null : time, done: t.status === "done" });
+      add({ key: `t-${t.id}`, kind: "tarea", title: t.title, date: crDate(t.due_date), time: time === "23:59" ? null : time, done: t.status === "done", task: t });
     }
     // Recordatorios de eventos/tareas ya se ven a través de ellos: solo los sueltos.
     for (const r of reminders ?? []) {
@@ -244,11 +303,10 @@ export function CalendarioPage() {
       if (!a.active) continue;
       if (a.schedule_type === "once") {
         if (!a.scheduled_at) continue;
-        add({ key: `a-${a.id}`, kind: "aviso", title: a.title, date: crDate(a.scheduled_at), time: crTime(a.scheduled_at), done: new Date(a.scheduled_at) <= new Date() });
+        add({ key: `a-${a.id}`, kind: "aviso", title: a.title, date: crDate(a.scheduled_at), time: crTime(a.scheduled_at), done: new Date(a.scheduled_at) <= new Date(), aviso: a });
         continue;
       }
-      for (let d = 1; d <= daysInMonth; d++) {
-        const date = ymd(year, month, d);
+      for (const date of rangeDays) {
         if (a.frequency === "weekly" && weekdayOf(date) !== a.day_of_week) continue;
         add({
           key: `a-${a.id}-${date}`,
@@ -257,35 +315,46 @@ export function CalendarioPage() {
           date,
           time: a.frequency === "every_n_hours" ? null : a.time_of_day?.slice(0, 5) ?? null,
           note: a.frequency === "every_n_hours" ? `Cada ${a.interval_hours} h` : undefined,
+          aviso: a,
         });
       }
     }
     for (const list of map.values()) list.sort((x, y) => (x.time ?? "99:99").localeCompare(y.time ?? "99:99"));
     return map;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [events, tasks, reminders, avisos, year, month]);
+  }, [events, tasks, reminders, avisos, rangeStart, rangeEnd, rangeDays]);
 
-  function shiftMonth(delta: number) {
-    const d = new Date(Date.UTC(year, month + delta, 1));
-    setYear(d.getUTCFullYear());
-    setMonth(d.getUTCMonth());
+  function shift(delta: number) {
+    setAnchor(view === "mes" ? ymd(...(() => { const d = new Date(Date.UTC(year, month + delta, 1)); return [d.getUTCFullYear(), d.getUTCMonth(), 1] as [number, number, number]; })()) : addDays(anchor, 7 * delta));
     setSelected(null);
   }
   function goToday() {
-    setYear(Number(today.slice(0, 4)));
-    setMonth(Number(today.slice(5, 7)) - 1);
+    setAnchor(today);
     setSelected(today);
   }
+  function changeView(v: View) {
+    setView(v);
+    setAnchor(selected ?? (today >= rangeStart && today <= rangeEnd ? today : rangeStart));
+  }
 
-  const firstWeekday = weekdayOf(monthStart);
-  const cells: (string | null)[] = [
-    ...Array.from({ length: firstWeekday }, () => null),
-    ...Array.from({ length: daysInMonth }, (_, i) => ymd(year, month, i + 1)),
-  ];
+  const cells: (string | null)[] =
+    view === "mes"
+      ? [...Array.from({ length: weekdayOf(rangeStart) }, () => null), ...rangeDays]
+      : rangeDays;
 
-  // Sin día elegido: lista de todo el mes; con día elegido: solo ese día.
+  // Sin día elegido: lista de todo el período; con día elegido: solo ese día.
   const listDays = selected ? [selected] : [...itemsByDay.keys()].sort();
-  const createDate = selected ?? (today >= monthStart && today <= monthEnd ? today : monthStart);
+  const createDate = selected ?? (today >= rangeStart && today <= rangeEnd ? today : rangeStart);
+
+  const title =
+    view === "mes"
+      ? `${MONTHS[month]} ${year}`
+      : `${Number(rangeStart.slice(8))} ${MONTHS[Number(rangeStart.slice(5, 7)) - 1]} – ${Number(rangeEnd.slice(8))} ${MONTHS[Number(rangeEnd.slice(5, 7)) - 1]}`;
+
+  function openItem(item: Item) {
+    if (item.event) setOpenEvent(item.event);
+    else if (item.task) setOpenTask(item.task);
+    else if (item.aviso) setOpenAviso(item.aviso);
+  }
 
   const menu: { kind: CreateKind; label: string; hint: string }[] = [
     { kind: "evento", label: "Evento", hint: "con hora y avisos" },
@@ -293,6 +362,8 @@ export function CalendarioPage() {
     { kind: "aviso", label: "Aviso de Quicks", hint: "una vez o recurrente" },
     { kind: "rutina", label: "Rutina", hint: "se repite sola" },
   ];
+
+  const allTasksById = new Map((allTasks ?? []).map((t) => [t.id, t]));
 
   return (
     <div className="space-y-5">
@@ -333,19 +404,31 @@ export function CalendarioPage() {
       </div>
 
       <div className="bg-night-blue/40 backdrop-blur-md rounded-2xl border border-electric-cyan/10 p-4">
+        <div className="flex items-center justify-center gap-1 mb-3">
+          {(["mes", "semana"] as const).map((v) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => changeView(v)}
+              className={`text-xs font-medium rounded-lg px-3 py-1.5 transition-colors capitalize ${
+                view === v ? "bg-electric-cyan/15 text-electric-cyan" : "text-white/40 hover:text-white/70"
+              }`}
+            >
+              {v}
+            </button>
+          ))}
+        </div>
         <div className="flex items-center justify-between mb-3">
-          <button type="button" onClick={() => shiftMonth(-1)} className="px-3 py-1 text-white/60 hover:text-white" aria-label="Mes anterior">
+          <button type="button" onClick={() => shift(-1)} className="px-3 py-1 text-white/60 hover:text-white" aria-label="Anterior">
             ‹
           </button>
           <div className="text-center">
-            <p className="text-sm font-semibold text-white capitalize">
-              {MONTHS[month]} {year}
-            </p>
+            <p className="text-sm font-semibold text-white capitalize">{title}</p>
             <button type="button" onClick={goToday} className="text-xs text-electric-cyan/80 hover:text-electric-cyan">
               Hoy
             </button>
           </div>
-          <button type="button" onClick={() => shiftMonth(1)} className="px-3 py-1 text-white/60 hover:text-white" aria-label="Mes siguiente">
+          <button type="button" onClick={() => shift(1)} className="px-3 py-1 text-white/60 hover:text-white" aria-label="Siguiente">
             ›
           </button>
         </div>
@@ -393,15 +476,15 @@ export function CalendarioPage() {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-white/70">
-            {selected ? longDate(selected) : `Todo ${MONTHS[month]} ${year}`}
+            {selected ? longDate(selected) : view === "mes" ? `Todo ${MONTHS[month]} ${year}` : "Toda la semana"}
           </h2>
           {selected && (
             <button type="button" onClick={() => setSelected(null)} className="text-xs text-electric-cyan/80 hover:text-electric-cyan">
-              Ver todo el mes
+              {view === "mes" ? "Ver todo el mes" : "Ver toda la semana"}
             </button>
           )}
         </div>
-        {listDays.length === 0 || (!selected && itemsByDay.size === 0) ? (
+        {listDays.length === 0 ? (
           <p className="text-white/40 text-sm">No hay nada programado.</p>
         ) : (
           listDays.map((date) => {
@@ -411,16 +494,43 @@ export function CalendarioPage() {
               <section key={date}>
                 {!selected && <h3 className="text-xs font-semibold uppercase tracking-wide text-electric-cyan/80 mb-1.5">{longDate(date)}</h3>}
                 <ul className="bg-night-blue/40 rounded-2xl border border-electric-cyan/10 divide-y divide-white/5">
-                  {items.map((item) => (
-                    <li key={item.key} className="flex items-center gap-3 px-4 py-2.5">
-                      <span className="text-xs text-white/50 w-11 flex-shrink-0 tabular-nums">{item.time ?? "—"}</span>
-                      <span className={`flex-1 text-sm ${item.done ? "line-through text-white/30" : "text-white/90"}`}>
-                        {item.title}
-                        {item.note && <span className="block text-xs text-white/40">{item.note}</span>}
-                      </span>
-                      <span className={`text-[11px] rounded-full px-2 py-0.5 flex-shrink-0 ${KIND_STYLE[item.kind].chip}`}>{KIND_STYLE[item.kind].label}</span>
-                    </li>
-                  ))}
+                  {items.map((item) => {
+                    const clickable = !!(item.event || item.task || item.aviso);
+                    // Tareas y eventos que nacieron de una tarea: se marcan hechas desde acá.
+                    const linkedTask = item.task ?? (item.event?.task_id ? allTasksById.get(item.event.task_id) : undefined);
+                    return (
+                      <li key={item.key} className="flex items-center gap-3 px-4 py-2.5">
+                        {linkedTask ? (
+                          <input
+                            type="checkbox"
+                            checked={linkedTask.status === "done"}
+                            onChange={() => completeTask.request(linkedTask)}
+                            aria-label="Marcar como hecha"
+                            className="accent-electric-cyan w-4 h-4 flex-shrink-0"
+                          />
+                        ) : (
+                          <span className="w-4 flex-shrink-0" />
+                        )}
+                        <button
+                          type="button"
+                          disabled={!clickable}
+                          onClick={() => openItem(item)}
+                          className="flex flex-1 items-center gap-3 text-left min-w-0 disabled:cursor-default"
+                        >
+                          <span className="text-xs text-white/50 w-11 flex-shrink-0 tabular-nums">{item.time ?? "—"}</span>
+                          <span
+                            className={`flex-1 text-sm ${
+                              (linkedTask ? linkedTask.status === "done" : item.done) ? "line-through text-white/30" : "text-white/90"
+                            }`}
+                          >
+                            {item.title}
+                            {item.note && <span className="block text-xs text-white/40">{item.note}</span>}
+                          </span>
+                          <span className={`text-[11px] rounded-full px-2 py-0.5 flex-shrink-0 ${KIND_STYLE[item.kind].chip}`}>{KIND_STYLE[item.kind].label}</span>
+                        </button>
+                      </li>
+                    );
+                  })}
                 </ul>
               </section>
             );
@@ -430,8 +540,30 @@ export function CalendarioPage() {
 
       {creating === "evento" && <NewEventForm lists={lists ?? []} projects={projects ?? []} defaultDate={createDate} onClose={() => setCreating(null)} />}
       {creating === "tarea" && <NewTaskModal lists={lists ?? []} projects={projects ?? []} defaultDate={createDate} onClose={() => setCreating(null)} />}
-      {creating === "aviso" && <NewAvisoModal defaultDate={createDate} onClose={() => setCreating(null)} />}
+      {creating === "aviso" && <AvisoModal defaultDate={createDate} onClose={() => setCreating(null)} />}
       {creating === "rutina" && <NewRoutineModal lists={lists ?? []} defaultStartDate={createDate} onClose={() => setCreating(null)} />}
+
+      {openEvent && (
+        <EventDetail
+          event={openEvent}
+          reminder={(reminders ?? []).find((r) => r.event_id === openEvent.id)}
+          task={openEvent.task_id ? allTasksById.get(openEvent.task_id) : undefined}
+          onToggleDone={(task) => completeTask.request(task)}
+          onClose={() => setOpenEvent(null)}
+        />
+      )}
+      {openTask && <TaskDetail task={openTask} lists={lists ?? []} projects={projects ?? []} onClose={() => setOpenTask(null)} />}
+      {openAviso && <AvisoModal defaultDate={createDate} aviso={openAviso} onClose={() => setOpenAviso(null)} />}
+      {completeTask.pendingTask && (
+        <ConfirmDialog
+          message={`¿Marcar "${completeTask.pendingTask.title}" como hecha?`}
+          confirmLabel="Marcar hecha"
+          variant="success"
+          pending={completeTask.isPending}
+          onCancel={completeTask.cancel}
+          onConfirm={completeTask.confirm}
+        />
+      )}
     </div>
   );
 }
