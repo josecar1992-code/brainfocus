@@ -1412,3 +1412,14 @@ URL del webhook en Kapso (acción manual del usuario).
   por WhatsApp (status ok, delivered). Aprendizaje: un `fallbacks` no sirve para errores 400 de contenido; si otro cron que
   busca noticias/web con Qwen falla igual, ponerle modelo propio no-Qwen. Config en OpenClaw (VPS), no vive en el repo.
   Por confirmar: el disparo de mañana 8 AM con Gemini.
+- **Módulo nuevo: Calendario (13-nov-2026).** Pantalla `/calendario` (`apps/web/src/CalendarioPage.tsx`, entrada en `Sidebar.tsx`
+  y `App.tsx`; visible para todos, sin permiso opcional). Muestra en una cuadrícula mensual con puntos de color y en una lista
+  por día todo lo programado: **eventos** de Agenda, **tareas** con fecha límite, **recordatorios sueltos** (sin evento/tarea) y
+  **avisos de Quicks** del módulo Asistente (únicos, y recurrentes expandidos por día: diario, semanal, cada N horas). Tocar un
+  día filtra la lista a ese día; sin día elegido se ve todo el mes. El botón **+** crea Evento, Tarea, Aviso de Quicks o Rutina
+  con la fecha del día elegido precargada. Reutiliza los formularios existentes (`NewEventForm`, `NewTaskModal`,
+  `NewRoutineModal`, ahora con props opcionales `defaultDate`/`defaultStartDate`; `NewRoutineModal` se exportó) y el aviso tiene
+  un modal propio. Las rutinas no se expanden aparte: ya se ven por la tarea/evento de su próxima ocurrencia. Todas las fechas
+  se arman y muestran con offset `-06:00` / `timeZone: America/Costa_Rica` explícito (regla de CLAUDE.md), nunca con la zona
+  del navegador. `tsc` pasa; **por verificar visualmente y desplegar** (no se probó en navegador: requiere sesión).
+  Posibles mejoras: tocar un ítem para abrir su detalle/editar, vista semanal, marcar tareas desde el calendario.

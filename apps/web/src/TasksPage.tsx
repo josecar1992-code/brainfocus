@@ -76,12 +76,15 @@ export function NewTaskModal({
   projects,
   defaultListId,
   defaultProjectId,
+  defaultDate,
   onClose,
 }: {
   lists: List[];
   projects: Project[];
   defaultListId?: string;
   defaultProjectId?: string;
+  /** YYYY-MM-DD: fecha límite precargada (ej. desde el Calendario). */
+  defaultDate?: string;
   onClose: () => void;
 }) {
   const queryClient = useQueryClient();
@@ -96,7 +99,7 @@ export function NewTaskModal({
   const [crearRecordatorio, setCrearRecordatorio] = useState(true);
   const [crearRecordatorioHoraEvento, setCrearRecordatorioHoraEvento] = useState(true);
   // Independiente de crearEvento: una fecha límite sin crear nada en Agenda.
-  const [fechaEntrega, setFechaEntrega] = useState("");
+  const [fechaEntrega, setFechaEntrega] = useState(defaultDate ?? "");
   const [horaEntrega, setHoraEntrega] = useState("");
   const [error, setError] = useState<string | null>(null);
   const puedeAvisar2h = canRemindTwoHoursBefore(fecha, hora);

@@ -31,11 +31,14 @@ export function NewEventForm({
   lists,
   projects,
   defaultProjectId,
+  defaultDate,
   onClose,
 }: {
   lists: List[];
   projects: Project[];
   defaultProjectId?: string;
+  /** YYYY-MM-DD: fecha precargada (ej. desde el Calendario). */
+  defaultDate?: string;
   onClose: () => void;
 }) {
   const queryClient = useQueryClient();
@@ -44,7 +47,7 @@ export function NewEventForm({
   const [listId, setListId] = useState("");
   const [projectId, setProjectId] = useState(defaultProjectId ?? "");
   const [priority, setPriority] = useState<Task["priority"]>("normal");
-  const [date, setDate] = useState("");
+  const [date, setDate] = useState(defaultDate ?? "");
   const [time, setTime] = useState("");
   const [crearRecordatorio, setCrearRecordatorio] = useState(true);
   const [crearRecordatorioHoraEvento, setCrearRecordatorioHoraEvento] = useState(true);

@@ -259,7 +259,16 @@ function RoutineForm({
   );
 }
 
-function NewRoutineModal({ lists, onClose }: { lists: List[]; onClose: () => void }) {
+export function NewRoutineModal({
+  lists,
+  defaultStartDate,
+  onClose,
+}: {
+  lists: List[];
+  /** YYYY-MM-DD: inicio precargado (ej. desde el Calendario). */
+  defaultStartDate?: string;
+  onClose: () => void;
+}) {
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
 
@@ -282,6 +291,7 @@ function NewRoutineModal({ lists, onClose }: { lists: List[]; onClose: () => voi
         <h2 className="text-lg font-medium mb-3">Nueva rutina</h2>
         <RoutineForm
           lists={lists}
+          initial={defaultStartDate ? { start_date: defaultStartDate } : undefined}
           onSubmit={(input) => {
             setError(null);
             createRoutine.mutate(input);

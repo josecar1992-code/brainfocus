@@ -23,6 +23,7 @@ import { supabase } from "./supabaseClient";
 export type ModuleKey =
   | "hoy"
   | "tareas"
+  | "calendario"
   | "agenda"
   | "rutinas"
   | "proyectos"
@@ -38,6 +39,7 @@ export type ModuleKey =
 
 export const MODULES: { key: ModuleKey; label: string; icon: ComponentType<SVGProps<SVGSVGElement>> }[] = [
   { key: "hoy", label: "Hoy", icon: IconSun },
+  { key: "calendario", label: "Calendario", icon: IconCalendar },
   { key: "agenda", label: "Agenda", icon: IconCalendar },
   { key: "tareas", label: "Tareas", icon: IconCheckSquare },
   { key: "asistente", label: "Asistente", icon: IconRobot },

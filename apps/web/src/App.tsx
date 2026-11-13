@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { AgendaPage } from "./AgendaPage";
+import { CalendarioPage } from "./CalendarioPage";
 import { AsistentePage } from "./AsistentePage";
 import { ApiError, api, type Me } from "./api";
 import { ConsumosPage } from "./ConsumosPage";
@@ -116,6 +117,7 @@ export function App() {
           <div className="max-w-3xl mx-auto w-full">
             {current === "hoy" && <TodayPage />}
             {current === "tareas" && <TasksPage />}
+            {current === "calendario" && <CalendarioPage />}
             {current === "agenda" && <AgendaPage />}
             {current === "rutinas" && <RoutinesPage />}
             {current === "proyectos" && <ProjectsPage />}
