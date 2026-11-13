@@ -1403,3 +1403,12 @@ URL del webhook en Kapso (acción manual del usuario).
   (cada reinicio corta WhatsApp/Telegram ~3 min y el error "Cron receipt authority" reaparece al rato); hacerlo cuando haya otro
   motivo y entonces probar: "crea la categoría X" y "revisa si tengo avisos duplicados". El asistente de los demás usuarios ya las
   tiene. Variable nueva en el VPS: `BRAVE_API_KEY` en `apps/assistant/.env` (ya agregada; documentada en `.env.example`).
+- **Noticias de las 8 AM: segunda falla por moderación de Alibaba (13-nov-2026) y fix real.** El cron `e4fbe0b3…` volvió a
+  fallar con DashScope 400 *"Input data may contain inappropriate content"* (primera vez: 30-oct). Causa raíz: el fix del 30-oct
+  (`--fallbacks google/gemini-3.1-flash-lite`) estaba guardado pero **nunca se activa**: OpenClaw no hace failover de modelo ante
+  un 400 de moderación (journal: un solo intento con qwen3.7-plus, sin candidato de respaldo). La alerta por Telegram sí salió.
+  Fix: `openclaw cron edit e4fbe0b3-64fd-4794-ad64-45babdca4cd6 --model google/gemini-3.1-flash-lite`, es decir, Gemini como
+  modelo **principal** de este cron (Gemini no pasa por el filtro de Alibaba). Se ejecutó a mano y entregó las noticias de hoy
+  por WhatsApp (status ok, delivered). Aprendizaje: un `fallbacks` no sirve para errores 400 de contenido; si otro cron que
+  busca noticias/web con Qwen falla igual, ponerle modelo propio no-Qwen. Config en OpenClaw (VPS), no vive en el repo.
+  Por confirmar: el disparo de mañana 8 AM con Gemini.
