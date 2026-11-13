@@ -1465,3 +1465,12 @@ URL del webhook en Kapso (acción manual del usuario).
   el máximo de números) y ofrece "Verifica tu empresa" para subir los límites. Meta también reestructuró cuentas
   (WhatsApp account vs Messaging account, método de pago por messaging account). Siguiente paso: verificar el negocio en Meta
   o quitar el número sobrante, y/o contactar al soporte de Meta con el fbtrace_id del error.
+- **RESUELTO (13-nov-2026): WhatsApp saliente vuelve a funcionar tras quitar el número sobrante.** El portfolio de Meta
+  "QuickWash CR" tenía 3 números con un tope de 2 (negocio sin verificar). Se eliminó `+506 6455 6294` (cuenta de mensajería
+  "QuickWash CR", sin verificar y sin método de pago, que no se usaba); quedan Quicks `+506 6001 7515` y el de Quickwash
+  (6308 3397). Inmediatamente después, el mismo envío de prueba que fallaba con error 10 / subcódigo 2593181 devolvió un
+  `wamid` (aceptado por Meta). Causa raíz: exceso del límite de números del portfolio no verificado (el saldo de $0.22 era
+  un problema aparte, ya pagado). Efecto: el 13-nov entre ~17:00 y la corrección no salió ningún WhatsApp (se perdió el aviso
+  "Pagar Empleados Quickwash" de las 17:00; avisos y recordatorios de Kim y del dueño en ese lapso pudieron perderse).
+  Aprendizaje: si Meta devuelve error 10 con subcódigo 2593181, revisar primero el conteo de números del portfolio y la
+  verificación del negocio. Recomendado: verificar el negocio en Meta para subir el límite y evitar que se repita.
