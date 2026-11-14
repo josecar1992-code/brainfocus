@@ -1430,6 +1430,7 @@ URL del webhook en Kapso (acción manual del usuario).
   confirmación de `useCompleteTask` (mismo endpoint que Tareas/Agenda/Rutinas, así se refleja en todos); (3) selector
   Mes/Semana: la semana va de domingo a sábado, con navegación de 7 en 7 días, y el rango consultado a la API se ajusta a la
   vista. Fechas siempre en hora de Costa Rica explícita. `tsc` pasa; sigue pendiente verlo en navegador y desplegar.
+- **Calendario: tareas y eventos duplicados (13-nov-2026).** Una tarea con fecha crea un evento espejo (`event.task_id`), y el Calendario listaba tanto el evento como la tarea. Causa raíz: se consultaban `listEventsInRange` y `listTasksDueBetween` por separado sin cruzar. Fix en `CalendarioPage.tsx`: si un evento del rango referencia la tarea, se omite la tarea y se muestra solo el evento (que ya trae el checkbox de hecha).
 - **Investigado (13-nov-2026): falló el aviso de la rutina "Pagar Empleados Quickwash" (17:00).** El cron OpenClaw
   `25848cfc…` (`brainfocus:reminder:c588ccbd…`, entrega `announce → kapso-whatsapp`) corrió a tiempo y Quicks armó bien el texto,
   pero el envío por WhatsApp falló con *"Application does not have permission for this action"* (código Meta/Kapso **10**);

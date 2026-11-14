@@ -289,8 +289,10 @@ export function CalendarioPage() {
     for (const e of events ?? []) {
       add({ key: `e-${e.id}`, kind: "evento", title: e.title, date: crDate(e.starts_at), time: e.all_day ? null : crTime(e.starts_at), note: e.location ?? undefined, event: e });
     }
+    // Una tarea con fecha crea un evento espejo (event.task_id): se muestra solo el evento.
+    const taskIdsConEvento = new Set((events ?? []).map((e) => e.task_id).filter(Boolean));
     for (const t of tasks ?? []) {
-      if (!t.due_date) continue;
+      if (!t.due_date || taskIdsConEvento.has(t.id)) continue;
       const time = crTime(t.due_date);
       add({ key: `t-${t.id}`, kind: "tarea", title: t.title, date: crDate(t.due_date), time: time === "23:59" ? null : time, done: t.status === "done", task: t });
     }
