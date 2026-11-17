@@ -1496,3 +1496,14 @@ URL del webhook en Kapso (acción manual del usuario).
   Telegram (el workflow sigue "activo", por eso nadie se enteró). Pendiente (requiere al dueño): reconectar la credencial en
   n8n (login de Google). Sospecha de causa raíz: la app OAuth de Google Cloud en modo "Testing" (los refresh tokens vencen a
   los 7 días) — publicarla a producción evita que se repita. Mejora pendiente: avisar por Telegram cuando el trigger falle.
+
+- **Aviso correo Poder Judicial: reconectado + 2 mejoras (17-nov-2026).** Reconectada la credencial Gmail por el dueño (15:17
+  UTC); el trigger recogió el correo de hoy y avisó por WhatsApp. (1) El mensaje decía `De: [object Object]` porque
+  `$json.from` del Gmail Trigger (`simple:false`) es un objeto `{text, value[]}`: ahora usa `$json.from.text` en los dos nodos
+  de aviso. (2) Workflow nuevo `errorAvisoPJ01` "Error aviso correo Poder Judicial" (Error Trigger → limita a 1 alerta cada 6 h
+  → Telegram con el mismo bot `@Avisocorreo_bot`), asignado como `errorWorkflow` del principal: si el trigger vuelve a fallar
+  llega un Telegram en vez de pasar días en silencio. Ambos cambios se hicieron por SQL en `/opt/n8n/n8n_data/database.sqlite`
+  (nodes en `workflow_entity` + `workflow_history` de la versión activa) con n8n detenido unos segundos; backups
+  `database.sqlite.bak-20261117b` en ese mismo directorio. Sin verificar de punta a punta: que n8n dispare el workflow de error
+  ante una falla de *polling* (solo se probó el envío de Telegram). Sigue pendiente del dueño: pasar la app OAuth de Google
+  Cloud de "Testing" a "Producción" para que el permiso no venza cada 7 días.
