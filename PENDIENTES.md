@@ -1475,3 +1475,16 @@ URL del webhook en Kapso (acción manual del usuario).
   "Pagar Empleados Quickwash" de las 17:00; avisos y recordatorios de Kim y del dueño en ese lapso pudieron perderse).
   Aprendizaje: si Meta devuelve error 10 con subcódigo 2593181, revisar primero el conteo de números del portfolio y la
   verificación del negocio. Recomendado: verificar el negocio en Meta para subir el límite y evitar que se repita.
+
+- **Arreglado (17-nov-2026): Quicks no podía enviar la cédula (ni ningún documento) por WhatsApp.** Síntoma: Quicks decía
+  "enviado" pero no llegaba nada. Diagnóstico en Kapso: los 3 envíos quedaron `failed`, error Meta **131053** "Media upload
+  error — Downloading media from weblink failed with http code 400". Causa raíz: `enviar_documento` devolvía la URL
+  firmada de Supabase (`...?token=eyJ...`) y **OpenClaw tapa el valor de `token=` con `***`** antes de que el modelo vea el
+  resultado; Quicks reenviaba esa URL ya con `token=***` (el enlace guardado en Kapso tenía literalmente `***`), Supabase
+  respondía 400 y Meta no podía bajar el archivo. Además el nombre del adjunto era el UUID, sin extensión. Fix: la API ahora
+  entrega su propio enlace `https://api.focusbraincr.com/public/doc/<id>.<exp>.<firma>/<nombre>.pdf` — firma HMAC en la
+  **ruta** (sin parámetro `token`), vence a los 10 min, con nombre de archivo con extensión. Vive en
+  `apps/api/src/services/documentLinks.ts`, `GET /documents/:id/download-url` y la ruta pública `publicDocumentRouter`
+  (`apps/api/src/routes/documents.ts`, montada en `/public` antes de `authenticate` en `index.ts`). Sirve igual al asistente
+  de Kim (misma URL). Aprendizaje: nunca entregar a OpenClaw URLs cuya credencial vaya en un parámetro con nombre de
+  secreto (`token`, `key`...); se redacta y el agente la copia rota.

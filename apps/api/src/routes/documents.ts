@@ -4,6 +4,7 @@ import multer from "multer";
 import { z } from "zod";
 import { requireScope } from "../middleware/auth.js";
 import { logAgentAction } from "../services/agentActions.js";
+import { buildDocumentLink, verifyDocumentLink } from "../services/documentLinks.js";
 import { findForeignRef } from "../utils/ownedRefs.js";
 import { supabaseAdmin } from "../supabaseClient.js";
 import { parseLimit } from "../utils/pagination.js";
@@ -80,7 +81,9 @@ documentsRouter.get("/:id/download-url", requireScope("documents:read"), async (
       .createSignedUrl(doc.storage_path, SIGNED_URL_TTL_SECONDS);
     if (signError) throw signError;
 
-    res.json({ url: signed.signedUrl, name: doc.name, mime_type: doc.mime_type, size: doc.size });
+    // La URL que se entrega es la nuestra (firma en la ruta, ver services/documentLinks.ts), no la de Supabase: su
+    // `?token=` lo tapa OpenClaw con "***" y Meta no podía descargar el archivo. La de Supabase sigue usándose por dentro.
+    res.json({ url: buildDocumentLink(doc.id, doc.name, doc.mime_type), name: doc.name, mime_type: doc.mime_type, size: doc.size });
   } catch (err) {
     next(err);
   }
@@ -185,6 +188,26 @@ documentsRouter.delete("/:id", requireScope("documents:write"), async (req, res,
 
     await logAgentAction(req.auth!, "documents.delete", "documents", req.params.id, null);
     res.status(204).send();
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Ruta PÚBLICA (sin authenticate; la firma HMAC de la ruta es la credencial): sirve el archivo a quien lo reenvía por
+// WhatsApp (Meta descarga desde esta URL). Vence a los 10 min. El nombre final es solo cosmético (extensión).
+export const publicDocumentRouter = Router();
+publicDocumentRouter.get("/doc/:payload/:filename", async (req, res, next) => {
+  try {
+    const docId = verifyDocumentLink(req.params.payload);
+    if (!docId) return res.status(404).json({ error: "Enlace inválido o vencido" });
+    const { data: doc, error } = await supabaseAdmin.from("documents").select("storage_path, mime_type").eq("id", docId).maybeSingle();
+    if (error) throw error;
+    if (!doc) return res.status(404).json({ error: "No encontrado" });
+    const { data: blob, error: dlError } = await supabaseAdmin.storage.from(BUCKET).download(doc.storage_path);
+    if (dlError || !blob) throw dlError ?? new Error("No se pudo leer el archivo");
+    res.setHeader("Content-Type", doc.mime_type ?? "application/octet-stream");
+    res.setHeader("Cache-Control", "private, no-store");
+    res.send(Buffer.from(await blob.arrayBuffer()));
   } catch (err) {
     next(err);
   }

@@ -10,7 +10,7 @@ import { errorHandler } from "./middleware/errorHandler.js";
 import { adminRouter } from "./routes/admin.js";
 import { apiKeysRouter } from "./routes/apiKeys.js";
 import { consumosRouter } from "./routes/consumos.js";
-import { documentsRouter } from "./routes/documents.js";
+import { documentsRouter, publicDocumentRouter } from "./routes/documents.js";
 import { eventsRouter } from "./routes/events.js";
 import { exerciseRouter } from "./routes/exercise.js";
 import { listsRouter } from "./routes/lists.js";
@@ -45,6 +45,9 @@ app.use(cors({ origin: env.corsOrigins }));
 app.use(express.json());
 
 app.get("/health", (_req, res) => res.json({ ok: true }));
+
+// Descarga de documentos por enlace firmado (sin sesión): para que Meta baje el archivo al reenviarlo por WhatsApp.
+app.use("/public", publicDocumentRouter);
 
 // Todo lo demás requiere identidad (JWT de usuario o API key de agente)
 app.use(authenticate);
