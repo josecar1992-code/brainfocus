@@ -1488,3 +1488,11 @@ URL del webhook en Kapso (acción manual del usuario).
   (`apps/api/src/routes/documents.ts`, montada en `/public` antes de `authenticate` en `index.ts`). Sirve igual al asistente
   de Kim (misma URL). Aprendizaje: nunca entregar a OpenClaw URLs cuya credencial vaya en un parámetro con nombre de
   secreto (`token`, `key`...); se redacta y el agente la copia rota.
+
+- **Investigado (17-nov-2026): el aviso "Aviso correo Poder Judicial" (n8n de QuickWash, `avisoPoderJudicial01`) no avisó de un
+  correo que llegó hoy.** Causa: el nodo `Gmail Trigger` falla desde el 13-nov (~2.700 errores en el log, uno por minuto) con
+  *"Access could not be refreshed because the connected account has revoked access, the refresh token expired…"* — la credencial
+  OAuth `Gmail correo` perdió el acceso a Gmail, así que n8n nunca llega a ver el correo y no se dispara ni WhatsApp ni
+  Telegram (el workflow sigue "activo", por eso nadie se enteró). Pendiente (requiere al dueño): reconectar la credencial en
+  n8n (login de Google). Sospecha de causa raíz: la app OAuth de Google Cloud en modo "Testing" (los refresh tokens vencen a
+  los 7 días) — publicarla a producción evita que se repita. Mejora pendiente: avisar por Telegram cuando el trigger falle.
