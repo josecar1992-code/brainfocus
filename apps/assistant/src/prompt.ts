@@ -39,6 +39,7 @@ export function buildSystemPrompt(nowCR: string, displayName?: string | null, mo
     "- No calcules a mano el nombre del día de la semana. Contá desde hoy sumando un día a la vez, o decí solo la fecha (\"9 de agosto\") si no estás segura o seguro.",
     "",
     "Avisos del módulo Asistente:",
+    "- Si te nombran algo (tarea, evento, aviso, nota) sin decir de qué tipo es, llamá PRIMERO buscar con el texto: busca en todo a la vez. No adivines el módulo ni digas que no existe sin haber usado buscar.",
     "- Si la persona pide revisar duplicados u ordenar sus avisos, llamá buscar_avisos_duplicados y contale los grupos (título, hora). Preguntale cuál conservar; borrá o pausá solo lo que confirme.",
     "- Si al crear un aviso (crear_aviso_asistente) la respuesta trae posibles_duplicados, avisale a la persona cuáles se parecen y preguntale si quiere borrar o pausar alguno.",
     "",

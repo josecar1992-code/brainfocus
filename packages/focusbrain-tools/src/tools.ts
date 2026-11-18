@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { CR_OFFSET, formatReminderTitle, horaActualCR, hoyEnCR, isoACostaRica, TWO_HOURS_MS } from "@brainfocus/shared-time";
 import { z } from "zod";
+import { coincide } from "./busqueda.js";
 import { findSimilarAvisos, similarTo } from "./duplicates.js";
 import { apiRequest, apiUpload } from "./apiClient.js";
 
@@ -216,20 +217,91 @@ export const tools = {
         estado: { type: "string", enum: ["pending", "in_progress", "done"] },
         fecha_inicio: { type: "string", description: "YYYY-MM-DD (día de Costa Rica), opcional." },
         fecha_fin: { type: "string", description: "YYYY-MM-DD (día de Costa Rica), opcional, inclusive." },
+        busqueda: { type: "string", description: "Texto a buscar en el título (sin importar mayúsculas/tildes/orden). Opcional." },
       },
     },
     argsSchema: z.object({
       estado: z.enum(["pending", "in_progress", "done"]).optional(),
       fecha_inicio: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
       fecha_fin: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+      busqueda: z.string().optional(),
     }),
-    handler: async (args: { estado?: string; fecha_inicio?: string; fecha_fin?: string }) => {
-      const params = new URLSearchParams({ limit: "50", fields: "id,title,status,due_date" });
+    handler: async (args: { estado?: string; fecha_inicio?: string; fecha_fin?: string; busqueda?: string }) => {
+      const params = new URLSearchParams({ limit: args.busqueda ? "1000" : "50", fields: "id,title,status,due_date" });
       if (args.estado) params.set("status", args.estado);
       if (args.fecha_inicio) params.set("due_date_gte", `${args.fecha_inicio}T00:00:00${CR_OFFSET}`);
       if (args.fecha_fin) params.set("due_date_lte", `${args.fecha_fin}T23:59:59${CR_OFFSET}`);
-      const tareas = await apiRequest<Task[]>(`/tasks?${params.toString()}`);
+      let tareas = await apiRequest<Task[]>(`/tasks?${params.toString()}`);
+      if (args.busqueda) tareas = tareas.filter((t) => coincide(args.busqueda!, t.title)).slice(0, 50);
       return tareas.map((t) => ({ ...t, due_date_costa_rica: t.due_date ? isoACostaRica(t.due_date) : null }));
+    },
+  },
+
+  buscar: {
+    description:
+      "Búsqueda GENERAL por texto en todo a la vez: tareas, eventos de la Agenda, recordatorios, avisos del Asistente, " +
+      "rutinas y notas (sin importar mayúsculas, tildes ni orden de palabras). USALA PRIMERO cuando te digan el nombre de " +
+      "algo ('marcá como hecha lo de Yale', 'borrá el de la cita') y no sepas de qué tipo es — una sola llamada en vez de " +
+      "listar cada módulo. Devuelve por tipo los que coinciden, con su id (úsalo luego con completar_tarea, " +
+      "editar_evento, etc.). Tareas y eventos: busca en los pendientes/próximos y en los últimos 30 días; pasá " +
+      "`incluir_hechas` si buscás algo ya completado.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        texto: { type: "string", description: "Palabra o frase a buscar, ej. 'yale' o 'escribirle al de yale'." },
+        incluir_hechas: { type: "boolean", description: "Incluir tareas ya completadas. Default: no." },
+      },
+      required: ["texto"],
+    },
+    argsSchema: z.object({ texto: z.string().min(1), incluir_hechas: z.boolean().optional() }),
+    handler: async (args: { texto: string; incluir_hechas?: boolean }) => {
+      const hace30 = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+      const valor = (r: PromiseSettledResult<unknown>) => (r.status === "fulfilled" ? r.value : null);
+      const fuentes = await Promise.allSettled([
+        apiRequest<Task[]>("/tasks?limit=1000&fields=id,title,status,due_date"),
+        apiRequest<(Event & { description?: string | null })[]>(
+          `/events?limit=500&fields=id,title,description,starts_at,task_id&starts_at_gte=${hace30}T00:00:00${CR_OFFSET}`,
+        ),
+        apiRequest<Reminder[]>("/reminders?limit=500"),
+        apiRequest<RecurringReminder[]>("/recurring-reminders?limit=100"),
+        apiRequest<Routine[]>("/routines"),
+        apiRequest<Note[]>("/notes?limit=200"),
+      ]);
+      const [tareas, eventos, recordatorios, avisos, rutinas, notas] = [
+        valor(fuentes[0]) as Task[] | null,
+        valor(fuentes[1]) as (Event & { description?: string | null })[] | null,
+        valor(fuentes[2]) as Reminder[] | null,
+        valor(fuentes[3]) as RecurringReminder[] | null,
+        valor(fuentes[4]) as Routine[] | null,
+        valor(fuentes[5]) as Note[] | null,
+      ];
+      const t = args.texto;
+      const resultado = {
+        tareas: (tareas ?? [])
+          .filter((x) => (args.incluir_hechas || x.status !== "done") && coincide(t, x.title))
+          .slice(0, 20)
+          .map((x) => ({ id: x.id, titulo: x.title, estado: x.status, fecha_limite_costa_rica: x.due_date ? isoACostaRica(x.due_date) : null })),
+        eventos: (eventos ?? [])
+          .filter((x) => coincide(t, x.title, x.description))
+          .slice(0, 20)
+          .map((x) => ({ id: x.id, titulo: x.title, inicia_costa_rica: isoACostaRica(x.starts_at), tarea_ligada_id: (x as { task_id?: string | null }).task_id ?? null })),
+        recordatorios: (recordatorios ?? [])
+          .filter((x) => coincide(t, x.title))
+          .slice(0, 20)
+          .map((x) => ({ id: x.id, titulo: x.title, avisa_costa_rica: isoACostaRica(x.remind_at), enviado: !!x.sent_at })),
+        avisos_asistente: (avisos ?? [])
+          .filter((x) => coincide(t, x.title))
+          .slice(0, 20)
+          .map((x) => ({ id: x.id, titulo: x.title, tipo: x.schedule_type, hora: x.time_of_day, activo: x.active })),
+        rutinas: (rutinas ?? []).filter((x) => coincide(t, x.title)).slice(0, 20).map((x) => ({ id: x.id, titulo: x.title, frecuencia: x.frequency })),
+        notas: (notas ?? [])
+          .filter((x) => coincide(t, x.title, x.content))
+          .slice(0, 10)
+          .map((x) => ({ id: x.id, titulo: x.title, extracto: (x.content ?? "").slice(0, 120) })),
+      };
+      const sin_acceso = ["tareas", "eventos", "recordatorios", "avisos_asistente", "rutinas", "notas"].filter((_, i) => fuentes[i].status === "rejected");
+      const total = Object.values(resultado).reduce((n, a) => n + a.length, 0);
+      return { texto: t, total, ...resultado, ...(sin_acceso.length ? { no_se_pudo_consultar: sin_acceso } : {}) };
     },
   },
 
@@ -702,13 +774,15 @@ export const tools = {
       properties: {
         fecha_inicio: { type: "string", description: "YYYY-MM-DD (día de Costa Rica), opcional. Default: hoy." },
         fecha_fin: { type: "string", description: "YYYY-MM-DD (día de Costa Rica), opcional, inclusive." },
+        busqueda: { type: "string", description: "Texto a buscar en título/descripción (sin importar mayúsculas/tildes/orden). Opcional." },
       },
     },
     argsSchema: z.object({
       fecha_inicio: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
       fecha_fin: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+      busqueda: z.string().optional(),
     }),
-    handler: async (args: { fecha_inicio?: string; fecha_fin?: string }) => {
+    handler: async (args: { fecha_inicio?: string; fecha_fin?: string; busqueda?: string }) => {
       const desde = args.fecha_inicio ?? hoyEnCR();
       const params = new URLSearchParams({
         limit: "100",
@@ -716,7 +790,8 @@ export const tools = {
         starts_at_gte: `${desde}T00:00:00${CR_OFFSET}`,
       });
       if (args.fecha_fin) params.set("starts_at_lte", `${args.fecha_fin}T23:59:59${CR_OFFSET}`);
-      const eventos = await apiRequest<Event[]>(`/events?${params.toString()}`);
+      let eventos = await apiRequest<(Event & { description?: string | null })[]>(`/events?${params.toString()}`);
+      if (args.busqueda) eventos = eventos.filter((e) => coincide(args.busqueda!, e.title, e.description));
       return eventos.map((e) => ({ ...e, starts_at_costa_rica: isoACostaRica(e.starts_at) }));
     },
   },

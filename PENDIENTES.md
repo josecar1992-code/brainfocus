@@ -1507,3 +1507,14 @@ URL del webhook en Kapso (acción manual del usuario).
   `database.sqlite.bak-20261117b` en ese mismo directorio. Sin verificar de punta a punta: que n8n dispare el workflow de error
   ante una falla de *polling* (solo se probó el envío de Telegram). Sigue pendiente del dueño: pasar la app OAuth de Google
   Cloud de "Testing" a "Producción" para que el permiso no venza cada 7 días.
+
+- **Nueva herramienta `buscar` + filtro `busqueda` en tareas/eventos (18-nov-2026).** Origen: el dueño le pidió a Quicks "marca como
+  hecha: escribirle al de Yale 9am" y Quicks dijo que no existía. Causa raíz: `listar_tareas` no tenía filtro por texto (Quicks
+  pasó `query:"Yale"`, el esquema zod lo descartó en silencio y devolvió las 50 tareas más viejas, así que pareció "no hay nada");
+  tampoco había búsqueda en eventos/recordatorios/avisos/rutinas, y el título vivía en un evento. Fix en
+  `packages/focusbrain-tools`: (1) `buscar({texto, incluir_hechas?})` busca a la vez en tareas, eventos (desde hace 30 días),
+  recordatorios, avisos del Asistente, rutinas y notas, tolerante a mayúsculas, tildes y orden de palabras (`busqueda.ts`:
+  filtra en la herramienta porque ILIKE de la API no ignora tildes); si un módulo no está habilitado para el usuario, lo omite y
+  lo reporta en `no_se_pudo_consultar`. (2) `listar_tareas` y `listar_eventos` aceptan `busqueda`. (3) El prompt del asistente de
+  Kim indica usar `buscar` primero. Aprendizaje: un parámetro que el esquema no declara se ignora sin error — el modelo cree que
+  filtró. Pendiente: reiniciar `openclaw.service` para que Quicks vea la herramienta nueva (decisión del dueño).
