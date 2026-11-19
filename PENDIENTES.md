@@ -1572,3 +1572,7 @@ URL del webhook en Kapso (acción manual del usuario).
     widget de calibración del reloj, dashboard con Recharts, export PDF), recordatorios periódicos de peso/presión
     reusando `recurring_reminders` con `is_instruction: true`, y las tools de Quicks (`registrar_peso`,
     `registrar_presion`, etc.) en `packages/focusbrain-tools`.
+  - Desplegado en producción (19-nov-2026): migración corrida en el SQL Editor de Supabase (las 4 tablas, índices y
+    políticas RLS). El Dockerfile de `apps/api` solo compilaba `packages/shared-time` antes de la app — el primer
+    build falló con `Cannot find module '@brainfocus/focusbrain-health'`; se agregó el mismo paso (copiar + `npm
+    install && npm run build`) para el paquete nuevo. Verificado con `/health` 200 y logs limpios tras el rebuild.
