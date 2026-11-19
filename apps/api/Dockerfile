@@ -9,6 +9,12 @@ WORKDIR /app
 COPY packages/shared-time ./packages/shared-time
 RUN npm --prefix packages/shared-time install && npm --prefix packages/shared-time run build
 
+# Mismo motivo que shared-time: paquete de cálculos clínicos del módulo Salud
+# (packages/focusbrain-health), referenciado por apps/api/package.json como
+# file:../../packages/focusbrain-health.
+COPY packages/focusbrain-health ./packages/focusbrain-health
+RUN npm --prefix packages/focusbrain-health install && npm --prefix packages/focusbrain-health run build
+
 COPY apps/api/package.json apps/api/package-lock.json ./apps/api/
 # npm ci instala EXACTAMENTE lo que fija package-lock.json (antes: install solo con
 # package.json, que resolvia versiones distintas segun la fecha del build y dejaba
@@ -24,6 +30,8 @@ WORKDIR /app
 ENV NODE_ENV=production
 COPY packages/shared-time/package.json ./packages/shared-time/package.json
 COPY --from=build /app/packages/shared-time/dist ./packages/shared-time/dist
+COPY packages/focusbrain-health/package.json ./packages/focusbrain-health/package.json
+COPY --from=build /app/packages/focusbrain-health/dist ./packages/focusbrain-health/dist
 COPY apps/api/package.json apps/api/package-lock.json ./apps/api/
 RUN npm --prefix apps/api ci --omit=dev --legacy-peer-deps
 COPY --from=build /app/apps/api/dist ./apps/api/dist
