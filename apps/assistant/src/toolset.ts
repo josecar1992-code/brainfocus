@@ -47,6 +47,11 @@ const TOOL_MODULE: Record<string, string> = {
   listar_mantenimientos: "vehiculos",
   registrar_kilometraje: "vehiculos",
   listar_kilometrajes: "vehiculos",
+  listar_perfiles_salud: "salud",
+  registrar_peso: "salud",
+  listar_peso: "salud",
+  registrar_presion: "salud",
+  listar_presion: "salud",
 };
 
 export interface ApiAccess {

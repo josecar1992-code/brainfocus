@@ -251,6 +251,15 @@ export function IconRobot(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+export function IconHeart(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <path d="M12 20.5s-7.5-4.6-9.8-9.4C.7 7.7 2.4 4 6 4c2.1 0 3.6 1.1 6 3.6C14.4 5.1 15.9 4 18 4c3.6 0 5.3 3.7 3.8 7.1-2.3 4.8-9.8 9.4-9.8 9.4Z" />
+      <path d="M8 11h2.3l1.2-2.2 1.8 4.4L14.5 11H16" />
+    </Icon>
+  );
+}
+
 export function IconUsers(props: SVGProps<SVGSVGElement>) {
   return (
     <Icon {...props}>

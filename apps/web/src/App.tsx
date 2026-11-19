@@ -22,6 +22,7 @@ import { supabase } from "./supabaseClient";
 import { TasksPage } from "./TasksPage";
 import { useModuleRoute } from "./useModuleRoute";
 import { VehiclesPage } from "./VehiclesPage";
+import { HealthPage } from "./HealthPage";
 
 type AccessState = "checking" | "granted";
 
@@ -125,6 +126,7 @@ export function App() {
             {current === "listas" && <ChecklistsPage />}
             {current === "documentos" && <DocumentsPage />}
             {current === "vehiculos" && <VehiclesPage />}
+            {current === "salud" && <HealthPage />}
             {current === "consumos" && <ConsumosPage />}
             {current === "usuarios" && <AdminPage />}
             {current === "resumen" && <ResumenPage />}

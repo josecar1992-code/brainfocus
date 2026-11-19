@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@brainfocus/focusbrain-health": "file:../../packages/focusbrain-health",
     "@brainfocus/shared-time": "file:../../packages/shared-time",
     "@supabase/supabase-js": "^2.45.0",
     "@tanstack/react-query": "^5.51.0",

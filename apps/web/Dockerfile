@@ -6,6 +6,10 @@ WORKDIR /app
 COPY packages/shared-time ./packages/shared-time
 RUN npm --prefix packages/shared-time install && npm --prefix packages/shared-time run build
 
+# Mismo motivo: cálculos clínicos del módulo Salud (HealthPage.tsx usa classifyBloodPressure).
+COPY packages/focusbrain-health ./packages/focusbrain-health
+RUN npm --prefix packages/focusbrain-health install && npm --prefix packages/focusbrain-health run build
+
 COPY apps/web/package.json ./apps/web/package.json
 # --legacy-peer-deps: ver apps/api/Dockerfile, mismo bug de npm 10.x
 # resolviendo peers de devDependencies (vitest y su cadena @vitejs/devtools-*).

@@ -181,6 +181,125 @@ export interface NewMileageLog {
   logged_at?: string;
 }
 
+export interface HealthProfile {
+  id: string;
+  name: string;
+  birth_date: string;
+  is_medicated: boolean;
+  target_weight_kg: number | null;
+  current_weight_kg: number | null;
+  watch_calibration_enabled: boolean;
+  last_watch_calibration: string | null;
+  weight_reminder_enabled: boolean;
+  weight_reminder_day_of_week: number | null;
+  weight_reminder_time: string | null;
+  bp_reminder_enabled: boolean;
+  bp_reminder_frequency: "daily" | "weekly" | null;
+  bp_reminder_day_of_week: number | null;
+  bp_reminder_time: string | null;
+  created_by: "user" | "agent";
+  created_at: string;
+}
+
+export interface NewHealthProfile {
+  name: string;
+  birth_date: string;
+  is_medicated?: boolean;
+  target_weight_kg?: number | null;
+  current_weight_kg?: number | null;
+  watch_calibration_enabled?: boolean;
+  last_watch_calibration?: string | null;
+  weight_reminder_enabled?: boolean;
+  weight_reminder_day_of_week?: number | null;
+  weight_reminder_time?: string | null;
+  bp_reminder_enabled?: boolean;
+  bp_reminder_frequency?: "daily" | "weekly" | null;
+  bp_reminder_day_of_week?: number | null;
+  bp_reminder_time?: string | null;
+}
+
+export interface WeightLog {
+  id: string;
+  profile_id: string;
+  weight_kg: number;
+  logged_at: string;
+  created_by: "user" | "agent";
+}
+
+export interface NewWeightLog {
+  profile_id: string;
+  weight_kg: number;
+  logged_at?: string;
+}
+
+export type MeasurementContext = "fasting_rest" | "pre_dinner" | "post_meal" | "post_workout" | "with_symptoms" | "watch_calibration";
+export type BPClassificationStatus = "hypotension" | "optimal" | "elevated" | "stage_1" | "stage_2" | "crisis";
+
+export interface BpReading {
+  id: string;
+  profile_id: string;
+  timestamp: string;
+  systolic: number;
+  diastolic: number;
+  pulse: number;
+  irregular_heartbeat: boolean;
+  arm_movement: boolean;
+  map: number;
+  pulse_pressure: number;
+  classification: BPClassificationStatus;
+  context: MeasurementContext;
+  is_averaged_reading: boolean;
+  weight_snapshot_kg: number | null;
+  symptoms: string[] | null;
+  notes: string | null;
+  created_by: "user" | "agent";
+}
+
+export interface NewBpReading {
+  profile_id: string;
+  timestamp?: string;
+  systolic: number;
+  diastolic: number;
+  pulse: number;
+  irregular_heartbeat?: boolean;
+  arm_movement?: boolean;
+  context: MeasurementContext;
+  is_averaged_reading?: boolean;
+  weight_snapshot_kg?: number | null;
+  symptoms?: string[];
+  notes?: string | null;
+}
+
+export interface BodyCompositionLog {
+  id: string;
+  profile_id: string;
+  logged_at: string;
+  source: string | null;
+  weight_kg: number | null;
+  body_fat_pct: number | null;
+  muscle_mass_kg: number | null;
+  bone_mass_kg: number | null;
+  body_water_pct: number | null;
+  visceral_fat_level: number | null;
+  bmr_kcal: number | null;
+  bmi: number | null;
+  created_by: "user" | "agent";
+}
+
+export interface NewBodyCompositionLog {
+  profile_id: string;
+  logged_at?: string;
+  source?: string;
+  weight_kg?: number | null;
+  body_fat_pct?: number | null;
+  muscle_mass_kg?: number | null;
+  bone_mass_kg?: number | null;
+  body_water_pct?: number | null;
+  visceral_fat_level?: number | null;
+  bmr_kcal?: number | null;
+  bmi?: number | null;
+}
+
 // Aviso del módulo Asistente — único (una vez) o recurrente (periódico, sin
 // tarea ni historial de ocurrencias, distinto de una rutina que sí genera
 // tarea+evento por ocurrencia). `is_instruction` cambia cómo se arma el
@@ -603,6 +722,32 @@ export const api = {
   createMileageLog: (input: NewMileageLog) =>
     request<VehicleMileageLog>("/vehicle-mileage", { method: "POST", body: JSON.stringify(input) }),
   deleteMileageLog: (id: string) => request<void>(`/vehicle-mileage/${id}`, { method: "DELETE" }),
+
+  listHealthProfiles: () => request<HealthProfile[]>("/health-profiles?limit=50"),
+  createHealthProfile: (input: NewHealthProfile) =>
+    request<HealthProfile>("/health-profiles", { method: "POST", body: JSON.stringify(input) }),
+  updateHealthProfile: (id: string, input: Partial<NewHealthProfile>) =>
+    request<HealthProfile>(`/health-profiles/${id}`, { method: "PATCH", body: JSON.stringify(input) }),
+  deleteHealthProfile: (id: string) => request<void>(`/health-profiles/${id}`, { method: "DELETE" }),
+
+  listWeightLogs: (profileId: string) => request<WeightLog[]>(`/weight-logs?profile_id=${profileId}&limit=200`),
+  createWeightLog: (input: NewWeightLog) =>
+    request<WeightLog>("/weight-logs", { method: "POST", body: JSON.stringify(input) }),
+  deleteWeightLog: (id: string) => request<void>(`/weight-logs/${id}`, { method: "DELETE" }),
+
+  listBpReadings: (profileId: string) => request<BpReading[]>(`/bp-readings?profile_id=${profileId}&limit=200`),
+  createBpReading: (input: NewBpReading) =>
+    request<BpReading & { alerts?: { kind: string; message: string }[] }>("/bp-readings", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+  deleteBpReading: (id: string) => request<void>(`/bp-readings/${id}`, { method: "DELETE" }),
+
+  listBodyCompositionLogs: (profileId: string) =>
+    request<BodyCompositionLog[]>(`/body-composition-logs?profile_id=${profileId}&limit=200`),
+  createBodyCompositionLog: (input: NewBodyCompositionLog) =>
+    request<BodyCompositionLog>("/body-composition-logs", { method: "POST", body: JSON.stringify(input) }),
+  deleteBodyCompositionLog: (id: string) => request<void>(`/body-composition-logs/${id}`, { method: "DELETE" }),
 
   getMileageReminder: () => request<{ enabled: boolean }>("/settings/mileage-reminder"),
   setMileageReminder: (enabled: boolean) =>

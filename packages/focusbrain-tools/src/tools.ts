@@ -74,6 +74,36 @@ interface VehicleMileageLog {
   logged_at: string;
 }
 
+interface HealthProfile {
+  id: string;
+  name: string;
+  birth_date: string;
+  is_medicated: boolean;
+  target_weight_kg: number | null;
+  current_weight_kg: number | null;
+}
+
+interface WeightLog {
+  id: string;
+  profile_id: string;
+  weight_kg: number;
+  logged_at: string;
+}
+
+interface BpReading {
+  id: string;
+  profile_id: string;
+  timestamp: string;
+  systolic: number;
+  diastolic: number;
+  pulse: number;
+  map: number;
+  pulse_pressure: number;
+  classification: string;
+  context: string;
+  alerts?: { kind: string; message: string }[];
+}
+
 interface Consumo {
   id: string;
   fecha: string;
@@ -1550,5 +1580,139 @@ export const tools = {
       );
       return download;
     },
+  },
+
+  listar_perfiles_salud: {
+    description:
+      "Lista los perfiles del módulo Salud del usuario (ej. 'Yo', 'Mamá') — usar esto primero para obtener " +
+      "el `perfil_id` antes de registrar un peso o una presión arterial.",
+    inputSchema: { type: "object", properties: {} },
+    argsSchema: z.object({}),
+    handler: () => apiRequest<HealthProfile[]>("/health-profiles?limit=50"),
+  },
+
+  registrar_peso: {
+    description:
+      "Guarda el peso de hoy de un perfil de salud (ej. de un recordatorio semanal, o porque el usuario lo " +
+      `mandó sin que se le pidiera). Necesita el \`perfil_id\` — usar \`listar_perfiles_salud\` primero si no ` +
+      `se conoce. ${AHORA_CR}`,
+    inputSchema: {
+      type: "object",
+      properties: {
+        perfil_id: { type: "string" },
+        peso_kg: { type: "number" },
+        fecha: {
+          type: "string",
+          description: "ISO 8601 con offset -06:00 (Costa Rica). Opcional — si no se manda, se usa el momento actual.",
+        },
+      },
+      required: ["perfil_id", "peso_kg"],
+    },
+    argsSchema: z.object({
+      perfil_id: z.string().uuid(),
+      peso_kg: z.number().positive(),
+      fecha: z.string().datetime({ offset: true }).optional(),
+    }),
+    handler: (args: { perfil_id: string; peso_kg: number; fecha?: string }) =>
+      apiRequest<WeightLog>("/weight-logs", {
+        method: "POST",
+        body: JSON.stringify({ profile_id: args.perfil_id, weight_kg: args.peso_kg, logged_at: args.fecha }),
+      }),
+  },
+
+  listar_peso: {
+    description: "Lista las lecturas de peso guardadas de un perfil de salud, de la más reciente a la más vieja.",
+    inputSchema: {
+      type: "object",
+      properties: { perfil_id: { type: "string" } },
+      required: ["perfil_id"],
+    },
+    argsSchema: z.object({ perfil_id: z.string().uuid() }),
+    handler: (args: { perfil_id: string }) => apiRequest<WeightLog[]>(`/weight-logs?profile_id=${args.perfil_id}&limit=100`),
+  },
+
+  registrar_presion: {
+    description:
+      "Guarda una lectura de presión arterial (tensiómetro) de un perfil de salud — sistólica, diastólica y " +
+      "pulso son del equipo, no se calculan. La API calcula sola la presión arterial media, la presión de " +
+      "pulso y la clasificación clínica, y devuelve alertas si corresponde (ej. hipotensión en perfil " +
+      `medicado) — si vienen alertas, comunicáselas al usuario, no las ignores en silencio. Necesita el ` +
+      `\`perfil_id\` — usar \`listar_perfiles_salud\` primero si no se conoce. ${AHORA_CR}`,
+    inputSchema: {
+      type: "object",
+      properties: {
+        perfil_id: { type: "string" },
+        sistolica: { type: "number" },
+        diastolica: { type: "number" },
+        pulso: { type: "number" },
+        ritmo_irregular: { type: "boolean", description: "Si el equipo marcó arritmia en pantalla. Opcional." },
+        movimiento_brazo: { type: "boolean", description: "Si el equipo marcó movimiento del brazo durante la toma. Opcional." },
+        contexto: {
+          type: "string",
+          enum: ["fasting_rest", "pre_dinner", "post_meal", "post_workout", "with_symptoms", "watch_calibration"],
+          description:
+            "fasting_rest=en ayunas/reposo matutino, pre_dinner=antes de cenar, post_meal=después de comer, " +
+            "post_workout=después de entrenar, with_symptoms=con mareo/dolor de cabeza/visión borrosa, " +
+            "watch_calibration=toma de referencia para el reloj inteligente.",
+        },
+        sintomas: { type: "array", items: { type: "string" }, description: "ej. ['mareo','dolor_cabeza']. Opcional." },
+        notas: { type: "string" },
+        fecha: {
+          type: "string",
+          description: "ISO 8601 con offset -06:00 (Costa Rica). Opcional — si no se manda, se usa el momento actual.",
+        },
+      },
+      required: ["perfil_id", "sistolica", "diastolica", "pulso", "contexto"],
+    },
+    argsSchema: z.object({
+      perfil_id: z.string().uuid(),
+      sistolica: z.number().min(60).max(260),
+      diastolica: z.number().min(30).max(160),
+      pulso: z.number().min(30).max(220),
+      ritmo_irregular: z.boolean().optional(),
+      movimiento_brazo: z.boolean().optional(),
+      contexto: z.enum(["fasting_rest", "pre_dinner", "post_meal", "post_workout", "with_symptoms", "watch_calibration"]),
+      sintomas: z.array(z.string()).optional(),
+      notas: z.string().optional(),
+      fecha: z.string().datetime({ offset: true }).optional(),
+    }),
+    handler: (args: {
+      perfil_id: string;
+      sistolica: number;
+      diastolica: number;
+      pulso: number;
+      ritmo_irregular?: boolean;
+      movimiento_brazo?: boolean;
+      contexto: string;
+      sintomas?: string[];
+      notas?: string;
+      fecha?: string;
+    }) =>
+      apiRequest<BpReading>("/bp-readings", {
+        method: "POST",
+        body: JSON.stringify({
+          profile_id: args.perfil_id,
+          systolic: args.sistolica,
+          diastolic: args.diastolica,
+          pulse: args.pulso,
+          irregular_heartbeat: args.ritmo_irregular,
+          arm_movement: args.movimiento_brazo,
+          context: args.contexto,
+          symptoms: args.sintomas,
+          notes: args.notas,
+          timestamp: args.fecha,
+        }),
+      }),
+  },
+
+  listar_presion: {
+    description: "Lista las lecturas de presión arterial guardadas de un perfil de salud, de la más reciente a la más vieja.",
+    inputSchema: {
+      type: "object",
+      properties: { perfil_id: { type: "string" } },
+      required: ["perfil_id"],
+    },
+    argsSchema: z.object({ perfil_id: z.string().uuid() }),
+    handler: (args: { perfil_id: string }) => apiRequest<BpReading[]>(`/bp-readings?profile_id=${args.perfil_id}&limit=100`),
   },
 } as const;

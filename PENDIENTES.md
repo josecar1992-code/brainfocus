@@ -1576,3 +1576,28 @@ URL del webhook en Kapso (acción manual del usuario).
     políticas RLS). El Dockerfile de `apps/api` solo compilaba `packages/shared-time` antes de la app — el primer
     build falló con `Cannot find module '@brainfocus/focusbrain-health'`; se agregó el mismo paso (copiar + `npm
     install && npm run build`) para el paquete nuevo. Verificado con `/health` 200 y logs limpios tras el rebuild.
+
+- **Módulo "Salud" (20-nov-2026) — segunda etapa: recordatorios periódicos, tools de Quicks y UI completa.**
+  Continuación de lo de arriba, a pedido del dueño ("Dale con eso"):
+  - **Recordatorios**: migración `supabase/migrations/20261120_salud_recordatorios.sql` agrega a `health_profiles`
+    los campos de configuración de dos recordatorios independientes (peso — semanal; presión — diario o semanal,
+    hora configurable) más sus `*_cron_job_id`. `apps/api/src/routes/healthProfiles.ts` los sincroniza con
+    `scheduleRecurringCron`/`cancelReminderCron` (mismo patrón que `syncMaintenanceReminder` en `vehicles.ts`):
+    recrea el cron desde cero en `afterCreate`/`afterUpdate` (solo si cambió un campo relevante) y lo cancela en
+    `beforeDelete`. El mensaje del job le pide a Quicks la lectura y le da acceso explícito a las tools nuevas vía
+    `brainfocusTools`, sin depender de `recurring_reminders` (tabla genérica de "Asistente") porque el ciclo de
+    vida está atado al `health_profiles.id`.
+  - **Tools de Quicks** (`packages/focusbrain-tools/src/tools.ts`, compartidas por `apps/mcp` y `apps/assistant`):
+    `listar_perfiles_salud`, `registrar_peso`, `listar_peso`, `registrar_presion` (devuelve las alertas clínicas
+    de `evaluateAlerts` para que Quicks se las comunique al usuario, no las calle) y `listar_presion`. Mapeadas al
+    módulo opcional `"salud"` en `apps/assistant/src/toolset.ts` (`TOOL_MODULE`), igual que las de vehículos.
+  - **UI** (`apps/web/src/HealthPage.tsx`, nueva): selector de perfiles (tarjetas tipo Vehículos), formulario de
+    perfil con la configuración de ambos recordatorios, toma rápida de peso, toma de presión con modo "guiado"
+    (promedio de 2 mediciones, calculado en el cliente) y badges de alertas clínicas tras guardar, widget de
+    calibración del Galaxy Watch (barra de 28 días + botón "Calibrar ahora"), composición corporal, e historial
+    con borrado confirmado (`ConfirmDialog`) para los tres tipos de registro. Clasificación de presión (`classifyBloodPressure`) importada directo de `@brainfocus/focusbrain-health` para no duplicar la lógica
+    clínica entre cliente y servidor — se agregó como dependencia nueva de `apps/web` (y a su Dockerfile, mismo
+    patrón que `shared-time`). Nuevo ícono `IconHeart` en `icons.tsx` (no había uno de corazón) y entrada `"salud"`
+    en `Sidebar.tsx`/`modules.ts` como módulo opcional.
+  - Pendiente (no implementado, fuera de alcance de esta etapa): exportar el reporte médico en PDF, la gráfica de
+    correlación peso-vs-presión y el dashboard de KPIs (7/14/30 días) del punto D de la especificación original.
