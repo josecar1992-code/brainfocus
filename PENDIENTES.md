@@ -1601,3 +1601,10 @@ URL del webhook en Kapso (acción manual del usuario).
     en `Sidebar.tsx`/`modules.ts` como módulo opcional.
   - Pendiente (no implementado, fuera de alcance de esta etapa): exportar el reporte médico en PDF, la gráfica de
     correlación peso-vs-presión y el dashboard de KPIs (7/14/30 días) del punto D de la especificación original.
+  - Desplegado en producción (19-nov-2026): migración de recordatorios corrida en el SQL Editor de Supabase
+    (`alter table public.health_profiles add column...`, idempotente, sin errores). Se agregó el mismo bloque de
+    `COPY packages/focusbrain-health` + build al `Dockerfile` de `apps/web` (proactivamente, antes de intentar el
+    build, para no repetir el fallo que tuvo `apps/api` en la primera etapa) y el build pasó limpio a la primera.
+    Se reconstruyeron y redesplegaron `api`, `web`, `assistant` (los tres corren como servicios permanentes) y se
+    reconstruyó `mcp` (no necesita `up -d`, se invoca on-demand por Quicks/OpenClaw). Verificado `/health` 200 en
+    `api` y `200` en `web` tras el redeploy, logs limpios en ambos.
