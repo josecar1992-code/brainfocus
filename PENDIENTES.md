@@ -1522,9 +1522,10 @@ URL del webhook en Kapso (acción manual del usuario).
 - **Incidente (19-nov-2026): la app no cargaba datos — la llave `sb_secret_…` de Supabase dejó de funcionar.** Desde las 12:12 UTC
   toda petición de la API que tocaba Supabase devolvía 500 (`PGRST303 "JWT issued at future"` y luego `Invalid API key`); la web
   entraba (login con la llave anon) pero sin datos, y el asistente de Kim también caía (misma llave). Diagnóstico: relojes del VPS y
-  de Supabase iguales, estado de Supabase operativo, llave anon OK. La llave del `.env` (`sb_secret_kciW…`, de 29-oct) ya era
-  inválida; la `sb_secret_` nueva del panel, aunque reconocida, también fallaba con "JWT issued at future" (la conversión de llave
-  secreta nueva a token interno falla del lado de Supabase). Fix: se volvió a la llave **legacy `service_role` (JWT, emitida 2026-08,
+  de Supabase iguales, estado de Supabase operativo, llave anon OK. Corrección: la `sb_secret_` del `.env` (29-oct) es IDÉNTICA a la que muestra el panel (nadie la rotó ni la cambió; en los logs
+  de SSH solo hay accesos del dueño). Un primer diagnóstico decía "llave inválida" por un error mío al leerla (`tr -d` borró caracteres
+  de la llave y la probé corrompida). La causa real está del lado de Supabase: con cualquier `sb_secret_`, PostgREST responde `PGRST303 "JWT
+  issued at future"` (probado también a las 15:30 UTC), mientras la anon y la service_role JWT legacy funcionan. Fix: se volvió a la llave **legacy `service_role` (JWT, emitida 2026-08,
   vence 2036)** en `apps/api/.env` y `apps/assistant/.env` del VPS (backups `*.env.bak-20261119`), y se recrearon `api` y
   `assistant`. Aprendizaje: si vuelve a fallar con una `sb_secret_…`, probar con la service_role legacy; no se escribe la llave en
   ningún archivo del repo. Pendiente del dueño: decidir si revoca la `sb_secret_` que pegó en el chat (queda en el historial).
