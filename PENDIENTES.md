@@ -1540,3 +1540,14 @@ URL del webhook en Kapso (acción manual del usuario).
   además de `%` y `,` — PostgREST los usa para agrupar condiciones dentro de `or(...)`; no se confirmó una ruta de explotación
   real (seguía acotado al usuario dueño), pero el saneo es barato. Pendiente opcional: poner `DOCUMENT_LINK_SECRET` en el
   `.env` del VPS (sin eso sigue funcionando igual que antes).
+
+- **Arreglado (19-nov-2026): Quicks se negó a avisar un recordatorio ("Revisar el chat") porque el título no traía la hora.**
+  El recordatorio fue creado con `crear_recordatorio({titulo:"Revisar el chat", recordar_en:"...10:43-06:00"})` — `titulo` sin
+  hora en el texto. El job de OpenClaw que dispara el aviso (`scheduleReminderCron`, `apps/api/src/services/openclawCron.ts`)
+  le decía a Quicks "la hora del evento que aparece ahí [en el título] tiene que quedar en el mensaje, textual", asumiendo que
+  el título SIEMPRE trae la hora — no es el caso. Quicks, correctamente, no encontró ninguna hora en "Revisar el chat" y
+  reportó el job como error en vez de inventar una. Fix: el mensaje del cron ahora incluye la hora real
+  (`isoACostaRica(reminder.remind_at)`, calculada por la API) de forma explícita, en vez de depender de que esté en el
+  título — aplica tanto al aviso principal como al respaldo por Telegram. Aprendizaje: un dato que el agente necesita
+  textual en su respuesta debe pasarse explícito en la instrucción del job, nunca asumido implícito en otro campo de texto
+  libre.

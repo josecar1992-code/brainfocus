@@ -1,3 +1,4 @@
+import { isoACostaRica } from "@brainfocus/shared-time";
 import { env } from "../env.js";
 
 // Programa/cancela el aviso real de WhatsApp/Telegram como un cron job de
@@ -213,10 +214,14 @@ export async function scheduleReminderCron(reminder: ReminderForCron): Promise<s
       // el mensaje final, así que se lo pedimos explícito.
       payload: {
         kind: "agentTurn",
+        // La hora va explícita acá (calculada por la API, nunca inferida por el agente) en vez de asumir que
+        // reminder.title ya la trae — no siempre es así (ej. un recordatorio creado sin hora en el texto, como
+        // "Revisar el chat", rompía esta instrucción: Quicks no encontraba ninguna hora en el título y se negaba a
+        // avisar; confirmado el 19-nov-2026).
         message: withTelegramFallback(
-          `Avisale esto al usuario: "${reminder.title}". Podés redactarlo con tus palabras, pero ` +
-            `la hora del evento que aparece ahí tiene que quedar sí o sí en el mensaje final, textual, ` +
-            `sin cambiarla ni omitirla.`,
+          `Avisale esto al usuario: "${reminder.title}". Es para ahora, ${isoACostaRica(reminder.remind_at)} hora de ` +
+            `Costa Rica — esa hora SÍ tiene que quedar en el mensaje final, textual, la saques o no del título. ` +
+            `Podés redactar el resto con tus palabras.`,
         ),
         // Solo relaya texto, no necesita llamar ninguna tool de brainfocus-api.
         toolsAllow: buildToolsAllow(),
@@ -274,9 +279,9 @@ export async function scheduleReminderBackupCron(reminder: ReminderForCron): Pro
         kind: "agentTurn",
         message:
           `Avisale esto al usuario por Telegram, como respaldo (puede que ya le haya llegado por ` +
-          `WhatsApp, no pasa nada si es repetido): "${reminder.title}". Podés redactarlo con tus ` +
-          `palabras, pero la hora que aparece ahí tiene que quedar sí o sí en el mensaje final, textual, ` +
-          `sin cambiarla ni omitirla. Aclará que es un respaldo por si no le llegó el de WhatsApp.`,
+          `WhatsApp, no pasa nada si es repetido): "${reminder.title}". Era para ${isoACostaRica(reminder.remind_at)} ` +
+          `hora de Costa Rica — esa hora SÍ tiene que quedar en el mensaje final, textual, la saques o no del título. ` +
+          `Podés redactar el resto con tus palabras. Aclará que es un respaldo por si no le llegó el de WhatsApp.`,
         toolsAllow: buildToolsAllow(),
       },
       delivery: { mode: "announce", channel: "telegram", to: telegramTo },
