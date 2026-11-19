@@ -1551,3 +1551,24 @@ URL del webhook en Kapso (acción manual del usuario).
   título — aplica tanto al aviso principal como al respaldo por Telegram. Aprendizaje: un dato que el agente necesita
   textual en su respuesta debe pasarse explícito en la instrucción del job, nunca asumido implícito en otro campo de texto
   libre.
+
+- **Nuevo módulo "Salud" (19-nov-2026, backend) — perfiles con bitácora de peso, presión arterial y composición
+  corporal.** Primera etapa a pedido del dueño (spec completa compartida por él, basada en el tensiómetro Rossmax CH155f
+  y la calibración mensual del Galaxy Watch 7). Solo backend por ahora, sin UI ni tools de Quicks todavía:
+  - Migración `supabase/migrations/20261119_salud.sql`: tablas `health_profiles` (perfiles tipo "Yo"/"Mamá", con
+    `birth_date`, `is_medicated`, metas/peso actual, estado de calibración del reloj), `weight_logs`, `bp_readings` y
+    `body_composition_logs` (báscula/reloj inteligente) — todas con RLS igual que el resto de recursos por `user_id`.
+  - Paquete nuevo `packages/focusbrain-health`: funciones puras `calculateHemodynamics`, `classifyBloodPressure`
+    (estándar AHA/ACC) y `evaluateAlerts` (reglas de la sección 3.3 de la spec: hipotensión/caída brusca prioritaria en
+    perfil medicado, racha de ritmo irregular, variación esperada post-comida/ejercicio), reusables luego desde la web.
+  - Rutas API: `/health-profiles`, `/weight-logs`, `/body-composition-logs` con el router genérico
+    (`createResourceRouter`); `/bp-readings` con un router a mano (como `documents.ts`) porque `map`/`pulse_pressure`/
+    `classification` se calculan siempre en el servidor a partir de `systolic`/`diastolic` — nunca se confía ese cálculo
+    al cliente — y porque crear una lectura evalúa alertas clínicas contra el perfil y el historial de 7 días.
+  - Nuevo módulo opcional `"salud"` en `apps/api/src/utils/modules.ts` (igual mecanismo que `"vehiculos"`) y scopes
+    `health_profiles`/`weight_logs`/`bp_readings`/`body_composition_logs` agregados a `ASSISTANT_SCOPES`
+    (`middleware/auth.ts`) para cuando el asistente multiusuario los necesite.
+  - Pendiente (siguientes etapas, no implementado aún): UI en `apps/web` (selector de perfil, toma rápida/guiada,
+    widget de calibración del reloj, dashboard con Recharts, export PDF), recordatorios periódicos de peso/presión
+    reusando `recurring_reminders` con `is_instruction: true`, y las tools de Quicks (`registrar_peso`,
+    `registrar_presion`, etc.) en `packages/focusbrain-tools`.

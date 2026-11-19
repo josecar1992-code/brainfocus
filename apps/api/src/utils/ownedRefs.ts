@@ -12,6 +12,7 @@ const REF_TABLES: Record<string, string> = {
   vehicle_id: "vehicles",
   routine_id: "routines",
   checklist_id: "checklists",
+  profile_id: "health_profiles",
 };
 
 /** Devuelve el nombre de la primera columna de referencia que NO pertenece al usuario, o null si todas son suyas. */

@@ -11,6 +11,7 @@ const ASSISTANT_SCOPES = [
   "tasks", "subtasks", "lists", "projects", "reminders", "recurring_reminders", "events", "notes", "checklists", "checklist_items",
   "documents", "nutrition", "exercise", "vehicles", "vehicle_maintenance", "vehicle_mileage",
   "routines", "routine_completions", "settings",
+  "health_profiles", "weight_logs", "bp_readings", "body_composition_logs",
 ].map((r) => `${r}:*`);
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

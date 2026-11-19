@@ -10,6 +10,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@brainfocus/focusbrain-health": "file:../../packages/focusbrain-health",
     "@brainfocus/shared-time": "file:../../packages/shared-time",
     "@supabase/supabase-js": "^2.45.0",
     "cors": "^2.8.5",
