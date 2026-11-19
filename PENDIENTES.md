@@ -1529,3 +1529,14 @@ URL del webhook en Kapso (acción manual del usuario).
   vence 2036)** en `apps/api/.env` y `apps/assistant/.env` del VPS (backups `*.env.bak-20261119`), y se recrearon `api` y
   `assistant`. Aprendizaje: si vuelve a fallar con una `sb_secret_…`, probar con la service_role legacy; no se escribe la llave en
   ningún archivo del repo. Pendiente del dueño: decidir si revoca la `sb_secret_` que pegó en el chat (queda en el historial).
+
+- **Auditoría de seguridad del backend (19-nov-2026, a pedido del dueño) + 2 arreglos menores.** Revisión de código de
+  `apps/api`: autenticación, la ruta pública de documentos, el filtro genérico `?q=`/`_gte`/`_lte` de `resourceRouter.ts`, CORS
+  y scopes del asistente de Kim. Sin hallazgos de severidad alta (ver el detalle completo en la conversación). Dos arreglos de
+  severidad baja: (1) la firma HMAC de los enlaces públicos de documentos (`services/documentLinks.ts`) ya no reutiliza
+  `SUPABASE_SERVICE_ROLE_KEY` como secreto — usa `DOCUMENT_LINK_SECRET` (opcional; si no está configurada, cae en la llave de
+  Supabase, sin romper el despliegue actual) para que rotar esa llave (como pasó el 19-nov) no invalide los enlaces de
+  documentos vigentes. (2) El saneo del parámetro `?q=` (`resourceRouter.ts`, `documents.ts`) ahora también quita `(` `)` `*`
+  además de `%` y `,` — PostgREST los usa para agrupar condiciones dentro de `or(...)`; no se confirmó una ruta de explotación
+  real (seguía acotado al usuario dueño), pero el saneo es barato. Pendiente opcional: poner `DOCUMENT_LINK_SECRET` en el
+  `.env` del VPS (sin eso sigue funcionando igual que antes).

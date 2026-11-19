@@ -54,7 +54,7 @@ documentsRouter.get("/", requireScope("documents:read"), async (req, res, next) 
     if (typeof req.query.name === "string" && req.query.name.trim()) {
       query = query.eq("name", req.query.name.trim());
     } else if (typeof req.query.q === "string" && req.query.q.trim()) {
-      query = query.ilike("name", `%${req.query.q.trim().replace(/[%,]/g, "")}%`);
+      query = query.ilike("name", `%${req.query.q.trim().replace(/[%,()*]/g, "")}%`);
     }
 
     const { data, error } = await query.order("created_at", { ascending: false }).limit(limit);

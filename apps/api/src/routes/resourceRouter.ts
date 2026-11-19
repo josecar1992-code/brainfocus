@@ -125,7 +125,10 @@ export function createResourceRouter(config: ResourceConfig): Router {
       }
 
       if (config.searchFields?.length && typeof req.query.q === "string" && req.query.q.trim()) {
-        const q = req.query.q.trim().replace(/[%,]/g, "");
+        // Además de "%" y "," (que ya rompían el ilike/or), se sanean "(" ")" "*" — PostgREST los usa para delimitar y
+        // anidar grupos de condiciones dentro de or(...); sin esto un valor de búsqueda con paréntesis podría alterar
+        // qué condiciones quedan agrupadas en el filtro generado abajo.
+        const q = req.query.q.trim().replace(/[%,()*]/g, "");
         query = query.or(config.searchFields.map((f) => `${f}.ilike.%${q}%`).join(","));
       }
 

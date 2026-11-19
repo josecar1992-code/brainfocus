@@ -10,6 +10,11 @@ export const env = {
   port: Number(process.env.PORT ?? 3001),
   supabaseUrl: required("SUPABASE_URL"),
   supabaseServiceRoleKey: required("SUPABASE_SERVICE_ROLE_KEY"),
+  // Secreto propio para firmar los enlaces públicos de descarga de documentos (ver services/documentLinks.ts).
+  // Separado a propósito de SUPABASE_SERVICE_ROLE_KEY: si esa llave se rota (ya pasó, ver PENDIENTES.md 19-nov-2026),
+  // los enlaces de documentos ya emitidos no deben quedar invalidados ni depender de ese secreto para su autenticidad.
+  // Si no está configurado, se usa la llave de Supabase como antes (no rompe despliegues existentes).
+  documentLinkSecret: process.env.DOCUMENT_LINK_SECRET ?? required("SUPABASE_SERVICE_ROLE_KEY"),
   corsOrigins: (process.env.CORS_ORIGINS ?? "").split(",").map((o) => o.trim()).filter(Boolean),
   // App de un solo dueño por ahora: solo estos correos pueden autenticarse como
   // usuario (JWT), sin importar que Supabase les deje crear una cuenta. Vacío = sin

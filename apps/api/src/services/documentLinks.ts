@@ -12,7 +12,7 @@ export const DOC_LINK_TTL_SECONDS = 600;
 const PUBLIC_BASE = (process.env.API_PUBLIC_URL ?? "https://api.focusbraincr.com").replace(/\/+$/, "");
 
 function sign(docId: string, exp: number): string {
-  return createHmac("sha256", env.supabaseServiceRoleKey).update(`doc:${docId}:${exp}`).digest("hex").slice(0, 40);
+  return createHmac("sha256", env.documentLinkSecret).update(`doc:${docId}:${exp}`).digest("hex").slice(0, 40);
 }
 
 function safeName(name: string, mime: string | null): string {
