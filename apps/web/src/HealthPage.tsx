@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
+import { CartesianGrid, Legend, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { classifyBloodPressure, type MeasurementContext as MC } from "@brainfocus/focusbrain-health";
 import {
   api,
@@ -663,6 +664,199 @@ function MedicalReportModal({
   );
 }
 
+// --- Dashboard analítico (KPIs, tendencia, correlación peso-presión) ------
+
+function HealthDashboardModal({
+  profile,
+  readings,
+  weightLogs,
+  onClose,
+}: {
+  profile: HealthProfile;
+  readings: BpReading[];
+  weightLogs: WeightLog[];
+  onClose: () => void;
+}) {
+  const [rangeDays, setRangeDays] = useState<(typeof REPORT_RANGES)[number]>(7);
+  const since = Date.now() - rangeDays * 24 * 60 * 60 * 1000;
+
+  const filtered = useMemo(
+    () =>
+      readings
+        .filter((r) => new Date(r.timestamp).getTime() >= since)
+        .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()),
+    [readings, since],
+  );
+
+  const kpis = useMemo(() => {
+    if (!filtered.length) return null;
+    const avg = (key: "systolic" | "diastolic" | "map" | "pulse_pressure") =>
+      Math.round(filtered.reduce((sum, r) => sum + r[key], 0) / filtered.length);
+    const avgOf = (rows: BpReading[], key: "systolic" | "diastolic") =>
+      rows.length ? Math.round(rows.reduce((sum, r) => sum + r[key], 0) / rows.length) : null;
+    const am = filtered.filter((r) => hourInCR(r.timestamp) < 12);
+    const pm = filtered.filter((r) => hourInCR(r.timestamp) >= 12);
+    const avgSys = avg("systolic");
+    const avgDia = avg("diastolic");
+    return {
+      avgSys,
+      avgDia,
+      classification: classifyBloodPressure(avgSys, avgDia),
+      am: { sys: avgOf(am, "systolic"), dia: avgOf(am, "diastolic") },
+      pm: { sys: avgOf(pm, "systolic"), dia: avgOf(pm, "diastolic") },
+      avgMap: avg("map"),
+      avgPulsePressure: avg("pulse_pressure"),
+      irregularCount: filtered.filter((r) => r.irregular_heartbeat).length,
+    };
+  }, [filtered]);
+
+  const trendData = useMemo(
+    () => filtered.map((r) => ({ label: formatDate(r.timestamp), systolic: r.systolic, diastolic: r.diastolic })),
+    [filtered],
+  );
+
+  // Correlación peso vs. presión: ambas series se indexan a 100 en su primer
+  // valor del periodo y se grafican en un solo eje (% de cambio) en vez de un
+  // eje dual — kg y mmHg no son comparables en la misma escala numérica.
+  const weeklyCorrelation = useMemo(() => {
+    const weightInRange = weightLogs.filter((w) => new Date(w.logged_at).getTime() >= since);
+    if (!filtered.length || !weightInRange.length) return null;
+
+    const bucket = (iso: string) => Math.floor((new Date(iso).getTime() - since) / (7 * 24 * 60 * 60 * 1000));
+    const sysByWeek = new Map<number, number[]>();
+    filtered.forEach((r) => sysByWeek.set(bucket(r.timestamp), [...(sysByWeek.get(bucket(r.timestamp)) ?? []), r.systolic]));
+    const weightByWeek = new Map<number, number[]>();
+    weightInRange.forEach((w) => weightByWeek.set(bucket(w.logged_at), [...(weightByWeek.get(bucket(w.logged_at)) ?? []), w.weight_kg]));
+
+    const weekKeys = Array.from(new Set([...sysByWeek.keys(), ...weightByWeek.keys()])).sort((a, b) => a - b);
+    const avgArr = (arr?: number[]) => (arr && arr.length ? arr.reduce((s, n) => s + n, 0) / arr.length : null);
+    const firstSys = avgArr(sysByWeek.get(weekKeys[0]));
+    const firstWeight = avgArr(weightByWeek.get(weekKeys[0]));
+    if (weekKeys.length < 2 || firstSys == null || firstWeight == null) return null;
+
+    return weekKeys.map((w) => {
+      const sysAvg = avgArr(sysByWeek.get(w));
+      const weightAvg = avgArr(weightByWeek.get(w));
+      return {
+        label: `Sem ${w + 1}`,
+        sistolica: sysAvg != null ? Math.round((sysAvg / firstSys) * 100) : null,
+        peso: weightAvg != null ? Math.round((weightAvg / firstWeight) * 100) : null,
+      };
+    });
+  }, [filtered, weightLogs, since]);
+
+  return (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center px-4 z-30 overflow-y-auto py-8">
+      <div className="relative w-full max-w-3xl border border-electric-cyan/20 bg-night-blue rounded-2xl p-6 flex flex-col gap-4 max-h-[90vh] overflow-y-auto shadow-[0_0_60px_-15px_rgba(0,210,255,0.25)]">
+        <CornerBrackets />
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-white">Dashboard — {profile.name}</h2>
+          <button type="button" onClick={onClose} className="text-white/50 hover:text-white">
+            <IconX />
+          </button>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-white/50">Periodo:</span>
+          {REPORT_RANGES.map((d) => (
+            <button
+              key={d}
+              type="button"
+              onClick={() => setRangeDays(d)}
+              className={`rounded-lg px-3 py-1 text-sm border ${rangeDays === d ? "bg-electric-cyan text-night-blue border-electric-cyan" : "border-white/15 text-white/70 hover:bg-white/5"}`}
+            >
+              {d} días
+            </button>
+          ))}
+        </div>
+
+        {!kpis && <p className="text-sm text-white/40">Sin lecturas de presión en este periodo.</p>}
+
+        {kpis && (
+          <>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div className="bg-black/20 border border-white/10 rounded-xl p-3">
+                <p className="text-[10px] uppercase tracking-wide text-white/40">Promedio SYS/DIA</p>
+                <p className="text-lg font-bold text-white">
+                  {kpis.avgSys}/{kpis.avgDia}
+                </p>
+                <span
+                  className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full inline-block mt-0.5"
+                  style={{ backgroundColor: `${kpis.classification.color}26`, color: kpis.classification.color }}
+                >
+                  {kpis.classification.label}
+                </span>
+              </div>
+              <div className="bg-black/20 border border-white/10 rounded-xl p-3">
+                <p className="text-[10px] uppercase tracking-wide text-white/40 mb-1">AM vs PM</p>
+                <p className="text-sm text-white">
+                  <span className="text-white/50">AM</span> {kpis.am.sys != null ? `${kpis.am.sys}/${kpis.am.dia}` : "—"}
+                </p>
+                <p className="text-sm text-white">
+                  <span className="text-white/50">PM</span> {kpis.pm.sys != null ? `${kpis.pm.sys}/${kpis.pm.dia}` : "—"}
+                </p>
+              </div>
+              <div className="bg-black/20 border border-white/10 rounded-xl p-3">
+                <p className="text-[10px] uppercase tracking-wide text-white/40">MAP · Pulso de presión</p>
+                <p className="text-lg font-bold text-white">
+                  {kpis.avgMap} · {kpis.avgPulsePressure}
+                </p>
+              </div>
+              <div className="bg-black/20 border border-white/10 rounded-xl p-3">
+                <p className="text-[10px] uppercase tracking-wide text-white/40">Pulso irregular</p>
+                <p className="text-lg font-bold text-white">
+                  {kpis.irregularCount} {kpis.irregularCount === 1 ? "evento" : "eventos"}
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-black/20 border border-white/10 rounded-xl p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-white/40 mb-2">Tendencia SYS/DIA</p>
+              <ResponsiveContainer width="100%" height={220}>
+                <LineChart data={trendData} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
+                  <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
+                  <XAxis dataKey="label" tick={{ fill: "rgba(255,255,255,0.4)", fontSize: 10 }} minTickGap={24} />
+                  <YAxis domain={[40, 200]} tick={{ fill: "rgba(255,255,255,0.4)", fontSize: 10 }} width={32} />
+                  <Tooltip contentStyle={{ background: "#0A2540", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8, fontSize: 12 }} labelStyle={{ color: "rgba(255,255,255,0.6)" }} />
+                  <Legend wrapperStyle={{ fontSize: 11, color: "rgba(255,255,255,0.6)" }} />
+                  <ReferenceLine y={120} stroke="#10B981" strokeDasharray="4 4" label={{ value: "120/80 óptimo", fill: "#10B981", fontSize: 10, position: "insideTopLeft" }} />
+                  <ReferenceLine y={80} stroke="#10B981" strokeDasharray="4 4" />
+                  <ReferenceLine y={90} stroke="#3B82F6" strokeDasharray="4 4" label={{ value: "90/60 hipotensión", fill: "#3B82F6", fontSize: 10, position: "insideBottomLeft" }} />
+                  <ReferenceLine y={60} stroke="#3B82F6" strokeDasharray="4 4" />
+                  <Line type="monotone" dataKey="systolic" name="Sistólica" stroke="#00D2FF" strokeWidth={2} dot={{ r: 3 }} />
+                  <Line type="monotone" dataKey="diastolic" name="Diastólica" stroke="#F59E0B" strokeWidth={2} dot={{ r: 3 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div className="bg-black/20 border border-white/10 rounded-xl p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-white/40 mb-1">Correlación peso vs. presión</p>
+              <p className="text-[11px] text-white/40 mb-2">% de cambio semanal respecto al inicio del periodo (misma escala para poder compararlas)</p>
+              {!weeklyCorrelation && (
+                <p className="text-sm text-white/40">Faltan registros de peso o de presión en este periodo para calcular la correlación.</p>
+              )}
+              {weeklyCorrelation && (
+                <ResponsiveContainer width="100%" height={200}>
+                  <LineChart data={weeklyCorrelation} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
+                    <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
+                    <XAxis dataKey="label" tick={{ fill: "rgba(255,255,255,0.4)", fontSize: 10 }} />
+                    <YAxis tick={{ fill: "rgba(255,255,255,0.4)", fontSize: 10 }} width={32} unit="%" />
+                    <Tooltip contentStyle={{ background: "#0A2540", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8, fontSize: 12 }} labelStyle={{ color: "rgba(255,255,255,0.6)" }} />
+                    <Legend wrapperStyle={{ fontSize: 11, color: "rgba(255,255,255,0.6)" }} />
+                    <ReferenceLine y={100} stroke="rgba(255,255,255,0.25)" strokeDasharray="2 4" />
+                    <Line type="monotone" dataKey="peso" name="Peso" stroke="#00D2FF" strokeWidth={2} dot={{ r: 3 }} connectNulls />
+                    <Line type="monotone" dataKey="sistolica" name="Sistólica (prom. semanal)" stroke="#F59E0B" strokeWidth={2} dot={{ r: 3 }} connectNulls />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // --- Vista de detalle del perfil ------------------------------------------
 
 function WatchCalibrationWidget({ profile }: { profile: HealthProfile }) {
@@ -741,6 +935,7 @@ function ProfileDetail({ profile, onClose }: { profile: HealthProfile; onClose: 
   const [showBpForm, setShowBpForm] = useState(false);
   const [showBodyForm, setShowBodyForm] = useState(false);
   const [showReport, setShowReport] = useState(false);
+  const [showDashboard, setShowDashboard] = useState(false);
   const [weightToDelete, setWeightToDelete] = useState<WeightLog | null>(null);
   const [bpToDelete, setBpToDelete] = useState<BpReading | null>(null);
   const [bodyToDelete, setBodyToDelete] = useState<BodyCompositionLog | null>(null);
@@ -842,15 +1037,27 @@ function ProfileDetail({ profile, onClose }: { profile: HealthProfile; onClose: 
           </div>
         )}
 
-        <button
-          type="button"
-          onClick={() => setShowReport(true)}
-          className="border border-electric-cyan/30 text-electric-cyan rounded-lg px-3 py-2 text-sm hover:bg-electric-cyan/10 transition"
-        >
-          Exportar reporte médico
-        </button>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => setShowDashboard(true)}
+            className="border border-electric-cyan/30 text-electric-cyan rounded-lg px-3 py-2 text-sm hover:bg-electric-cyan/10 transition"
+          >
+            Ver dashboard
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowReport(true)}
+            className="border border-electric-cyan/30 text-electric-cyan rounded-lg px-3 py-2 text-sm hover:bg-electric-cyan/10 transition"
+          >
+            Exportar reporte médico
+          </button>
+        </div>
 
         {showReport && <MedicalReportModal profile={profile} readings={sortedBp} onClose={() => setShowReport(false)} />}
+        {showDashboard && (
+          <HealthDashboardModal profile={profile} readings={sortedBp} weightLogs={sortedWeight} onClose={() => setShowDashboard(false)} />
+        )}
 
         <WatchCalibrationWidget profile={profile} />
 

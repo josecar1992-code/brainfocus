@@ -1624,3 +1624,31 @@ URL del webhook en Kapso (acción manual del usuario).
     app. El usuario usa el diálogo nativo "Guardar como PDF" del navegador al imprimir — no genera el archivo
     server-side. Pendiente (no implementado, sigue fuera de alcance): la gráfica de correlación peso-vs-presión
     y el dashboard de KPIs del punto D.
+  - **Dashboard de KPIs y gráficas (punto D de la especificación, 20-nov-2026):** nuevo botón "Ver dashboard"
+    en `ProfileDetail` (`HealthPage.tsx`) que abre `HealthDashboardModal`, con el mismo selector de rango
+    7/14/30 días. Primera vez que se usa una librería de gráficas en `apps/web` — se agregó **Recharts v3**
+    como dependencia nueva (ninguna otra pantalla tenía gráficas; la especificación sugería Recharts o
+    Chart.js), más `react-is` como dependencia explícita (peer transitivo de Recharts que Rollup no resolvía
+    solo, rompía el build de producción con `Failed to resolve import "react-is"` hasta agregarlo).
+    - **Tarjetas KPI**: promedio SYS/DIA del periodo con su clasificación AHA/ACC (reusa
+      `classifyBloodPressure` de `@brainfocus/focusbrain-health`, igual que el resto del módulo), comparativa
+      AM vs PM (usa `hourInCR()`, la misma regla de zona horaria explícita que ya usa el reporte médico — la
+      hora nunca sale de la hora del dispositivo), MAP y presión de pulso promedio, contador de eventos de
+      pulso irregular.
+    - **Gráfica de tendencia SYS/DIA**: línea dual (`LineChart` de Recharts) con bandas de referencia
+      (`ReferenceLine`) en 120/80 (límite óptimo) y 90/60 (límite de hipotensión), citado tal cual lo pide la
+      especificación.
+    - **Gráfica de correlación peso vs. presión — con una desviación deliberada de la especificación**: el
+      documento original pedía superponer `weight_snapshot_kg` (un campo opcional de cada lectura de presión)
+      contra el promedio semanal de `systolic`, en un solo eje. Dos problemas reales con eso: (1)
+      `weight_snapshot_kg` nunca se llenó en la implementación de la etapa anterior — el formulario rápido de
+      toma de presión (`BpQuickForm`) no tiene ese campo, así que casi todas las lecturas lo tienen `null`;
+      se usa en su lugar el peso de `weight_logs` (el submódulo de peso, que sí se usa) agregado por semana.
+      (2) Un eje compartido entre kg y mmHg (escalas y rangos numéricos muy distintos) es el anti-patrón de
+      gráficas más común que existe — "nunca un eje dual, dos medidas de distinta escala van indexadas a una
+      base común o en gráficas separadas". Se implementó indexando ambas series a 100 en su primer valor
+      dentro del periodo (`% de cambio respecto al inicio`), mostrando peso y sistólica promedio semanal en
+      el mismo eje de porcentaje — preserva la intención real (ver si bajar de peso coincide con bajar la
+      presión) sin el problema de escala. Colores de las líneas (`#00D2FF` cian de marca, `#F59E0B` ámbar)
+      validados con el script de accesibilidad del skill de dataviz del proyecto: separación CVD ΔE 25.8,
+      visión normal ΔE 30.2, contraste ≥3:1 contra el fondo oscuro — ambos muy por encima del mínimo.
