@@ -388,16 +388,16 @@ function BpQuickForm({ profileId, onDone }: { profileId: string; onDone: () => v
       </label>
 
       <div className="flex gap-2">
-        <input type="number" value={sys1} onChange={(e) => setSys1(e.target.value)} placeholder={guided ? "SYS 1" : "SYS"} className={`${fieldClass()} flex-1`} />
-        <input type="number" value={dia1} onChange={(e) => setDia1(e.target.value)} placeholder={guided ? "DIA 1" : "DIA"} className={`${fieldClass()} flex-1`} />
-        <input type="number" value={pulse1} onChange={(e) => setPulse1(e.target.value)} placeholder={guided ? "PUL 1" : "PUL"} className={`${fieldClass()} flex-1`} />
+        <input type="number" value={sys1} onChange={(e) => setSys1(e.target.value)} placeholder={guided ? "SYS 1" : "SYS"} className={`${fieldClass()} flex-1 min-w-0 w-0`} />
+        <input type="number" value={dia1} onChange={(e) => setDia1(e.target.value)} placeholder={guided ? "DIA 1" : "DIA"} className={`${fieldClass()} flex-1 min-w-0 w-0`} />
+        <input type="number" value={pulse1} onChange={(e) => setPulse1(e.target.value)} placeholder={guided ? "PUL 1" : "PUL"} className={`${fieldClass()} flex-1 min-w-0 w-0`} />
       </div>
 
       {guided && (
         <div className="flex gap-2">
-          <input type="number" value={sys2} onChange={(e) => setSys2(e.target.value)} placeholder="SYS 2 (1 min después)" className={`${fieldClass()} flex-1`} />
-          <input type="number" value={dia2} onChange={(e) => setDia2(e.target.value)} placeholder="DIA 2" className={`${fieldClass()} flex-1`} />
-          <input type="number" value={pulse2} onChange={(e) => setPulse2(e.target.value)} placeholder="PUL 2" className={`${fieldClass()} flex-1`} />
+          <input type="number" value={sys2} onChange={(e) => setSys2(e.target.value)} placeholder="SYS 2" className={`${fieldClass()} flex-1 min-w-0 w-0`} />
+          <input type="number" value={dia2} onChange={(e) => setDia2(e.target.value)} placeholder="DIA 2" className={`${fieldClass()} flex-1 min-w-0 w-0`} />
+          <input type="number" value={pulse2} onChange={(e) => setPulse2(e.target.value)} placeholder="PUL 2" className={`${fieldClass()} flex-1 min-w-0 w-0`} />
         </div>
       )}
 
@@ -484,9 +484,9 @@ function BodyCompositionQuickForm({ profileId, onDone }: { profileId: string; on
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-2 bg-black/20 rounded-xl p-3 border border-white/10">
       <div className="flex gap-2">
-        <input type="number" step="0.1" value={weight} onChange={(e) => setWeight(e.target.value)} placeholder="Peso kg" className={`${fieldClass()} flex-1`} />
-        <input type="number" step="0.1" value={bodyFat} onChange={(e) => setBodyFat(e.target.value)} placeholder="% grasa" className={`${fieldClass()} flex-1`} />
-        <input type="number" step="0.1" value={muscle} onChange={(e) => setMuscle(e.target.value)} placeholder="Músculo kg" className={`${fieldClass()} flex-1`} />
+        <input type="number" step="0.1" value={weight} onChange={(e) => setWeight(e.target.value)} placeholder="Peso kg" className={`${fieldClass()} flex-1 min-w-0 w-0`} />
+        <input type="number" step="0.1" value={bodyFat} onChange={(e) => setBodyFat(e.target.value)} placeholder="% grasa" className={`${fieldClass()} flex-1 min-w-0 w-0`} />
+        <input type="number" step="0.1" value={muscle} onChange={(e) => setMuscle(e.target.value)} placeholder="Músculo kg" className={`${fieldClass()} flex-1 min-w-0 w-0`} />
       </div>
       {error && <p className="text-xs text-red-400">{error}</p>}
       <button
