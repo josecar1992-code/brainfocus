@@ -55,6 +55,15 @@ function calcAge(birthDate: string): number {
   return age;
 }
 
+// Hora en Costa Rica a partir de un ISO, sin depender de la zona horaria del
+// dispositivo (misma regla del proyecto que formatDate/formatDateTime).
+function hourInCR(iso: string): number {
+  const parts = new Intl.DateTimeFormat("en-GB", { timeZone: "America/Costa_Rica", hour: "2-digit", hour12: false }).formatToParts(
+    new Date(iso),
+  );
+  return Number(parts.find((p) => p.type === "hour")?.value ?? "0");
+}
+
 // --- Formulario de perfil (crear/editar) ---------------------------------
 
 function ProfileForm({
@@ -500,6 +509,160 @@ function BodyCompositionQuickForm({ profileId, onDone }: { profileId: string; on
   );
 }
 
+// --- Reporte médico (export PDF / vista imprimible) -----------------------
+
+const REPORT_RANGES = [7, 14, 30] as const;
+
+function MedicalReportModal({
+  profile,
+  readings,
+  onClose,
+}: {
+  profile: HealthProfile;
+  readings: BpReading[];
+  onClose: () => void;
+}) {
+  const [rangeDays, setRangeDays] = useState<(typeof REPORT_RANGES)[number]>(7);
+
+  const filtered = useMemo(() => {
+    const since = Date.now() - rangeDays * 24 * 60 * 60 * 1000;
+    return readings.filter((r) => new Date(r.timestamp).getTime() >= since).sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+  }, [readings, rangeDays]);
+
+  const stats = useMemo(() => {
+    if (!filtered.length) return null;
+    const avg = (rows: BpReading[], key: "systolic" | "diastolic") =>
+      rows.length ? Math.round(rows.reduce((sum, r) => sum + r[key], 0) / rows.length) : null;
+    const am = filtered.filter((r) => hourInCR(r.timestamp) < 12);
+    const pm = filtered.filter((r) => hourInCR(r.timestamp) >= 12);
+    const minReading = filtered.reduce((min, r) => (r.systolic < min.systolic ? r : min), filtered[0]);
+    const maxReading = filtered.reduce((max, r) => (r.systolic > max.systolic ? r : max), filtered[0]);
+    return {
+      general: { sys: avg(filtered, "systolic"), dia: avg(filtered, "diastolic") },
+      am: { sys: avg(am, "systolic"), dia: avg(am, "diastolic") },
+      pm: { sys: avg(pm, "systolic"), dia: avg(pm, "diastolic") },
+      min: minReading,
+      max: maxReading,
+    };
+  }, [filtered]);
+
+  return (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center px-4 z-30 overflow-y-auto py-8">
+      <div className="print-area relative w-full max-w-2xl bg-white text-black rounded-2xl p-6 flex flex-col gap-4 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between print:hidden">
+          <h2 className="text-lg font-semibold">Reporte médico — {profile.name}</h2>
+          <button type="button" onClick={onClose} className="text-black/50 hover:text-black">
+            <IconX />
+          </button>
+        </div>
+
+        <div className="flex items-center gap-2 print:hidden">
+          <span className="text-sm text-black/60">Periodo:</span>
+          {REPORT_RANGES.map((d) => (
+            <button
+              key={d}
+              type="button"
+              onClick={() => setRangeDays(d)}
+              className={`rounded-lg px-3 py-1 text-sm border ${rangeDays === d ? "bg-black text-white border-black" : "border-black/20 text-black/70 hover:bg-black/5"}`}
+            >
+              {d} días
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="ml-auto bg-gradient-to-br from-deep-blue via-electric-cyan to-electric-cyan text-night-blue font-semibold rounded-lg px-3 py-1.5 text-sm hover:brightness-110 transition"
+          >
+            Imprimir / Guardar PDF
+          </button>
+        </div>
+
+        <div>
+          <h1 className="text-xl font-bold">Reporte de presión arterial</h1>
+          <p className="text-sm text-black/60">
+            {profile.name} · {calcAge(profile.birth_date)} años · {profile.is_medicated ? "Medicado" : "No medicado"}
+            {profile.current_weight_kg != null ? ` · ${profile.current_weight_kg} kg` : ""}
+          </p>
+          <p className="text-xs text-black/40 mt-0.5">
+            Periodo: últimos {rangeDays} días · Generado el {formatDateTime(new Date().toISOString())}
+          </p>
+        </div>
+
+        {!stats && <p className="text-sm text-black/50">Sin lecturas de presión en este periodo.</p>}
+
+        {stats && (
+          <>
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-center">
+              <div className="border border-black/10 rounded-lg p-2">
+                <p className="text-[10px] uppercase text-black/40">Promedio</p>
+                <p className="font-semibold">
+                  {stats.general.sys}/{stats.general.dia}
+                </p>
+              </div>
+              <div className="border border-black/10 rounded-lg p-2">
+                <p className="text-[10px] uppercase text-black/40">Promedio AM</p>
+                <p className="font-semibold">{stats.am.sys != null ? `${stats.am.sys}/${stats.am.dia}` : "—"}</p>
+              </div>
+              <div className="border border-black/10 rounded-lg p-2">
+                <p className="text-[10px] uppercase text-black/40">Promedio PM</p>
+                <p className="font-semibold">{stats.pm.sys != null ? `${stats.pm.sys}/${stats.pm.dia}` : "—"}</p>
+              </div>
+              <div className="border border-black/10 rounded-lg p-2">
+                <p className="text-[10px] uppercase text-black/40">Mínima</p>
+                <p className="font-semibold">
+                  {stats.min.systolic}/{stats.min.diastolic}
+                </p>
+              </div>
+              <div className="border border-black/10 rounded-lg p-2">
+                <p className="text-[10px] uppercase text-black/40">Máxima</p>
+                <p className="font-semibold">
+                  {stats.max.systolic}/{stats.max.diastolic}
+                </p>
+              </div>
+            </div>
+
+            <table className="w-full text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-black/20 text-left text-black/50">
+                  <th className="py-1 pr-2">Fecha</th>
+                  <th className="py-1 pr-2">Hora</th>
+                  <th className="py-1 pr-2">SYS/DIA</th>
+                  <th className="py-1 pr-2">PUL</th>
+                  <th className="py-1 pr-2">MAP</th>
+                  <th className="py-1 pr-2">Contexto</th>
+                  <th className="py-1 pr-2">Indicadores</th>
+                  <th className="py-1">Notas</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((r) => {
+                  const indicators = [r.irregular_heartbeat && "Arritmia", r.arm_movement && "Movimiento"].filter(Boolean).join(", ");
+                  return (
+                    <tr key={r.id} className="border-b border-black/10">
+                      <td className="py-1 pr-2 whitespace-nowrap">{formatDate(r.timestamp)}</td>
+                      <td className="py-1 pr-2 whitespace-nowrap">
+                        {new Date(r.timestamp).toLocaleTimeString("es-CR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Costa_Rica" })}
+                      </td>
+                      <td className="py-1 pr-2 whitespace-nowrap">
+                        {r.systolic}/{r.diastolic}
+                      </td>
+                      <td className="py-1 pr-2">{r.pulse}</td>
+                      <td className="py-1 pr-2">{r.map}</td>
+                      <td className="py-1 pr-2">{CONTEXT_LABELS[r.context]}</td>
+                      <td className="py-1 pr-2">{indicators || "—"}</td>
+                      <td className="py-1">{[r.symptoms?.join(", "), r.notes].filter(Boolean).join(" · ") || "—"}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // --- Vista de detalle del perfil ------------------------------------------
 
 function WatchCalibrationWidget({ profile }: { profile: HealthProfile }) {
@@ -577,6 +740,7 @@ function ProfileDetail({ profile, onClose }: { profile: HealthProfile; onClose: 
   const [showWeightForm, setShowWeightForm] = useState(false);
   const [showBpForm, setShowBpForm] = useState(false);
   const [showBodyForm, setShowBodyForm] = useState(false);
+  const [showReport, setShowReport] = useState(false);
   const [weightToDelete, setWeightToDelete] = useState<WeightLog | null>(null);
   const [bpToDelete, setBpToDelete] = useState<BpReading | null>(null);
   const [bodyToDelete, setBodyToDelete] = useState<BodyCompositionLog | null>(null);
@@ -677,6 +841,16 @@ function ProfileDetail({ profile, onClose }: { profile: HealthProfile; onClose: 
             </p>
           </div>
         )}
+
+        <button
+          type="button"
+          onClick={() => setShowReport(true)}
+          className="border border-electric-cyan/30 text-electric-cyan rounded-lg px-3 py-2 text-sm hover:bg-electric-cyan/10 transition"
+        >
+          Exportar reporte médico
+        </button>
+
+        {showReport && <MedicalReportModal profile={profile} readings={sortedBp} onClose={() => setShowReport(false)} />}
 
         <WatchCalibrationWidget profile={profile} />
 

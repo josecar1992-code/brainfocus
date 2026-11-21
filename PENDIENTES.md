@@ -1608,3 +1608,19 @@ URL del webhook en Kapso (acción manual del usuario).
     Se reconstruyeron y redesplegaron `api`, `web`, `assistant` (los tres corren como servicios permanentes) y se
     reconstruyó `mcp` (no necesita `up -d`, se invoca on-demand por Quicks/OpenClaw). Verificado `/health` 200 en
     `api` y `200` en `web` tras el redeploy, logs limpios en ambos.
+  - Fix (20-nov-2026): los inputs de SYS/DIA/PUL (y los de composición corporal) estaban en un `flex` con
+    `flex-1` pero sin `min-w-0`, así que en pantallas angostas no se podían encoger por debajo de su ancho
+    intrínseco y se salían del contenedor en móvil. Se agregó `min-w-0 w-0` a cada input en `HealthPage.tsx`.
+  - **Export de reporte médico (punto E de la especificación, 20-nov-2026):** implementado como vista imprimible
+    del lado del cliente (`window.print()`), sin backend nuevo — el stack ya es React/Tailwind y no hay ningún
+    servicio de generación de PDF corriendo para FocusbrainCR (a diferencia de QuickWash, que usa Gotenberg vía
+    n8n en otro VPS, caso aparte). Nuevo componente `MedicalReportModal` en `HealthPage.tsx`: selector de rango
+    (7/14/30 días), encabezado con datos del paciente, resumen estadístico (promedio general/AM/PM, mínima,
+    máxima — AM/PM calculado con la hora en zona Costa Rica explícita vía `hourInCR()`, nunca con la hora del
+    dispositivo) y tabla cronológica completa (fecha, hora, SYS/DIA, PUL, MAP, contexto, indicadores de
+    arritmia/movimiento, notas). Se agregó un botón "Exportar reporte médico" en `ProfileDetail`. CSS de
+    impresión agregado en `index.css` (`@media print`): oculta toda la SPA y deja visible solo el contenedor con
+    clase `.print-area`, truco estándar para imprimir una sola sección de una SPA sin desmontar el resto de la
+    app. El usuario usa el diálogo nativo "Guardar como PDF" del navegador al imprimir — no genera el archivo
+    server-side. Pendiente (no implementado, sigue fuera de alcance): la gráfica de correlación peso-vs-presión
+    y el dashboard de KPIs del punto D.

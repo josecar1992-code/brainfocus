@@ -5,3 +5,21 @@
 body {
   @apply bg-night-blue text-white font-sans;
 }
+
+/* Reporte médico de Salud (HealthPage.tsx): al imprimir solo se ve el
+   contenido marcado como .print-area, el resto de la SPA (sidebar, header,
+   fondo de neuronas) se oculta aunque siga montado. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .print-area,
+  .print-area * {
+    visibility: visible;
+  }
+  .print-area {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+  }
+}
