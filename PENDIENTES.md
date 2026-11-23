@@ -1652,3 +1652,29 @@ URL del webhook en Kapso (acción manual del usuario).
       presión) sin el problema de escala. Colores de las líneas (`#00D2FF` cian de marca, `#F59E0B` ámbar)
       validados con el script de accesibilidad del skill de dataviz del proyecto: separación CVD ΔE 25.8,
       visión normal ΔE 30.2, contraste ≥3:1 contra el fondo oscuro — ambos muy por encima del mínimo.
+
+- ~~**[ALTO] Los recordatorios periódicos de peso/presión del módulo Salud le pedían a Quicks "preguntale...
+  y guardalo en cuanto te responda" — exactamente el mismo bug ya resuelto para el kilometraje.**~~ ✅
+  Resuelto (23-nov-2026, reportado por el usuario: Quicks le pasó el error textual del cron de presión —
+  "este es un cron job no atendido... las herramientas de mensajería no están disponibles en este contexto
+  de ejecución"). Causa raíz idéntica a `MILEAGE_CRON_MESSAGE` (ver arriba, 13-ago-2026): el mensaje de
+  `syncWeightReminder`/`syncBpReminder` (`apps/api/src/routes/healthProfiles.ts`) le pedía a Quicks
+  preguntar Y guardar con `registrar_peso`/`registrar_presion` "en cuanto te responda" — pero la sesión de
+  este cron es `sessionTarget: "isolated"`, de un solo turno, sin forma de esperar la respuesta real del
+  usuario dentro de la misma ejecución. A diferencia del caso de kilometraje (que sí llegó a inventar y
+  guardar valores falsos), acá Quicks se dio cuenta solo de que no podía cumplir la instrucción y avisó del
+  error en vez de inventar — mismo bug de fondo, mejor comportamiento del agente. Fix: mismo patrón que
+  kilometraje — el mensaje ahora solo pregunta, nunca intenta guardar, y se le quitó `registrar_peso`/
+  `registrar_presion` de `brainfocusTools` para estos jobs (solo les queda `listar_perfiles_salud`), para
+  que estructuralmente no puedan guardar nada en este turno aunque quisieran. El guardado real pasa en la
+  conversación normal cuando el usuario responde de verdad.
+  **Importante para quien retome esto:** el cambio de código por sí solo no alcanza — el texto del mensaje
+  queda guardado dentro del cron job ya programado en OpenClaw (`scheduleRecurringCron` lo fija al crear el
+  job), así que los perfiles que ya tenían el recordatorio activo antes de este fix siguen corriendo con el
+  mensaje viejo hasta que se resincronicen. Se corrió un script puntual (`docker compose exec api node -e
+  ...`, cargando `dist/services/openclawCron.js`/`dist/supabaseClient.js` ya compilados en el contenedor)
+  para recrear el cron de cada perfil con `weight_reminder_enabled`/`bp_reminder_enabled` activo — no quedó
+  como parte del código del repo, fue una corrida manual de una sola vez. Cualquier edición futura al texto
+  de estos mensajes va a tener el mismo problema: hace falta resincronizar los perfiles existentes (editar
+  y guardar el perfil desde la UI alcanza, siempre que algún campo de recordatorio cambie de valor de
+  verdad — `afterUpdate` solo resincroniza si cambió alguno de `RELEVANT_REMINDER_FIELDS`).

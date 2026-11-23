@@ -46,6 +46,18 @@ function buildCronExpr(timeStr: string, dayOfWeek: number | null): string {
 // Mismo patrón que syncMaintenanceReminder en vehicles.ts: recrea el cron desde cero
 // (cancela el viejo si había, programa uno nuevo si corresponde) — más simple y sin
 // estado intermedio inconsistente que diffear campo por campo.
+//
+// Bug real confirmado el 23-nov-2026 (reportado por el usuario, Quicks le pasó el
+// error textual): el mensaje original le pedía a Quicks "preguntale... y guardalo
+// con registrar_presion/registrar_peso en cuanto te responda" — exactamente el mismo
+// bug ya documentado para el aviso de kilometraje (ver MILEAGE_CRON_MESSAGE en
+// settings.ts): esta sesión de cron es `sessionTarget: "isolated"`, de un solo turno,
+// sin forma de esperar la respuesta real del usuario dentro de esa misma ejecución —
+// instrucción estructuralmente imposible de cumplir. Mismo fix aplicado acá: el
+// mensaje solo pregunta, nunca intenta guardar, y se le quita la tool de escritura
+// (`registrar_peso`/`registrar_presion`) de `brainfocusTools` para este job, para que
+// ni siquiera pueda intentar guardar un valor inventado aunque el mensaje fallara. El
+// guardado real pasa en la conversación normal cuando el usuario responda de verdad.
 async function syncWeightReminder(userId: string, profile: ProfileRow): Promise<string | null> {
   await cancelReminderCron(profile.weight_reminder_cron_job_id);
   if (!profile.weight_reminder_enabled || !profile.weight_reminder_time) return null;
@@ -55,11 +67,12 @@ async function syncWeightReminder(userId: string, profile: ProfileRow): Promise<
       displayName: `brainfocus:salud:peso:${profile.id}`,
       cronExpr: buildCronExpr(profile.weight_reminder_time, profile.weight_reminder_day_of_week ?? null),
       message:
-        `Pedile al usuario el peso de hoy de "${profile.name}" (perfil de salud) y guardalo con la tool ` +
-        `registrar_peso (perfil_id "${profile.id}"). Si ya te lo dio en el mismo mensaje, guardalo directo ` +
-        `sin volver a preguntar.`,
+        `Es el aviso periódico de peso de Focusbrain para el perfil de salud "${profile.name}": preguntale al ` +
+        `usuario su peso de hoy — nada más. No llames registrar_peso en este turno bajo ninguna circunstancia, ` +
+        `ni inventes un valor: no hay forma de recibir la respuesta real del usuario dentro de esta misma ` +
+        `ejecución. El guardado real pasa después, en la conversación normal cuando el usuario responda.`,
       channel: null,
-      brainfocusTools: ["listar_perfiles_salud", "registrar_peso"],
+      brainfocusTools: ["listar_perfiles_salud"],
     });
   } catch (err) {
     console.error(`[health_profiles] no se pudo programar el recordatorio de peso de "${profile.name}":`, err);
@@ -77,11 +90,14 @@ async function syncBpReminder(userId: string, profile: ProfileRow): Promise<stri
       displayName: `brainfocus:salud:presion:${profile.id}`,
       cronExpr: buildCronExpr(profile.bp_reminder_time, dayOfWeek),
       message:
-        `Pedile al usuario que te pase la lectura de presión arterial de hoy de "${profile.name}" (perfil de ` +
-        `salud): sistólica, diastólica y pulso (del tensiómetro). Guardala con la tool registrar_presion ` +
-        `(perfil_id "${profile.id}"). Si menciona mareo, visión borrosa o dolor de cabeza, incluilo como síntoma.`,
+        `Es el aviso periódico de presión arterial de Focusbrain para el perfil de salud "${profile.name}": ` +
+        `preguntale al usuario la lectura de hoy (sistólica, diastólica y pulso del tensiómetro) — nada más. ` +
+        `No llames registrar_presion en este turno bajo ninguna circunstancia, ni inventes valores: no hay ` +
+        `forma de recibir la respuesta real del usuario dentro de esta misma ejecución. El guardado real pasa ` +
+        `después, en la conversación normal cuando el usuario responda (ahí sí incluí como síntoma si menciona ` +
+        `mareo, visión borrosa o dolor de cabeza).`,
       channel: null,
-      brainfocusTools: ["listar_perfiles_salud", "registrar_presion"],
+      brainfocusTools: ["listar_perfiles_salud"],
     });
   } catch (err) {
     console.error(`[health_profiles] no se pudo programar el recordatorio de presión de "${profile.name}":`, err);
