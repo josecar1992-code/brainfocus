@@ -2,7 +2,14 @@
 // compartidas entre apps/api (al guardar una lectura) y apps/web (para mostrar badges
 // sin esperar al round-trip). Ver especificación del módulo en PENDIENTES.md.
 
-export type BPClassificationStatus = "hypotension" | "optimal" | "elevated" | "stage_1" | "stage_2" | "crisis";
+export type BPClassificationStatus =
+  | "hypotension"
+  | "optimal"
+  | "elevated"
+  | "isolated_systolic"
+  | "stage_1"
+  | "stage_2"
+  | "crisis";
 
 export type MeasurementContext =
   | "fasting_rest"
@@ -26,6 +33,14 @@ export function calculateHemodynamics(sys: number, dia: number): { map: number; 
 }
 
 // En medicina siempre predomina el parámetro más alterado entre sistólica y diastólica.
+//
+// Bug real confirmado el 24-nov-2026 (reportado por el usuario): la regla de stage_2 original
+// disparaba con `sys >= 140 || dia >= 90`, así que una lectura como 145/65 (diastólica
+// perfectamente normal) se clasificaba como "Hipertensión Grado 2" — alarma de severidad 3 por
+// una sola toma con la diastólica sana. El estándar clínico (ESC/OMS) reserva Grado 2 para
+// `sys >= 160 || dia >= 100`, y una sistólica elevada con diastólica normal (`sys >= 140 && dia <
+// 80`) es su propia categoría — "Sistólica Aislada" — típica en edad avanzada por rigidez
+// arterial, con severidad menor (2, igual que Grado 1) en vez de la alarma fuerte de Grado 2.
 export function classifyBloodPressure(sys: number, dia: number): BPClassificationResult {
   if (sys >= 180 || dia >= 120) {
     return { status: "crisis", label: "Crisis Hipertensiva", color: "#DC2626", severity: 4 };
@@ -33,10 +48,13 @@ export function classifyBloodPressure(sys: number, dia: number): BPClassificatio
   if (sys < 90 || dia < 60) {
     return { status: "hypotension", label: "Presión Baja (Hipotensión)", color: "#3B82F6", severity: 3 };
   }
-  if (sys >= 140 || dia >= 90) {
+  if (sys >= 160 || dia >= 100) {
     return { status: "stage_2", label: "Hipertensión Grado 2", color: "#EF4444", severity: 3 };
   }
-  if ((sys >= 130 && sys <= 139) || (dia >= 80 && dia <= 89)) {
+  if (sys >= 140 && dia < 80) {
+    return { status: "isolated_systolic", label: "Sistólica Elevada (Aislada)", color: "#F59E0B", severity: 2 };
+  }
+  if ((sys >= 140 && dia >= 80) || (sys >= 130 && sys <= 139) || (dia >= 80 && dia <= 89)) {
     return { status: "stage_1", label: "Hipertensión Grado 1", color: "#F97316", severity: 2 };
   }
   if (sys >= 120 && sys <= 129 && dia < 80) {
@@ -95,7 +113,10 @@ export function evaluateAlerts(
     });
   }
 
-  if ((reading.context === "post_meal" || reading.context === "post_workout") && (reading.classification === "elevated" || reading.classification === "stage_1")) {
+  if (
+    (reading.context === "post_meal" || reading.context === "post_workout") &&
+    (reading.classification === "elevated" || reading.classification === "stage_1" || reading.classification === "isolated_systolic")
+  ) {
     alerts.push({
       kind: "acute_context_variation",
       message: "Variación fisiológica esperada por digestión/ejercicio — no es necesariamente una alarma.",

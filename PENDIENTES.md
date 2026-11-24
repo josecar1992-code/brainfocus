@@ -1678,3 +1678,19 @@ URL del webhook en Kapso (acción manual del usuario).
   de estos mensajes va a tener el mismo problema: hace falta resincronizar los perfiles existentes (editar
   y guardar el perfil desde la UI alcanza, siempre que algún campo de recordatorio cambie de valor de
   verdad — `afterUpdate` solo resincroniza si cambió alguno de `RELEVANT_REMINDER_FIELDS`).
+
+- ~~**[MEDIO] `classifyBloodPressure` disparaba "Hipertensión Grado 2" (alarma de severidad 3) con
+  diastólica perfectamente normal, solo por sistólica alta.**~~ ✅ Resuelto (24-nov-2026, reportado por el
+  usuario). Causa raíz: la regla de `stage_2` era `sys >= 140 || dia >= 90`, así que una lectura como
+  145/65 — sistólica elevada pero diastólica sana — se clasificaba igual que una crisis real de ambos
+  parámetros altos, generando una alarma más fuerte de la que corresponde clínicamente. El estándar
+  ESC/OMS reserva Grado 2 para `sys >= 160 || dia >= 100`; una sistólica elevada con diastólica normal
+  (`sys >= 140 && dia < 80`) es su propia categoría clínica — "Sistólica Aislada", típica en edad avanzada
+  por rigidez arterial — con severidad menor (2, como Grado 1) en vez de la alarma de Grado 2. Fix en
+  `packages/focusbrain-health/src/bloodPressure.ts`: se agregó el status `isolated_systolic` al tipo
+  `BPClassificationStatus` y a `classifyBloodPressure` (color `#F59E0B`, severidad 2), se corrigió el
+  umbral de `stage_2` a `sys >= 160 || dia >= 100`, y se incluyó `isolated_systolic` en el filtro de
+  contexto agudo de `evaluateAlerts` (post-comida/post-ejercicio ya no lo marca como alarma, igual que
+  `elevated`/`stage_1`). No hace falta resincronizar nada ni migrar datos — es lógica pura, se aplica a la
+  próxima lectura que se clasifique; las lecturas ya guardadas conservan el `classification` que tenían al
+  momento de guardarse.
