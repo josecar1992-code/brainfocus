@@ -30,6 +30,8 @@ const TOOL_MODULE: Record<string, string> = {
   mover_rutina: "rutinas",
   crear_nota: "notas",
   buscar_notas: "notas",
+  editar_nota: "notas",
+  borrar_nota: "notas",
   listar_listas: "listas",
   ver_lista: "listas",
   crear_lista: "listas",

@@ -1711,3 +1711,16 @@ URL del webhook en Kapso (acción manual del usuario).
   Salud vía `tool_search` + `registrar_presion`/`registrar_peso`, nunca como nota. No fue necesario tocar
   código del repo ni resincronizar nada — es instrucción operativa pura, vive en el workspace de Quicks en
   el VPS, no en este repo.
+
+  Como parte de este mismo diagnóstico, el usuario señaló que la causa inmediata (Quicks intentó llamar
+  `editar_nota`, que no existe) era en sí un gap real e independiente: el módulo de notas solo tenía
+  `crear_nota`/`buscar_notas`, nada para editar o borrar una nota ya creada — aunque la API (`createResourceRouter`
+  en `apps/api/src/routes/notes.ts`) ya soporta `PATCH`/`DELETE` genéricos sobre `/notes/:id`, no estaban
+  expuestos como tools. Se agregaron `editar_nota` y `borrar_nota` en `packages/focusbrain-tools/src/
+  tools.ts` (mismo patrón que `editar_tarea`/`borrar_evento`), y se las vinculó al módulo `"notas"` en
+  `apps/assistant/src/toolset.ts` (`TOOL_MODULE`) para que respeten el mismo permiso que `crear_nota`/
+  `buscar_notas`. Se exponen automáticamente por MCP a Quicks sin tocar `apps/mcp/src/index.ts` (itera
+  `tools` dinámicamente). También se borró manualmente (vía script puntual contra el contenedor, mismo
+  patrón que el resync de crons) la nota duplicada "Presión arterial 2026-11-25" que había quedado de este
+  incidente, a pedido del usuario — las lecturas ya están guardadas correctamente a mano en el módulo
+  Salud.

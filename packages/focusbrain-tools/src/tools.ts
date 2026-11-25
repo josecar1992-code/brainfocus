@@ -921,6 +921,44 @@ export const tools = {
     },
   },
 
+  editar_nota: {
+    description:
+      "Edita una nota ya existente (título o contenido) — solo mandá los campos que cambian, el resto " +
+      "queda igual. Para AGREGAR algo a una nota (ej. una lectura más a una bitácora), mandá el `contenido` " +
+      "completo ya actualizado, no solo lo nuevo — esto reemplaza el contenido entero, no lo concatena. " +
+      "Necesita el `id` — usar `buscar_notas` primero si no se conoce.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "id de la nota" },
+        titulo: { type: "string" },
+        contenido: { type: "string", description: "Contenido completo y final de la nota (reemplaza el actual)." },
+      },
+      required: ["id"],
+    },
+    argsSchema: z.object({
+      id: z.string().uuid(),
+      titulo: z.string().min(1).optional(),
+      contenido: z.string().min(1).optional(),
+    }),
+    handler: (args: { id: string; titulo?: string; contenido?: string }) =>
+      apiRequest<Note>(`/notes/${args.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ title: args.titulo, content: args.contenido }),
+      }),
+  },
+
+  borrar_nota: {
+    description: "Borra una nota. Necesita el `id` — usar `buscar_notas` primero si no se conoce.",
+    inputSchema: {
+      type: "object",
+      properties: { id: { type: "string", description: "id de la nota" } },
+      required: ["id"],
+    },
+    argsSchema: z.object({ id: z.string().uuid() }),
+    handler: (args: { id: string }) => apiRequest(`/notes/${args.id}`, { method: "DELETE" }),
+  },
+
   consultar_consumos: {
     description:
       "Consulta el gasto real registrado por proveedor (IA, mensajería, hosting, etc.), ej. 'cuánto " +
