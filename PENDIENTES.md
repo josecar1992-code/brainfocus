@@ -1694,3 +1694,20 @@ URL del webhook en Kapso (acción manual del usuario).
   `elevated`/`stage_1`). No hace falta resincronizar nada ni migrar datos — es lógica pura, se aplica a la
   próxima lectura que se clasifique; las lecturas ya guardadas conservan el `classification` que tenían al
   momento de guardarse.
+
+- ~~**[MEDIO] Quicks guardó una lectura de presión arterial como nota de texto en vez de usar
+  `registrar_presion` del módulo Salud.**~~ ✅ Resuelto (25-nov-2026, reportado por el usuario — ya había
+  pasado "ayer" también según mencionó). Causa raíz: José mandó por WhatsApp "Hice dos tomas... 136/65/54 y
+  132/81/61" en una conversación normal (no como respuesta al aviso periódico). Quicks asumió que ya
+  existía una nota de ayer y trató de llamar un tool `editar_nota` que no existe; al fallar, buscó con
+  `tool_search` la frase "editar nota brainfocus" — nunca buscó nada relacionado a presión/salud — y
+  terminó creando una nota nueva (`crear_nota`) con los valores en texto plano. Las tools correctas
+  (`listar_perfiles_salud`, `registrar_presion`, `registrar_peso`, en `packages/focusbrain-tools/src/
+  tools.ts`) ya existen y están bien descritas — el problema no era el código del repo, era que el
+  `AGENTS.md` operativo de Quicks en el VPS (`/root/.openclaw/agents-workspaces/main/AGENTS.md`, fuera del
+  repo) no mencionaba el módulo Salud para nada, así que no tenía ninguna pista de buscar esas tools
+  cuando ve una lectura de presión/peso en el chat. Fix: se agregó una sección a ese `AGENTS.md` (ver
+  memoria de proyecto en Focusbrain) explicando que las lecturas de presión/peso van siempre al módulo
+  Salud vía `tool_search` + `registrar_presion`/`registrar_peso`, nunca como nota. No fue necesario tocar
+  código del repo ni resincronizar nada — es instrucción operativa pura, vive en el workspace de Quicks en
+  el VPS, no en este repo.
