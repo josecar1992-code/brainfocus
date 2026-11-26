@@ -1724,3 +1724,12 @@ URL del webhook en Kapso (acción manual del usuario).
   patrón que el resync de crons) la nota duplicada "Presión arterial 2026-11-25" que había quedado de este
   incidente, a pedido del usuario — las lecturas ya están guardadas correctamente a mano en el módulo
   Salud.
+
+- ~~**[BAJO] El tooltip del gráfico de tendencia SYS/DIA (dashboard de Salud) mostraba Diastólica arriba y
+  Sistólica abajo al pasar el mouse, confundiendo visualmente.**~~ ✅ Resuelto (26-nov-2026, reportado por el
+  usuario con captura de pantalla). Causa: el `Tooltip` de Recharts no respeta el orden en que se declaran
+  los `<Line>` en el JSX (Sistólica primero, Diastólica segundo en `apps/web/src/HealthPage.tsx`) — el
+  orden real del payload interno de Recharts no coincidía. Fix: se agregó `itemSorter={(item) =>
+  -(Number(item.value) || 0)}` al `Tooltip` del gráfico de tendencia — como la sistólica siempre es mayor
+  que la diastólica, ordenar descendente por valor deja la sistólica arriba de forma determinista, sin
+  depender del orden interno de la librería.
