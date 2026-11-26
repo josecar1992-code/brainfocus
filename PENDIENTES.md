@@ -1723,7 +1723,10 @@ URL del webhook en Kapso (acción manual del usuario).
   `tools` dinámicamente). También se borró manualmente (vía script puntual contra el contenedor, mismo
   patrón que el resync de crons) la nota duplicada "Presión arterial 2026-11-25" que había quedado de este
   incidente, a pedido del usuario — las lecturas ya están guardadas correctamente a mano en el módulo
-  Salud.
+  Salud. Desplegado: `docker compose --profile tools build mcp assistant` + `up -d assistant` en el VPS, y
+  `systemctl restart openclaw.service` (26-nov-2026, ~08:45 CST) para que Quicks viera las tools nuevas —
+  confirmado con el patrón ya documentado arriba (26-oct-2026): reconstruir la imagen del `mcp` no alcanza,
+  hace falta reiniciar el gateway porque lee la lista de tools al arrancar.
 
 - ~~**[BAJO] El tooltip del gráfico de tendencia SYS/DIA (dashboard de Salud) mostraba Diastólica arriba y
   Sistólica abajo al pasar el mouse, confundiendo visualmente.**~~ ✅ Resuelto (26-nov-2026, reportado por el
