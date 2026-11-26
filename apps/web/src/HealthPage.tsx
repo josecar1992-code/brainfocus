@@ -817,7 +817,11 @@ function HealthDashboardModal({
                   <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
                   <XAxis dataKey="label" tick={{ fill: "rgba(255,255,255,0.4)", fontSize: 10 }} minTickGap={24} />
                   <YAxis domain={[40, 200]} tick={{ fill: "rgba(255,255,255,0.4)", fontSize: 10 }} width={32} />
-                  <Tooltip contentStyle={{ background: "#0A2540", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8, fontSize: 12 }} labelStyle={{ color: "rgba(255,255,255,0.6)" }} />
+                  <Tooltip
+                    contentStyle={{ background: "#0A2540", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8, fontSize: 12 }}
+                    labelStyle={{ color: "rgba(255,255,255,0.6)" }}
+                    itemSorter={(item) => -(Number(item.value) || 0)}
+                  />
                   <Legend wrapperStyle={{ fontSize: 11, color: "rgba(255,255,255,0.6)" }} />
                   <ReferenceLine y={120} stroke="#10B981" strokeDasharray="4 4" label={{ value: "120/80 óptimo", fill: "#10B981", fontSize: 10, position: "insideTopLeft" }} />
                   <ReferenceLine y={80} stroke="#10B981" strokeDasharray="4 4" />
