@@ -187,8 +187,8 @@ export function Sidebar({ active, onChange, email, me }: SidebarProps) {
       {mobileOpen && (
         <div className="fixed inset-0 z-30 md:hidden">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
-          <div className="absolute top-0 left-0 h-full w-72 bg-night-blue/95 backdrop-blur-xl border-r border-electric-cyan/15 px-3 py-6 flex flex-col gap-3 shadow-2xl">
-            <div className="flex items-center justify-between px-2 pb-2">
+          <div className="absolute top-0 left-0 h-full w-72 bg-night-blue/95 backdrop-blur-xl border-r border-electric-cyan/15 px-3 py-6 flex flex-col gap-3 shadow-2xl overflow-y-auto overscroll-contain">
+            <div className="flex items-center justify-between px-2 pb-2 flex-shrink-0">
               <Brand />
               <button
                 type="button"
@@ -199,7 +199,7 @@ export function Sidebar({ active, onChange, email, me }: SidebarProps) {
                 <IconX className="w-5 h-5" strokeWidth={1.75} />
               </button>
             </div>
-            <div className="mx-2 h-px bg-white/8 mb-2" />
+            <div className="mx-2 h-px bg-white/8 mb-2 flex-shrink-0" />
             <NavLinks
               items={items}
               active={active}
@@ -208,7 +208,7 @@ export function Sidebar({ active, onChange, email, me }: SidebarProps) {
                 setMobileOpen(false);
               }}
             />
-            <div className="mx-2 h-px bg-white/8 mt-2 mb-1" />
+            <div className="mx-2 h-px bg-white/8 mt-2 mb-1 flex-shrink-0" />
             <UserBlock email={email} role={role} />
           </div>
         </div>

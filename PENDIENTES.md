@@ -397,7 +397,25 @@ No implementado todavía — este documento es la lista de trabajo, no un change
   `inicio` nuevo) y `borrar_evento`; y `listar_tareas` ahora acepta `fecha_inicio`/`fecha_fin`
   (día CR, con `CR_OFFSET`) y avisa en su descripción que sin filtros trae las más viejas.
 
+- ~~**El menú lateral en móvil (`apps/web/src/Sidebar.tsx`) quedaba rígido/cortado: las últimas opciones
+  del menú (abajo de todo, como "Configuración" o el bloque de usuario) no se podían ni ver ni
+  seleccionar en pantallas chicas.**~~ ✅ Resuelto (27-nov-2026, reportado por el usuario). Causa: el
+  drawer móvil es un `div` con `h-full` y `flex flex-col` pero sin `overflow-y-auto` — si la suma de
+  logo + nav + bloque de usuario superaba el alto de la pantalla, el contenido se cortaba sin scroll y
+  los botones que quedaban fuera del viewport eran inalcanzables (ni visibles ni clicables). Fix: se
+  agregó `overflow-y-auto overscroll-contain` al contenedor del drawer y `flex-shrink-0` a los
+  separadores/encabezado para que no se compriman, dejando que solo el `<nav>` (ya con `flex-1`) se
+  encoja y el drawer completo scrollee si hace falta.
+
 ## 2. Mejoras a funciones existentes
+
+- ~~**Los módulos de Notas y Documentos no tenían forma de buscar/filtrar — había que revisar el listado
+  completo a mano para encontrar algo.**~~ ✅ Resuelto (27-nov-2026, a pedido del usuario). Documentos ya
+  tenía un buscador conectado a `GET /documents?q=` (filtra por nombre, `apps/api/src/routes/
+  documents.ts`); se agregó el mismo patrón a Notas: `api.listNotes(q?)` en `apps/web/src/api.ts` ahora
+  manda `?q=` a `GET /notes`, que ya soportaba búsqueda server-side (`searchFields: ["title", "content"]`
+  en el `createResourceRouter` de `apps/api/src/routes/notes.ts` — no hizo falta tocar la API) y se agregó
+  el input de búsqueda en `apps/web/src/NotesPage.tsx` con el mismo estilo visual que Documentos.
 
 - ~~**En el detalle de un proyecto (`apps/web/src/ProjectsPage.tsx`), las notas del proyecto solo
   mostraban un preview truncado (2 líneas) sin forma de abrirlas, y los documentos ligados al proyecto

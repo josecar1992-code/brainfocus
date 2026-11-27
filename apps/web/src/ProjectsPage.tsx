@@ -75,7 +75,7 @@ function ProjectDetail({ project, onBack }: { project: Project; onBack: () => vo
     queryFn: () => api.listTasksPaged({ offset: 0, limit: 1000, project_id: project.id }),
   });
   const { data: events } = useQuery({ queryKey: ["events"], queryFn: api.listEvents });
-  const { data: notes } = useQuery({ queryKey: ["notes"], queryFn: api.listNotes });
+  const { data: notes } = useQuery({ queryKey: ["notes"], queryFn: () => api.listNotes() });
   const { data: documents } = useQuery({ queryKey: ["documents"], queryFn: () => api.listDocuments() });
   const { data: reminders } = useQuery({ queryKey: ["reminders"], queryFn: api.listReminders });
   const completeTask = useCompleteTask();

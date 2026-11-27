@@ -686,7 +686,7 @@ export const api = {
   // Mismo motivo que listTasks/listEvents: limit=1000 en vez del default de 50.
   listReminders: () => request<Reminder[]>("/reminders?limit=1000"),
 
-  listNotes: () => request<Note[]>("/notes"),
+  listNotes: (q?: string) => request<Note[]>(`/notes${q ? `?q=${encodeURIComponent(q)}` : ""}`),
   createNote: (input: { title?: string; content: string; project_id?: string }) =>
     request<Note>("/notes", { method: "POST", body: JSON.stringify(input) }),
   updateNote: (id: string, input: { title?: string; content: string; project_id?: string | null }) =>

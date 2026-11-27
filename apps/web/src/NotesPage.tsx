@@ -25,8 +25,12 @@ export function NotesPage() {
   const [error, setError] = useState<string | null>(null);
   const [noteToDelete, setNoteToDelete] = useState<Note | null>(null);
   const [openNote, setOpenNote] = useState<Note | null>(null);
+  const [search, setSearch] = useState("");
 
-  const { data: notes, isLoading } = useQuery({ queryKey: ["notes"], queryFn: api.listNotes });
+  const { data: notes, isLoading } = useQuery({
+    queryKey: ["notes", search],
+    queryFn: () => api.listNotes(search || undefined),
+  });
   const { data: projects } = useQuery({ queryKey: ["projects"], queryFn: api.listProjects });
 
   const createNote = useMutation({
@@ -96,12 +100,22 @@ export function NotesPage() {
       </div>
 
       <div className="bg-night-blue/40 backdrop-blur-md rounded-2xl border border-electric-cyan/10 shadow-[0_0_40px_-24px_rgba(0,210,255,0.35)] overflow-hidden">
-        <p className="text-xs font-semibold uppercase tracking-wide text-white/40 px-5 pt-5 pb-2">Guardadas</p>
+        <div className="flex items-center justify-between gap-3 px-5 pt-5 pb-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-white/40">Guardadas</p>
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar por título o contenido..."
+            className="border border-deep-blue/40 bg-black/20 rounded-lg px-3 py-1.5 text-sm placeholder:text-white/30 focus:outline-none focus:border-electric-cyan/70 transition w-40 sm:w-56"
+          />
+        </div>
 
         {isLoading && <p className="text-white/40 text-sm px-5 pb-5">Cargando...</p>}
 
         {notes && notes.length === 0 && !isLoading && (
-          <p className="text-white/40 text-sm px-5 pb-5">No hay notas todavía.</p>
+          <p className="text-white/40 text-sm px-5 pb-5">
+            {search ? "No hay notas que coincidan con la búsqueda." : "No hay notas todavía."}
+          </p>
         )}
 
         {notes && notes.length > 0 && (
