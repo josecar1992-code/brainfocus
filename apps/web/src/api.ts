@@ -233,7 +233,15 @@ export interface NewWeightLog {
 }
 
 export type MeasurementContext = "fasting_rest" | "pre_dinner" | "post_meal" | "post_workout" | "with_symptoms" | "watch_calibration";
-export type BPClassificationStatus = "hypotension" | "optimal" | "elevated" | "stage_1" | "stage_2" | "crisis";
+export type BPClassificationStatus =
+  | "hypotension"
+  | "isolated_low_diastolic"
+  | "optimal"
+  | "elevated"
+  | "isolated_systolic"
+  | "stage_1"
+  | "stage_2"
+  | "crisis";
 
 export interface BpReading {
   id: string;

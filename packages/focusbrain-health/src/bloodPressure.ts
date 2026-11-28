@@ -4,6 +4,7 @@
 
 export type BPClassificationStatus =
   | "hypotension"
+  | "isolated_low_diastolic"
   | "optimal"
   | "elevated"
   | "isolated_systolic"
@@ -37,28 +38,40 @@ export function calculateHemodynamics(sys: number, dia: number): { map: number; 
 // Bug real confirmado el 24-nov-2026 (reportado por el usuario): la regla de stage_2 original
 // disparaba con `sys >= 140 || dia >= 90`, así que una lectura como 145/65 (diastólica
 // perfectamente normal) se clasificaba como "Hipertensión Grado 2" — alarma de severidad 3 por
-// una sola toma con la diastólica sana. El estándar clínico (ESC/OMS) reserva Grado 2 para
-// `sys >= 160 || dia >= 100`, y una sistólica elevada con diastólica normal (`sys >= 140 && dia <
-// 80`) es su propia categoría — "Sistólica Aislada" — típica en edad avanzada por rigidez
-// arterial, con severidad menor (2, igual que Grado 1) en vez de la alarma fuerte de Grado 2.
+// una sola toma con la diastólica sana. Fix: una sistólica elevada con diastólica normal
+// (`sys >= 140 && dia < 80`) se separó en su propia categoría — "Sistólica Aislada" — típica en
+// edad avanzada por rigidez arterial, con severidad menor (2, igual que Grado 1) en vez de la
+// alarma fuerte de Grado 2. Esa excepción se evalúa ANTES de stage_2 para no perderla.
+//
+// Segundo bug real confirmado el 28-nov-2026 (reportado por el usuario): la regla de hipotensión
+// original disparaba con `sys < 90 || dia < 60`, así que una lectura como 137/54 (sistólica
+// perfectamente normal/alta, solo la diastólica baja) se marcaba en azul como "Presión Baja
+// (Hipotensión)" — un falso positivo, porque con la sistólica en ese rango no hay hipotensión
+// real. Fix: hipotensión ahora depende únicamente de la sistólica (`sys < 90`); una diastólica
+// baja con sistólica normal (90-129) es su propia categoría leve ("Diastólica Baja Aislada"),
+// no hipotensión. Por orden de evaluación, Elevada (120-129) sigue teniendo prioridad sobre esta
+// categoría cuando ambas aplicarían.
 export function classifyBloodPressure(sys: number, dia: number): BPClassificationResult {
   if (sys >= 180 || dia >= 120) {
     return { status: "crisis", label: "Crisis Hipertensiva", color: "#DC2626", severity: 4 };
   }
-  if (sys < 90 || dia < 60) {
-    return { status: "hypotension", label: "Presión Baja (Hipotensión)", color: "#3B82F6", severity: 3 };
-  }
-  if (sys >= 160 || dia >= 100) {
-    return { status: "stage_2", label: "Hipertensión Grado 2", color: "#EF4444", severity: 3 };
-  }
   if (sys >= 140 && dia < 80) {
     return { status: "isolated_systolic", label: "Sistólica Elevada (Aislada)", color: "#F59E0B", severity: 2 };
   }
-  if ((sys >= 140 && dia >= 80) || (sys >= 130 && sys <= 139) || (dia >= 80 && dia <= 89)) {
+  if (sys >= 140 || dia >= 90) {
+    return { status: "stage_2", label: "Hipertensión Grado 2", color: "#EF4444", severity: 3 };
+  }
+  if ((sys >= 130 && sys <= 139) || (dia >= 80 && dia <= 89)) {
     return { status: "stage_1", label: "Hipertensión Grado 1", color: "#F97316", severity: 2 };
   }
   if (sys >= 120 && sys <= 129 && dia < 80) {
     return { status: "elevated", label: "Elevada (Alerta Temprana)", color: "#EAB308", severity: 1 };
+  }
+  if (sys < 90) {
+    return { status: "hypotension", label: "Presión Baja (Hipotensión)", color: "#3B82F6", severity: 3 };
+  }
+  if (dia < 60) {
+    return { status: "isolated_low_diastolic", label: "Normal (Diastólica Baja Aislada)", color: "#14B8A6", severity: 0 };
   }
   return { status: "optimal", label: "Normal / Óptima", color: "#10B981", severity: 0 };
 }

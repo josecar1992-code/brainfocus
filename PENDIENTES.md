@@ -5,6 +5,26 @@ No implementado todavía — este documento es la lista de trabajo, no un change
 
 ## 1. Bugs / correcciones
 
+- ~~**La clasificación de presión arterial marcaba falsos positivos de "Presión Baja (Hipotensión)"
+  en azul solo porque la diastólica era baja (ej. 137/54), aunque la sistólica estuviera normal o
+  incluso alta.**~~ ✅ Resuelto (28-nov-2026, reportado por el usuario con el ejemplo 137/54).
+  Causa raíz: `classifyBloodPressure` en `packages/focusbrain-health/src/bloodPressure.ts` disparaba
+  hipotensión con `sys < 90 || dia < 60` — la condición por `dia < 60` sola bastaba para marcar
+  hipotensión sin mirar si la sistólica ya estaba en rango de hipertensión. Fix: hipotensión ahora
+  depende únicamente de la sistólica (`sys < 90`, consistente con el estándar clínico — una
+  diastólica baja con sistólica normal no es hipotensión real); se evalúa además DESPUÉS de
+  Hipertensión Grado 2/1/Elevada/Sistólica Aislada en el orden de prioridad, para que una sistólica
+  alta con diastólica baja (como 137/54) caiga primero en su categoría de hipertensión real en vez
+  de en hipotensión. También se agregó una categoría nueva, "Diastólica Baja Aislada" (`isolated_low_
+  diastolic`, verde/teal, severidad 0): sistólica normal (90-129) con diastólica baja (`dia < 60`) ya
+  no cae en ningún default raro, se etiqueta explícitamente como variante normal en vez de alarmar.
+  De paso se corrigió el `BPClassificationStatus` duplicado en `apps/web/src/api.ts`, que ni siquiera
+  tenía `isolated_systolic` (del fix del 24-nov) — quedó sincronizado con el tipo real del paquete
+  compartido. Como el color/label de la tarjeta de "Última Presión", el historial y los KPIs del
+  dashboard de Salud siempre vienen del resultado de `classifyBloodPressure` (nunca hardcodeados ni
+  de un switch separado), el fix se refleja automáticamente en los tres lugares sin tocar
+  `HealthPage.tsx`.
+
 - ~~**Quicks no podía registrar lecturas de presión/peso: la API le devolvía 403 "Falta el scope
   requerido: health_profiles:read" al intentar `listar_perfiles_salud`.**~~ ✅ Resuelto (28-nov-2026,
   reportado por el usuario). Causa raíz: no era un problema de código ni del módulo Salud en sí — la
