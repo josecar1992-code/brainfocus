@@ -5,6 +5,23 @@ No implementado todavía — este documento es la lista de trabajo, no un change
 
 ## 1. Bugs / correcciones
 
+- ~~**Quicks no podía registrar lecturas de presión/peso: la API le devolvía 403 "Falta el scope
+  requerido: health_profiles:read" al intentar `listar_perfiles_salud`.**~~ ✅ Resuelto (28-nov-2026,
+  reportado por el usuario). Causa raíz: no era un problema de código ni del módulo Salud en sí — la
+  API key `quicks-agent` (tabla `api_keys`, creada el 02-ago-2026, antes de que existiera el módulo
+  Salud en el repo) nunca se actualizó con los scopes nuevos cuando se agregaron `health_profiles`,
+  `weight_logs`, `bp_readings` y `body_composition_logs` (migraciones `20261119_salud.sql`/
+  `20261120_salud_recordatorios.sql`) — se quedó con los scopes de cuando se creó, sin los de los
+  módulos agregados después. `requireScope` en `apps/api/src/middleware/auth.ts` chequea primero que
+  el módulo esté habilitado para el usuario y luego el scope exacto de la API key; el módulo sí estaba
+  habilitado, por eso el error era de scope y no de módulo. Fix: se actualizó la fila de esa key en
+  Supabase (vía script puntual contra el contenedor `api`, mismo patrón usado antes para `delete_stray_note.mjs`)
+  agregándole `health_profiles:read/write`, `weight_logs:read/write`, `bp_readings:read/write` y
+  `body_composition_logs:read/write`. No hizo falta cambiar código ni reiniciar nada — es un dato en
+  Supabase, se aplica en la siguiente llamada de Quicks. Aprendizaje: cuando se agregue un módulo/recurso
+  nuevo al futuro, hay que revisar también si las API keys de agentes existentes (no solo las nuevas)
+  necesitan los scopes correspondientes.
+
 - ~~**[MEDIO] En Hoy, los eventos de rutina (ej. "Rutina Gimnasio", "Hacerme la barba") a veces se
   veían sin checkbox de marcar hecho, y hacerles click no abría nada.**~~ ✅ Resuelto (24-sep-2026,
   reportado por el usuario). Dos causas en `TodayPage.tsx`:
